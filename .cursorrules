@@ -1,0 +1,21 @@
+# AI-driven No-code Website Builder — Cursor qoidalari
+
+## Arxitektura
+- Feature-based tuzilma: har bir `src/features/<feature>` o‘z komponentlari, hooklari, store va tiplariga ega bo‘lsin; boshqa featurelarga to‘g‘ridan-to‘g‘ri import qilmasdan, faqat `index.ts` orqali eksport qilingan public API orqali ulanish.
+- SOLID: bitta javobgarlik (SRP), kengaytirish ochiq / o‘zgartirish yopiq (OCP), Liskov almashtirish, interfeyslarga bog‘lanish (DIP) — murakkab modullar uchun interfeys va kichik komponentlarga bo‘ling.
+- DRY: takrorlanuvchi UI va mantiqni `src/shared` ga chiqarish; konstantalar va util bir joyda.
+
+## TypeScript
+- `any` taqiqlanadi. Noma’lum tur uchun `unknown` + type guard yoki aniq union/interfeys ishlating.
+- `strict` rejimiga rioya qiling; `as` bilan tur xavfini cheklang.
+
+## Next.js / React
+- App Router konvensiyalari: server/client chegarasini `use client` bilan aniq belgilang.
+- Xavfsizlik: foydalanuvchi kiritmasini DOMga `dangerouslySetInnerHTML` orqali qo‘ymaslik; kerak bo‘lsa sanitizatsiya va CSP.
+
+## UI
+- Tailwind + kelajakdagi shadcn/ui: `cn()` util (`src/lib/utils`) orqali className birlashtirish.
+- Animatsiya: Framer Motion — kichik, ma’lum maqsadli `motion` komponentlari.
+
+## Xatoliklar
+- Global va segment `error.tsx` / `global-error.tsx` bilan foydalanuvchiga tushunarli fallback.

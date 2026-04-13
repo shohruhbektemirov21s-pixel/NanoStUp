@@ -1,0 +1,3 @@
+# Qo‘lda chek EXIF (Pillow) — ixtiyoriy.
+# Kali: tizimga `pip install` qilmang — `npm run receipts:venv` (loyiha `.venv-receipts/`).
+Pillow>=10.0.0
