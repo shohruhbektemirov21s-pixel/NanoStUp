@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { notifyBuilderSessionChanged } from "@/components/builder-session-provider";
 import { saasElevatedPanel } from "@/components/ui/saas-surface";
 import { Link, useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
@@ -131,6 +132,7 @@ export function BuilderRegisterForm() {
 
       if (res.ok && data.ok) {
         toast.success(t("toastOk"));
+        notifyBuilderSessionChanged();
         router.push("/");
         router.refresh();
         return;

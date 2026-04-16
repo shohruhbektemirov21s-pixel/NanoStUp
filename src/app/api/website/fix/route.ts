@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getApiGenerateMessages, resolveContentLocale } from "@/lib/api-generate-messages";
+import { nextResponseFromAiEngineError } from "@/lib/api/map-ai-engine-error-response";
 import { AiEngineError } from "@/lib/ai/errors";
 import {
   formatEditScopeForPrompt,
@@ -10,7 +11,11 @@ import {
 } from "@/lib/ai/feedback-intent";
 import { fixWebsiteSchemaFromUserReport } from "@/lib/ai/fix-website-schema";
 import { websiteSchema } from "@/lib/ai/website-schema.zod";
-import { assertWebsiteAiRequest, resolveSchemaPlanTierForRequest } from "@/lib/builder/ai-route-guard";
+import {
+  assertWebsiteAiGenerationThrottle,
+  assertWebsiteAiRequest,
+  resolveSchemaPlanTierForRequest,
+} from "@/lib/builder/ai-route-guard";
 import { routing } from "@/i18n/routing";
 import { websiteFixBodySchema } from "@/lib/website-fix-body.zod";
 import { WEBSITE_PROMPT_MAX_CHARS } from "@/lib/website-generate-body.zod";
@@ -30,6 +35,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const denied = await assertWebsiteAiRequest(request, draftLocale);
   if (denied) {
     return denied;
+  }
+  const genThrottle = await assertWebsiteAiGenerationThrottle(request, draftLocale);
+  if (genThrottle) {
+    return genThrottle;
   }
   const copyDraft = getApiGenerateMessages(draftLocale);
 
@@ -89,7 +98,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ schema, attemptsUsed });
   } catch (error) {
     if (error instanceof AiEngineError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 502 });
+      return nextResponseFromAiEngineError(error, copy);
     }
     return NextResponse.json({ error: copy.unexpected }, { status: 500 });
   }

@@ -51,7 +51,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     const res = NextResponse.json({ ok: true, ...result });
     if (newSessionToken) {
-      applyBuilderSessionCookie(res, newSessionToken);
+      applyBuilderSessionCookie(res, newSessionToken, request);
     }
     return res;
   } catch (e) {

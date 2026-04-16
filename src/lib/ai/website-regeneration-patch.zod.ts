@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  sectionSchema,
-  siteNavigationSchema,
-  sitePageSchema,
-  websiteThemeSchema,
-} from "./website-schema.zod";
+import { sectionSchema, siteNavigationSchema, websiteThemeSchema } from "./website-schema.zod";
 
 const pageSeoPartialSchema = z.object({
   title: z.string().min(1).max(200).optional(),

@@ -82,9 +82,10 @@ const StatusBadge = memo(function StatusBadge({ status, hasSchema }: StatusBadge
 type ErrorOverlayProps = {
   message: string;
   onDismiss: () => void;
+  onRetry?: () => void;
 };
 
-const ErrorOverlay = memo(function ErrorOverlay({ message, onDismiss }: ErrorOverlayProps) {
+const ErrorOverlay = memo(function ErrorOverlay({ message, onDismiss, onRetry }: ErrorOverlayProps) {
   const t = useTranslations("Preview");
   const reduced = useReducedMotion();
 
@@ -106,16 +107,35 @@ const ErrorOverlay = memo(function ErrorOverlay({ message, onDismiss }: ErrorOve
         <AlertCircle className="mx-auto size-8 text-red-600 dark:text-red-400" aria-hidden />
         <p className="mt-3 text-sm font-semibold text-foreground">{t("errorTitle")}</p>
         <p className="mt-2 text-sm text-muted-foreground">{message}</p>
-        <motion.button
-          type="button"
-          onClick={onDismiss}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 480, damping: 22 }}
-          className="mt-5 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {t("dismiss")}
-        </motion.button>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          {onRetry ? (
+            <motion.button
+              type="button"
+              onClick={onRetry}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 480, damping: 22 }}
+              className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("retryPreview")}
+            </motion.button>
+          ) : null}
+          <motion.button
+            type="button"
+            onClick={onDismiss}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 480, damping: 22 }}
+            className={cn(
+              "inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              onRetry
+                ? "border border-border/80 bg-background text-foreground hover:bg-muted/60"
+                : "bg-primary text-primary-foreground shadow-md",
+            )}
+          >
+            {t("dismiss")}
+          </motion.button>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -130,6 +150,7 @@ function PreviewPanelInner({ className }: Readonly<{ className?: string }>) {
     status,
     errorMessage,
     clearPreviewError,
+    previewRetryAction,
     schema,
     applySchema,
     historyPast,
@@ -144,6 +165,7 @@ function PreviewPanelInner({ className }: Readonly<{ className?: string }>) {
       status: s.status,
       errorMessage: s.errorMessage,
       clearPreviewError: s.clearPreviewError,
+      previewRetryAction: s.previewRetryAction,
       schema: s.schema,
       applySchema: s.applySchema,
       historyPast: s.historyPast,
@@ -205,9 +227,14 @@ function PreviewPanelInner({ className }: Readonly<{ className?: string }>) {
         credentials: "include",
         body: JSON.stringify({ schema, locale }),
       });
-      const data = (await response.json()) as { schema?: WebsiteSchema; error?: string };
+      const data = (await response.json()) as { schema?: WebsiteSchema; error?: string; code?: string };
       if (!response.ok || !data.schema) {
-        toast.error(data.error ?? t("toastRefreshError"), { id: toastId });
+        const raw = data.error ?? "";
+        const friendly =
+          data.code === "PROVIDER_QUOTA" || /quota|Gemini|googleapis|generativelanguage|HTTP \d{3}/i.test(raw)
+            ? t("toastProviderBusy")
+            : raw || t("toastRefreshError");
+        toast.error(friendly, { id: toastId });
         return;
       }
       applySchema(data.schema);
@@ -333,7 +360,11 @@ function PreviewPanelInner({ className }: Readonly<{ className?: string }>) {
         />
         {status === "generating" ? <AiThinkingOverlay reduced={reduced} /> : null}
         {status === "error" && errorMessage ? (
-          <ErrorOverlay message={errorMessage} onDismiss={clearPreviewError} />
+          <ErrorOverlay
+            message={errorMessage}
+            onDismiss={clearPreviewError}
+            onRetry={previewRetryAction ?? undefined}
+          />
         ) : null}
       </motion.div>
       <p className="mt-2 text-xs text-muted-foreground">{t("footerNote")}</p>

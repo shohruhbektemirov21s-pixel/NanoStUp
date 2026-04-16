@@ -7,6 +7,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
+import { notifyBuilderSessionChanged } from "@/components/builder-session-provider";
 import { saasElevatedPanel } from "@/components/ui/saas-surface";
 import { clientApiUrl } from "@/lib/client-api-url";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ export function BuilderLoginForm() {
         return;
       }
       toast.success(t("toastOk"));
+      notifyBuilderSessionChanged();
       router.push("/");
       router.refresh();
     } catch {

@@ -7,6 +7,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
+import { useBuilderSession } from "@/components/builder-session-provider";
 import { ComposerWaveTextarea } from "@/components/composer-wave-textarea";
 import { GenerationProgressTracker } from "@/features/home/components/generation-progress-tracker";
 import { WebsiteTemplatePicker } from "@/features/home/components/website-template-picker";
@@ -29,6 +30,42 @@ type ApiOk = {
   pipeline?: { recoveries?: string[]; sanitization?: { removedControlChars?: number; truncated?: boolean } };
 };
 type ApiErr = { error?: string; code?: string; retryAfterSec?: number };
+
+function looksLikeRawProviderPayload(message: string): boolean {
+  return /quota|Gemini|googleapis|generativelanguage|RESOURCE_EXHAUSTED|HTTP \d{3}|generate_content|^\s*\{/i.test(
+    message,
+  );
+}
+
+function pickAiRouteUserMessage(
+  response: Response,
+  data: ApiErr & { code?: string },
+  t: (key: string) => string,
+): string {
+  const code = data.code;
+  if (code === "PROVIDER_QUOTA") {
+    return t("toastProviderBusy");
+  }
+  if (response.status === 401 || code === "BUILDER_AUTH_REQUIRED") {
+    return t("toastApiUnauthorized");
+  }
+  if (response.status === 429 || code === "RATE_LIMITED") {
+    const err = data.error ?? "";
+    return err && !looksLikeRawProviderPayload(err) ? err : t("toastRateLimited");
+  }
+  const err = data.error ?? "";
+  if (looksLikeRawProviderPayload(err)) {
+    return t("toastProviderBusy");
+  }
+  return err.length > 0 ? err : t("toastNetwork");
+}
+
+function pickNetworkErrorMessage(error: unknown, t: (key: string) => string): string {
+  if (error instanceof Error && looksLikeRawProviderPayload(error.message)) {
+    return t("toastProviderBusy");
+  }
+  return error instanceof Error ? error.message : t("toastNetwork");
+}
 
 type LastGenerateSnapshot = {
   prompt: string;
@@ -126,7 +163,8 @@ function PromptPanelInner() {
     })),
   );
 
-  const [builderAuth, setBuilderAuth] = useState(false);
+  const { me: builderMe, loading: builderSessionLoading } = useBuilderSession();
+  const builderAuth = Boolean(builderMe?.authenticated);
   const [generateRetryOpen, setGenerateRetryOpen] = useState(false);
   const lastGenerateRef = useRef<LastGenerateSnapshot | null>(null);
   const preRegenerateSchemaRef = useRef<WebsiteSchema | null>(null);
@@ -140,25 +178,6 @@ function PromptPanelInner() {
     }
     el.scrollTop = el.scrollHeight;
   }, [messages.length, status]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetch(clientApiUrl("/api/auth/builder/me"), { credentials: "include" })
-      .then((r) => r.json() as Promise<{ authenticated?: boolean }>)
-      .then((d) => {
-        if (!cancelled) {
-          setBuilderAuth(Boolean(d.authenticated));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBuilderAuth(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     injectContextGatherIntro(t("contextGatherIntro"));
@@ -228,13 +247,7 @@ function PromptPanelInner() {
             applySchema(snap, { skipHistory: true });
           }
           preRegenerateSchemaRef.current = null;
-          const code = (data as ApiErr & { code?: string }).code;
-          const message =
-            response.status === 401 || code === "BUILDER_AUTH_REQUIRED"
-              ? t("toastApiUnauthorized")
-              : response.status === 429 || code === "RATE_LIMITED"
-                ? (data.error ?? t("toastRateLimited"))
-                : (data.error ?? t("toastNetwork"));
+          const message = pickAiRouteUserMessage(response, data as ApiErr & { code?: string }, t);
           setPreviewError(message);
           toast.error(message, { id: toastId });
           addAssistantMessage(t("assistantErrorRetry"));
@@ -269,7 +282,7 @@ function PromptPanelInner() {
           applySchema(snap, { skipHistory: true });
         }
         preRegenerateSchemaRef.current = null;
-        const message = error instanceof Error ? error.message : t("toastNetwork");
+        const message = pickNetworkErrorMessage(error, t);
         setPreviewError(message);
         toast.error(message, { id: toastId });
         addAssistantMessage(t("assistantErrorNetwork"));
@@ -331,13 +344,7 @@ function PromptPanelInner() {
       }
 
       if (!response.ok) {
-        const code = (data as ApiErr & { code?: string }).code;
-        const message =
-          response.status === 401 || code === "BUILDER_AUTH_REQUIRED"
-            ? t("toastApiUnauthorized")
-            : response.status === 429 || code === "RATE_LIMITED"
-              ? (data.error ?? t("toastRateLimited"))
-              : (data.error ?? t("toastNetwork"));
+        const message = pickAiRouteUserMessage(response, data as ApiErr & { code?: string }, t);
         setGenerateRetryOpen(true);
         setPreviewError(message);
         toast.error(message, { id: toastId });
@@ -372,7 +379,7 @@ function PromptPanelInner() {
         }),
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("toastNetwork");
+      const message = pickNetworkErrorMessage(error, t);
       setGenerateRetryOpen(true);
       setPreviewError(message);
       toast.error(message, { id: toastId });
@@ -432,13 +439,7 @@ function PromptPanelInner() {
         return;
       }
       if (!response.ok) {
-        const code = (data as ApiErr & { code?: string }).code;
-        const message =
-          response.status === 401 || code === "BUILDER_AUTH_REQUIRED"
-            ? t("toastApiUnauthorized")
-            : response.status === 429 || code === "RATE_LIMITED"
-              ? (data.error ?? t("toastRateLimited"))
-              : (data.error ?? t("toastNetwork"));
+        const message = pickAiRouteUserMessage(response, data as ApiErr & { code?: string }, t);
         setGenerateRetryOpen(true);
         setPreviewError(message);
         toast.error(message, { id: toastId });
@@ -458,12 +459,21 @@ function PromptPanelInner() {
       useTokenWalletStore.getState().finalizeGenerationCharge(cost);
       toast.success(t("toastPreviewUpdated"), { id: toastId });
     } catch (error) {
-      const message = error instanceof Error ? error.message : t("toastNetwork");
+      const message = pickNetworkErrorMessage(error, t);
       setGenerateRetryOpen(true);
       setPreviewError(message);
       toast.error(message, { id: toastId });
     }
   }, [applySchema, clearPreviewError, locale, setPreviewError, startGeneration, t]);
+
+  useEffect(() => {
+    useWebsiteStore.getState().setPreviewRetryAction(() => {
+      void handleRetryLastGenerate();
+    });
+    return () => {
+      useWebsiteStore.getState().setPreviewRetryAction(null);
+    };
+  }, [handleRetryLastGenerate]);
 
   const busy = status === "generating";
   const canSend = !busy;
@@ -477,13 +487,13 @@ function PromptPanelInner() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        "flex w-full max-w-xl flex-col overflow-hidden",
+        "flex h-[min(44rem,calc(100dvh-9rem))] min-h-0 w-full max-w-xl flex-col overflow-hidden sm:h-[min(46rem,calc(100dvh-9rem))]",
         saasElevatedPanel,
       )}
       aria-labelledby="ai-chat-title"
     >
-      {!builderAuth ? (
-        <div className="border-b border-border/60 bg-gradient-to-r from-muted/50 to-transparent px-5 py-2.5 text-xs leading-relaxed text-muted-foreground">
+      {!builderSessionLoading && !builderAuth ? (
+        <div className="shrink-0 border-b border-border/60 bg-gradient-to-r from-muted/50 to-transparent px-5 py-2.5 text-xs leading-relaxed text-muted-foreground">
           <span>{t("guestOptionalHint")} </span>
           <Link href="/builder-login" className="font-semibold text-primary underline-offset-2 hover:underline">
             {t("guestOptionalCta")}
@@ -494,42 +504,14 @@ function PromptPanelInner() {
           </Link>
         </div>
       ) : null}
-      <div className="border-b border-border/60 bg-gradient-to-r from-muted/40 via-transparent to-muted/30 px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 id="ai-chat-title" className="text-base font-semibold tracking-tight text-foreground">
-              {t("title")}
-            </h2>
-            <p className="mt-1 text-xs text-muted-foreground">{schema ? t("subtitleFixMode") : t("subtitle")}</p>
-          </div>
-          <div
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200"
-            title={tWallet("hint")}
-          >
-            <Coins className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
-            <span>{tWallet("freeLeft", { n: freeGenerationsRemaining })}</span>
-            <span className="text-muted-foreground">·</span>
-            <span>{tWallet("tokens", { n: tokenBalance })}</span>
-          </div>
+
+      {!schema ? (
+        <div className="shrink-0 border-b border-border/60 bg-muted/20 p-4 sm:p-5">
+          <WebsiteTemplatePicker value={templateKind} onChange={setTemplateKind} disabled={busy} className="mb-0" />
         </div>
-      </div>
+      ) : null}
 
-      <div
-        ref={listRef}
-        className="max-h-64 space-y-3 overflow-y-auto px-5 py-4"
-        aria-live="polite"
-        aria-relevant="additions"
-      >
-        {messages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("emptyState")}</p>
-        ) : (
-          messages.map((m, i) => <ChatMessageBubble key={m.id} message={m} index={i} />)
-        )}
-      </div>
-
-      <GenerationProgressTracker />
-
-      <div className="border-t border-border/60 bg-muted/20 p-4 sm:p-5">
+      <div className="shrink-0 border-b border-border/60 bg-muted/20 p-4 sm:p-5">
         {showDetailHint ? (
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
             <p className="min-w-0 flex-1 leading-relaxed">{t("contextHintSubtitle")}</p>
@@ -542,14 +524,6 @@ function PromptPanelInner() {
               {t("skipDetailGathering")}
             </button>
           </div>
-        ) : null}
-        {!schema ? (
-          <>
-            <p className="mb-3 rounded-xl border border-primary/15 bg-primary/[0.04] px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-              {t("builderFlowHint")}
-            </p>
-            <WebsiteTemplatePicker value={templateKind} onChange={setTemplateKind} disabled={busy} />
-          </>
         ) : null}
         <label htmlFor="business-prompt" className="mb-2 block text-sm font-medium text-foreground">
           {schema ? t("labelFix") : t("label")}
@@ -591,6 +565,45 @@ function PromptPanelInner() {
             {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <SendHorizontal className="size-4" aria-hidden />}
             {schema ? t("sendFix") : t("send")}
           </motion.button>
+        </div>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="shrink-0 border-b border-border/60 bg-gradient-to-r from-muted/40 via-transparent to-muted/30 px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="ai-chat-title" className="text-base font-semibold tracking-tight text-foreground">
+                {t("title")}
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">{schema ? t("subtitleFixMode") : t("subtitle")}</p>
+            </div>
+            <div
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/80 px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-slate-900/70 dark:text-slate-200"
+              title={tWallet("hint")}
+            >
+              <Coins className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
+              <span>{tWallet("freeLeft", { n: freeGenerationsRemaining })}</span>
+              <span className="text-muted-foreground">·</span>
+              <span>{tWallet("tokens", { n: tokenBalance })}</span>
+            </div>
+          </div>
+        </div>
+
+        <GenerationProgressTracker />
+
+        <div
+          ref={listRef}
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 py-4"
+          aria-live="polite"
+          aria-relevant="additions"
+        >
+          {messages.length === 0 ? (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {!schema ? t("builderFlowHint") : t("emptyState")}
+            </p>
+          ) : (
+            messages.map((m, i) => <ChatMessageBubble key={m.id} message={m} index={i} />)
+          )}
         </div>
       </div>
     </motion.section>

@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 
-import { logWebsiteAiPipelineError } from "@/lib/ai/pipeline/pipeline-logger";
-import { getApiGenerateMessages, resolveContentLocale } from "@/lib/api-generate-messages";
 import { AiEngineError } from "@/lib/ai/errors";
 import { generateWebsiteSchemaFromSpeech } from "@/lib/ai/generate-website-schema";
-import { assertWebsiteAiRequest, resolveSchemaPlanTierForRequest } from "@/lib/builder/ai-route-guard";
+import { logWebsiteAiPipelineError } from "@/lib/ai/pipeline/pipeline-logger";
+import {
+  getWebsiteGenerateCached,
+  setWebsiteGenerateCached,
+  websiteGenerateCacheKey,
+} from "@/lib/ai/website-generate-response-cache";
+import { getApiGenerateMessages, resolveContentLocale } from "@/lib/api-generate-messages";
+import { nextResponseFromAiEngineError } from "@/lib/api/map-ai-engine-error-response";
+import {
+  assertWebsiteAiGenerationThrottle,
+  assertWebsiteAiRequest,
+  resolveSchemaPlanTierForRequest,
+} from "@/lib/builder/ai-route-guard";
 import { routing } from "@/i18n/routing";
 import { WEBSITE_PROMPT_MAX_CHARS, websiteGenerateBodySchema } from "@/lib/website-generate-body.zod";
 import { websiteGenerateSuccessResponseSchema } from "@/lib/website-generate-response.zod";
@@ -24,6 +34,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const denied = await assertWebsiteAiRequest(request, draftLocale);
   if (denied) {
     return denied;
+  }
+  const genThrottle = await assertWebsiteAiGenerationThrottle(request, draftLocale);
+  if (genThrottle) {
+    return genThrottle;
   }
   const copyDraft = getApiGenerateMessages(draftLocale);
 
@@ -52,6 +66,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { prompt, locale: bodyLocale, contextTurns } = parsedBody.data;
   const contentLocale = resolveContentLocale(bodyLocale);
   const copy = getApiGenerateMessages(contentLocale);
+  const templateKind = parsedBody.data.templateKind ?? "balanced";
 
   const conversationContext =
     contextTurns && contextTurns.length > 0
@@ -60,14 +75,40 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const planTier = await resolveSchemaPlanTierForRequest();
 
+  const contextFingerprint =
+    contextTurns && contextTurns.length > 0
+      ? contextTurns.map((row) => `${row.role}:${row.text.trim()}`).join("\n---\n")
+      : "";
+  const cacheKey = websiteGenerateCacheKey({
+    prompt,
+    contentLocale,
+    templateKind,
+    planTier,
+    contextFingerprint,
+  });
+  const cached = getWebsiteGenerateCached(cacheKey);
+  if (cached) {
+    const cachedOk = websiteGenerateSuccessResponseSchema.safeParse({
+      schema: cached.schema,
+      attemptsUsed: cached.attemptsUsed,
+      usedFallback: cached.usedFallback,
+      warnings: cached.warnings,
+      pipeline: cached.pipeline,
+    });
+    if (cachedOk.success) {
+      return NextResponse.json(cachedOk.data);
+    }
+  }
+
   try {
     const result = await generateWebsiteSchemaFromSpeech({
       userPrompt: prompt,
       contentLocale,
       conversationContext,
       planTier,
-      templateKind: parsedBody.data.templateKind,
+      templateKind,
     });
+    setWebsiteGenerateCached(cacheKey, result);
     const okBody = websiteGenerateSuccessResponseSchema.safeParse({
       schema: result.schema,
       attemptsUsed: result.attemptsUsed,
@@ -86,7 +127,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(okBody.data);
   } catch (error) {
     if (error instanceof AiEngineError) {
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 502 });
+      return nextResponseFromAiEngineError(error, copy);
     }
     return NextResponse.json({ error: copy.unexpected }, { status: 500 });
   }

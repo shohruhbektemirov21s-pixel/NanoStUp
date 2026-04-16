@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
+import { notifyBuilderSessionChanged } from "@/components/builder-session-provider";
 import { clientApiUrl } from "@/lib/client-api-url";
 
 export function DashboardLogoutButton({ show }: Readonly<{ show: boolean }>) {
@@ -16,6 +17,7 @@ export function DashboardLogoutButton({ show }: Readonly<{ show: boolean }>) {
     setBusy(true);
     try {
       await fetch(clientApiUrl("/api/auth/builder/logout"), { method: "POST", credentials: "include" });
+      notifyBuilderSessionChanged();
       toast.success(t("loggedOut"));
       router.push("/builder-login");
       router.refresh();

@@ -10,7 +10,11 @@
     "pricing": "Pricing",
     "dashboard": "Dashboard",
     "signup": "Sign up",
-    "login": "Sign in"
+    "login": "Sign in",
+    "account": "Account",
+    "logout": "Log out",
+    "loggedOutToast": "Signed out.",
+    "logoutFailedToast": "Could not sign out. Try again."
   },
   "PlatformFooter": {
     "ariaLabel": "Developer contact and disclaimer",
@@ -267,6 +271,7 @@
     "templateCardLandingTitle": "Quick sales page",
     "templateCardLandingDesc": "One offer or campaign — short and focused.",
     "toastRateLimited": "Too many requests — wait a moment and try again.",
+    "toastProviderBusy": "Demand is high — please wait about a minute and try again.",
     "retryHint": "The last generation failed. You can retry with the same prompt.",
     "retryAction": "Retry",
     "authWallTitle": "Sign in to use AI generation.",
@@ -290,6 +295,7 @@
     "overlayTitle": "Preparing site schema…",
     "aiThinkingHint": "The model is syncing layout, theme, and sections — just a few seconds.",
     "errorTitle": "Preview failed to load",
+    "retryPreview": "Retry",
     "dismiss": "Close",
     "frameTitle": "Site appearance",
     "footerNote": "The view is provided via srcDoc — it does not affect the main app CSS.",
@@ -306,6 +312,7 @@
     "toastRefreshDesigning": "Applying a new palette…",
     "toastRefreshed": "Design updated.",
     "toastRefreshError": "Could not refresh design.",
+    "toastProviderBusy": "Demand is high — please wait about a minute and try again.",
     "undo": "Undo",
     "redo": "Redo",
     "undoTitle": "Undo last schema change",
@@ -351,8 +358,11 @@
     "popular": "Popular",
     "monthsShort": "{n} mo",
     "perPeriod": "{months} months",
+    "pricingCurrencySuffix": "UZS",
+    "limitGenShort": "AI generation cap: {count}",
+    "limitExportShort": "Export cap: {count}",
     "cta": "Purchase",
-    "legalNote": "Checkout runs on Payme (UZS, charged in tiyin). USD in the grid is a visual anchor; the server amount uses PAYME_USD_TO_UZS_RATE. Configure Payme account keys: user_id, plan, months.",
+    "legalNote": "Amounts follow admin-managed tariffs (UZS); period discounts use the same multipliers as checkout. Payme charges in tiyin. Account fields: user_id, plan, months.",
     "payModalTitle": "Pay with Payme",
     "payModalBody": "{tier} — {months} months. You will see the exact UZS amount on Payme.",
     "payModalHint": "Make sure you are signed in to the builder (/builder-login) before continuing.",
@@ -364,6 +374,7 @@
     "payErrorNotConfigured": "Payme is not configured on the server (PAYME_MERCHANT_ID / PAYME_MERCHANT_KEY).",
     "payErrorGeneric": "Could not start checkout.",
     "payErrorNetwork": "Network error. Check your connection and try again.",
+    "payErrorPlanMissing": "That plan is no longer available — refresh the page and try again.",
     "tiers": {
       "basic": {
         "name": "Basic",
@@ -568,6 +579,8 @@
     "contextTooLarge": "Chat context is too large. Please shorten earlier messages.",
     "unauthorized": "Forbidden — builder or admin session required.",
     "rateLimited": "Too many AI requests from this network. Please wait a minute and try again.",
+    "providerBusy": "Demand is high right now — please wait about a minute and try again.",
+    "aiTemporarilyUnavailable": "The AI service is temporarily unavailable. Please try again in a minute.",
     "schemaValidation": "Schema validation failed on the server.",
     "unexpected": "Unexpected error."
   }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { builderWebLoginBodySchema } from "@/lib/auth/builder-login.validation";
 import { splitContactInput } from "@/lib/auth/normalize-contact";
 import { verifyPasswordScrypt } from "@/lib/auth/password-scrypt";
+import { builderSessionSetCookieOptions } from "@/lib/builder/builder-session-cookie-options";
 import { BUILDER_SESSION_COOKIE, createBuilderSessionToken } from "@/lib/builder/builder-session";
 import { getClientIpFromRequest } from "@/lib/rate-limit/get-client-ip";
 import { checkSlidingWindowRateLimit } from "@/lib/rate-limit/memory-sliding-window";
@@ -64,13 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       webSessionVersion: web.sessionVersion,
     });
     const res = NextResponse.json({ ok: true as const, mode: "web_user" as const });
-    res.cookies.set(BUILDER_SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 14 * 24 * 60 * 60,
-      secure: process.env.NODE_ENV === "production",
-    });
+    res.cookies.set(BUILDER_SESSION_COOKIE, token, builderSessionSetCookieOptions(request));
     return res;
   }
 
@@ -84,12 +79,6 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const token = createBuilderSessionToken();
   const res = NextResponse.json({ ok: true as const, mode: "shared_password" as const });
-  res.cookies.set(BUILDER_SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 14 * 24 * 60 * 60,
-    secure: process.env.NODE_ENV === "production",
-  });
+  res.cookies.set(BUILDER_SESSION_COOKIE, token, builderSessionSetCookieOptions(request));
   return res;
 }

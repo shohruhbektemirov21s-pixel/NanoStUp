@@ -5,9 +5,13 @@ import { isAdminSession } from "@/lib/admin/session";
 import { getBuilderSessionPayload } from "@/lib/builder/builder-session";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 function adminDisplayPlan(): string {
   return process.env.ADMIN_AI_PLAN_TIER?.trim().toLowerCase() || "pro";
 }
+
+const ME_NO_STORE = { headers: { "Cache-Control": "private, no-store, must-revalidate" } as const };
 
 export async function GET(): Promise<NextResponse> {
   const admin = isAdminSession();
@@ -15,27 +19,33 @@ export async function GET(): Promise<NextResponse> {
   const web = await getValidatedWebUserFromBuilderCookie();
 
   if (!admin && !builder) {
-    return NextResponse.json({
-      authenticated: false,
-      isAdmin: false,
-      planTier: null,
-      subscriptionUntilMs: null,
-      billingAccountId: null,
-      serverTokenBalance: null,
-      webUser: null,
-    });
+    return NextResponse.json(
+      {
+        authenticated: false,
+        isAdmin: false,
+        planTier: null,
+        subscriptionUntilMs: null,
+        billingAccountId: null,
+        serverTokenBalance: null,
+        webUser: null,
+      },
+      ME_NO_STORE,
+    );
   }
 
   if (admin && !builder) {
-    return NextResponse.json({
-      authenticated: true,
-      isAdmin: true,
-      planTier: adminDisplayPlan(),
-      subscriptionUntilMs: null,
-      billingAccountId: null,
-      serverTokenBalance: null,
-      webUser: null,
-    });
+    return NextResponse.json(
+      {
+        authenticated: true,
+        isAdmin: true,
+        planTier: adminDisplayPlan(),
+        subscriptionUntilMs: null,
+        billingAccountId: null,
+        serverTokenBalance: null,
+        webUser: null,
+      },
+      ME_NO_STORE,
+    );
   }
 
   let planTier = builder!.tier;
@@ -82,22 +92,25 @@ export async function GET(): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({
-    authenticated: true,
-    isAdmin: admin,
-    planTier,
-    subscriptionUntilMs,
-    billingAccountId,
-    serverTokenBalance,
-    webUser: web
-      ? {
-          id: web.id,
-          firstName: web.firstName,
-          lastName: web.lastName,
-          email: web.email,
-          phone: web.phone,
-          linkedTelegram: Boolean(web.linkedTelegramUserId),
-        }
-      : null,
-  });
+  return NextResponse.json(
+    {
+      authenticated: true,
+      isAdmin: admin,
+      planTier,
+      subscriptionUntilMs,
+      billingAccountId,
+      serverTokenBalance,
+      webUser: web
+        ? {
+            id: web.id,
+            firstName: web.firstName,
+            lastName: web.lastName,
+            email: web.email,
+            phone: web.phone,
+            linkedTelegram: Boolean(web.linkedTelegramUserId),
+          }
+        : null,
+    },
+    ME_NO_STORE,
+  );
 }

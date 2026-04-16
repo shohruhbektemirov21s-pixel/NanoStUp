@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { applyBuilderSessionCookie, ensureBillingIdForBuilder } from "@/lib/builder/ensure-billing-account";
 import { getBuilderSessionPayload } from "@/lib/builder/builder-session";
+import { ensureDefaultManagedPlans } from "@/lib/admin/default-managed-plans";
+import { totalUzsWholeFromManagedPlan } from "@/lib/billing/managed-plan-pricing";
 import type { PaymePlanTier } from "@/lib/payme/pricing";
 import { uzsForPlanMonths } from "@/lib/payme/pricing";
 import { prisma } from "@/lib/prisma";
@@ -70,10 +72,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   const prefix = notePrefix();
   const code = await uniqueCode(prefix);
   let expectedAmountUzs: number;
-  try {
-    expectedAmountUzs = uzsForPlanMonths(tier as PaymePlanTier, months);
-  } catch {
-    return NextResponse.json({ ok: false, error: "pricing_not_configured" }, { status: 503 });
+  await ensureDefaultManagedPlans();
+  const managedPlan = await prisma.managedSubscriptionPlan.findFirst({
+    where: { slug: tier, isActive: true },
+  });
+  if (managedPlan) {
+    expectedAmountUzs = totalUzsWholeFromManagedPlan(managedPlan, months);
+  } else {
+    try {
+      expectedAmountUzs = uzsForPlanMonths(tier as PaymePlanTier, months);
+    } catch {
+      return NextResponse.json({ ok: false, error: "pricing_not_configured" }, { status: 503 });
+    }
   }
   const expiresAt = new Date(Date.now() + ttlMs());
 
@@ -99,7 +109,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   });
 
   if (newSessionToken) {
-    applyBuilderSessionCookie(res, newSessionToken);
+    applyBuilderSessionCookie(res, newSessionToken, request);
   }
 
   return res;

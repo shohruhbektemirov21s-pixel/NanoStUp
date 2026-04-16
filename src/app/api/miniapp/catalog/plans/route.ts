@@ -4,6 +4,7 @@ import { ensureDefaultManagedPlans } from "@/lib/admin/default-managed-plans";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /** Mini App uchun ochiq tariflar ro‘yxati (admin emas). */
 export async function GET(): Promise<NextResponse> {

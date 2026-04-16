@@ -1,13 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
+import { notifyBuilderSessionChanged, useBuilderSession } from "@/components/builder-session-provider";
 import { LocaleSegmentControl } from "@/components/locale-segment-control";
 import { saasNavBtnActive, saasNavBtnGhost, saasOutlinePill, saasPrimaryPill } from "@/components/ui/saas-surface";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { clientApiUrl } from "@/lib/client-api-url";
 import { cn } from "@/lib/utils";
 
 function isLocaleHome(pathname: string): boolean {
@@ -23,6 +27,31 @@ function isPath(pathname: string, suffix: string): boolean {
 export function SiteNavbar() {
   const t = useTranslations("Nav");
   const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const { me } = useBuilderSession();
+  const [logoutBusy, setLogoutBusy] = useState(false);
+
+  const authenticated = Boolean(me?.authenticated);
+  const displayName =
+    me?.webUser?.firstName?.trim() ||
+    me?.webUser?.email?.trim() ||
+    me?.webUser?.phone?.trim() ||
+    t("account");
+
+  const logout = useCallback(async () => {
+    setLogoutBusy(true);
+    try {
+      await fetch(clientApiUrl("/api/auth/builder/logout"), { method: "POST", credentials: "include" });
+      notifyBuilderSessionChanged();
+      toast.success(t("loggedOutToast"));
+      router.push("/builder-login");
+      router.refresh();
+    } catch {
+      toast.error(t("logoutFailedToast"));
+    } finally {
+      setLogoutBusy(false);
+    }
+  }, [router, t]);
 
   return (
     <motion.nav
@@ -65,12 +94,32 @@ export function SiteNavbar() {
           >
             {t("dashboard")}
           </Link>
-          <Link href="/builder-signup" className={saasPrimaryPill}>
-            {t("signup")}
-          </Link>
-          <Link href="/builder-login" className={saasOutlinePill}>
-            {t("login")}
-          </Link>
+          {authenticated ? (
+            <>
+              <Link href="/dashboard" className={cn(saasOutlinePill, "max-w-[10rem] truncate")} title={displayName}>
+                {displayName}
+              </Link>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                disabled={logoutBusy}
+                className={cn(saasNavBtnGhost, "inline-flex items-center gap-1.5 disabled:opacity-50")}
+                aria-label={t("logout")}
+              >
+                <LogOut className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden sm:inline">{t("logout")}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/builder-signup" className={saasPrimaryPill}>
+                {t("signup")}
+              </Link>
+              <Link href="/builder-login" className={saasOutlinePill}>
+                {t("login")}
+              </Link>
+            </>
+          )}
           <LocaleSegmentControl className="hidden sm:inline-flex" />
         </div>
       </div>

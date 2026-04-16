@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ManagedPlanPriceFields } from "@/lib/billing/managed-plan-pricing";
+import { totalUzsWholeFromManagedPlan } from "@/lib/billing/managed-plan-pricing";
 import type { PaymePlanTier } from "@/lib/payme/pricing";
 import { uzsForPlanMonths, uzsWholeToTiyin } from "@/lib/payme/pricing";
 
@@ -38,7 +40,16 @@ export function buildPaymeCheckoutUrl(p: CheckoutParams): string {
   return `${CHECKOUT_BASE}/${b64}`;
 }
 
+/** @deprecated Faqat tarif DB da yo‘q bo‘lganda zaxira — asosan `computeCheckoutAmountTiyinFromManagedPlan`. */
 export function computeCheckoutAmountTiyin(tier: PaymePlanTier, months: number): { uzs: number; tiyin: number } {
   const uzs = uzsForPlanMonths(tier, months);
+  return { uzs, tiyin: uzsWholeToTiyin(uzs) };
+}
+
+export function computeCheckoutAmountTiyinFromManagedPlan(
+  plan: ManagedPlanPriceFields,
+  months: number,
+): { uzs: number; tiyin: number } {
+  const uzs = totalUzsWholeFromManagedPlan(plan, months);
   return { uzs, tiyin: uzsWholeToTiyin(uzs) };
 }

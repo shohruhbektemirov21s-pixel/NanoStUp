@@ -3,6 +3,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
+import { BuilderSessionProvider } from "@/components/builder-session-provider";
+import { getBuilderSessionServerSnapshot } from "@/lib/auth/builder-session-server-snapshot";
 import { DocumentLang } from "@/components/document-lang";
 import { FixedLocaleDock } from "@/components/fixed-locale-dock";
 import { LocaleBootstrap } from "@/components/locale-bootstrap";
@@ -55,18 +57,21 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
   const messages = await getMessages();
+  const builderSessionSnapshot = getBuilderSessionServerSnapshot();
 
   return (
     <>
       <DocumentLang locale={locale} />
       <NextIntlClientProvider messages={messages}>
-        <div className="flex min-h-dvh flex-col bg-gradient-to-b from-indigo-50/50 via-white to-sky-50/80 dark:from-slate-950 dark:via-background dark:to-indigo-950/20">
-          <LocaleBootstrap />
-          <SiteNavbar />
-          <div className="flex min-h-0 flex-1 flex-col pb-24 sm:pb-20">{children}</div>
-          <PlatformFooter />
-          <FixedLocaleDock />
-        </div>
+        <BuilderSessionProvider initialServerSnapshot={builderSessionSnapshot}>
+          <div className="flex min-h-dvh flex-col bg-gradient-to-b from-indigo-50/50 via-white to-sky-50/80 dark:from-slate-950 dark:via-background dark:to-indigo-950/20">
+            <LocaleBootstrap />
+            <SiteNavbar />
+            <div className="flex min-h-0 flex-1 flex-col pb-24 sm:pb-20">{children}</div>
+            <PlatformFooter />
+            <FixedLocaleDock />
+          </div>
+        </BuilderSessionProvider>
       </NextIntlClientProvider>
     </>
   );

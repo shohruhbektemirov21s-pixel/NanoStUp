@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Prisma } from "@prisma/client";
 
-import { computeCheckoutAmountTiyin } from "@/lib/payme/checkout";
+import { computeCheckoutAmountTiyin, computeCheckoutAmountTiyinFromManagedPlan } from "@/lib/payme/checkout";
 import { prisma } from "@/lib/prisma";
 import { parseBillingMonths, parsePaymePlanTier, tokensGrantedForPlanMonths, type PaymePlanTier } from "@/lib/payme/pricing";
 
@@ -48,7 +48,11 @@ function parseAccount(account: unknown): { userId: string; plan: PaymePlanTier; 
   return { userId, plan, months };
 }
 
-function expectedAmountTiyin(plan: PaymePlanTier, months: number): number {
+async function expectedAmountTiyin(plan: PaymePlanTier, months: number): Promise<number> {
+  const row = await prisma.managedSubscriptionPlan.findFirst({ where: { slug: plan, isActive: true } });
+  if (row) {
+    return computeCheckoutAmountTiyinFromManagedPlan(row, months).tiyin;
+  }
   return computeCheckoutAmountTiyin(plan, months).tiyin;
 }
 
@@ -101,7 +105,7 @@ async function checkPerformTransaction(id: RpcId, params: Record<string, unknown
     return rpcError(id, ERR_ACCOUNT, "User not found", "user_id");
   }
 
-  const expected = expectedAmountTiyin(parsed.plan, parsed.months);
+  const expected = await expectedAmountTiyin(parsed.plan, parsed.months);
   if (amount !== expected) {
     return rpcError(id, ERR_INVALID_AMOUNT, "Invalid amount");
   }
@@ -135,7 +139,7 @@ async function createTransaction(id: RpcId, params: Record<string, unknown> | un
     return rpcError(id, ERR_ACCOUNT, "User not found", "user_id");
   }
 
-  const expected = expectedAmountTiyin(parsed.plan, parsed.months);
+  const expected = await expectedAmountTiyin(parsed.plan, parsed.months);
   if (amount !== expected) {
     return rpcError(id, ERR_INVALID_AMOUNT, "Invalid amount");
   }

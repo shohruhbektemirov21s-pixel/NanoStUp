@@ -81,6 +81,8 @@ type WebsiteStoreState = {
   historyFuture: WebsiteSchema[];
   /** Keyingi `/api/website/generate` uchun shablon */
   templateKind: WebsiteTemplateKind;
+  /** Preview xato overlay uchun oxirgi generatsiyani qayta ishlatish */
+  previewRetryAction: (() => void) | null;
 };
 
 type WebsiteStoreActions = {
@@ -97,6 +99,7 @@ type WebsiteStoreActions = {
   setTemplateKind: (kind: WebsiteTemplateKind) => void;
   setPreviewError: (message: string) => void;
   clearPreviewError: () => void;
+  setPreviewRetryAction: (fn: (() => void) | null) => void;
   addUserMessage: (text: string) => void;
   addAssistantMessage: (text: string) => void;
   resetSession: () => void;
@@ -125,6 +128,7 @@ export const useWebsiteStore = create<WebsiteStore>((set, get) => ({
   historyPast: [],
   historyFuture: [],
   templateKind: "balanced",
+  previewRetryAction: null,
 
   setComposerValue: (value) => set({ composerValue: value }),
 
@@ -208,6 +212,7 @@ export const useWebsiteStore = create<WebsiteStore>((set, get) => ({
         previewKey: createId(),
         status: "idle",
         errorMessage: null,
+        previewRetryAction: null,
         ...initialGenerationUi,
         historyPast,
         historyFuture,
@@ -272,8 +277,11 @@ export const useWebsiteStore = create<WebsiteStore>((set, get) => ({
     set({
       status: "idle",
       errorMessage: null,
+      previewRetryAction: null,
       ...initialGenerationUi,
     }),
+
+  setPreviewRetryAction: (fn) => set({ previewRetryAction: fn }),
 
   addUserMessage: (text) =>
     set((state) => ({
@@ -300,6 +308,7 @@ export const useWebsiteStore = create<WebsiteStore>((set, get) => ({
       previewKey: createId(),
       status: "idle",
       errorMessage: null,
+      previewRetryAction: null,
       composerValue: "",
       ...initialGenerationUi,
       detailPreflightPending: true,

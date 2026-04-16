@@ -10,7 +10,11 @@
     "pricing": "Tariflar",
     "dashboard": "Kabinet",
     "signup": "Ro‘yxatdan o‘tish",
-    "login": "Kirish"
+    "login": "Kirish",
+    "account": "Akkaunt",
+    "logout": "Chiqish",
+    "loggedOutToast": "Sessiya yopildi.",
+    "logoutFailedToast": "Chiqishda xato. Qayta urinib ko‘ring."
   },
   "PlatformFooter": {
     "ariaLabel": "Dasturchi kontakti va disclaimer",
@@ -267,6 +271,7 @@
     "templateCardLandingTitle": "Tez sotuv uchun sahifa",
     "templateCardLandingDesc": "Bitta mahsulot yoki aksiya — qisqa va aniq.",
     "toastRateLimited": "Juda ko‘p so‘rov — biroz kutib qayta urinib ko‘ring.",
+    "toastProviderBusy": "Hozirda so‘rovlar ko‘payib ketdi, iltimos 1 daqiqadan so‘ng qayta urinib ko‘ring.",
     "retryHint": "Oxirgi generatsiya muvaffaqiyatsiz. Bir xil prompt bilan qayta urinishingiz mumkin.",
     "retryAction": "Qayta urinish",
     "authWallTitle": "AI generatsiyasi uchun avval tizimga kiring.",
@@ -290,6 +295,7 @@
     "overlayTitle": "Sayt sxemasi tayyorlanmoqda…",
     "aiThinkingHint": "AI sxema, ranglar va bloklarni sinxron tanlayapti — bir necha soniya.",
     "errorTitle": "Preview yuklanmadi",
+    "retryPreview": "Qayta urinish",
     "dismiss": "Yopish",
     "frameTitle": "Sayt ko‘rinishi",
     "footerNote": "Ko‘rinish srcDoc orqali beriladi — asosiy sahifa CSSiga aralashmaydi.",
@@ -306,6 +312,7 @@
     "toastRefreshDesigning": "Yangi palitra tanlanmoqda…",
     "toastRefreshed": "Dizayn yangilandi.",
     "toastRefreshError": "Dizaynni yangilab bo‘lmadi.",
+    "toastProviderBusy": "Hozirda so‘rovlar ko‘payib ketdi, iltimos 1 daqiqadan so‘ng qayta urinib ko‘ring.",
     "undo": "Orqaga",
     "redo": "Oldinga",
     "undoTitle": "Oxirgi sxema o‘zgarishini bekor qilish",
@@ -351,8 +358,11 @@
     "popular": "Mashhur",
     "monthsShort": "{n} oy",
     "perPeriod": "{months} oy",
+    "pricingCurrencySuffix": "soʻm",
+    "limitGenShort": "AI generatsiya limiti: {count}",
+    "limitExportShort": "Eksport limiti: {count}",
     "cta": "Sotib olish",
-    "legalNote": "To‘lov Payme orqali (so‘m, tiyin). Jadvaldagi USD — vizual taqqoslash; haqiqiy hisob-kitob serverda USD→UZS kursi bo‘yicha (PAYME_USD_TO_UZS_RATE). Payme kabinetida hisob maydonlari: user_id, plan, months.",
+    "legalNote": "Narxlar admin panelidagi tariflar (managed_subscription_plans) bo‘yicha so‘mda; muddat tanlanganda chegirma koeffitsienti qo‘llanadi. To‘lov Payme orqali (tiyin). Payme maydonlari: user_id, plan, months.",
     "payModalTitle": "Payme orqali to‘lov",
     "payModalBody": "{tier} — {months} oy. Summani so‘mda Payme sahifasida ko‘rasiz.",
     "payModalHint": "Davom etishdan oldin builder kabinetiga kirganingizni tekshiring (/builder-login).",
@@ -364,6 +374,7 @@
     "payErrorNotConfigured": "Payme serverda sozlanmagan (PAYME_MERCHANT_ID / PAYME_MERCHANT_KEY).",
     "payErrorGeneric": "To‘lovni boshlashda xato yuz berdi.",
     "payErrorNetwork": "Tarmoq xatosi. Internetni tekshirib, qayta urinib ko‘ring.",
+    "payErrorPlanMissing": "Tanlangan tarif topilmadi — sahifani yangilab qayta urinib ko‘ring.",
     "tiers": {
       "basic": {
         "name": "Oddiy",
@@ -568,6 +579,8 @@
     "contextTooLarge": "Chat konteksti juda katta. Qisqaroq xabarlar yuboring.",
     "unauthorized": "Ruxsat yo‘q — builder yoki admin sessiyasi kerak.",
     "rateLimited": "Bu tarmoqdan juda ko‘p AI so‘rovi. Bir daqiqa kutib, qayta urinib ko‘ring.",
+    "providerBusy": "Hozirda so‘rovlar ko‘payib ketdi, iltimos 1 daqiqadan so‘ng qayta urinib ko‘ring.",
+    "aiTemporarilyUnavailable": "AI xizmati vaqtincha band. Bir daqiqadan so‘ng qayta urinib ko‘ring.",
     "schemaValidation": "Serverda sxema tekshiruvi muvaffaqiyatsiz.",
     "unexpected": "Kutilmagan xato yuz berdi."
   }

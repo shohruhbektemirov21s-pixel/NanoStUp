@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ensureDefaultManagedPlans } from "@/lib/admin/default-managed-plans";
+import { builderSessionSetCookieOptions } from "@/lib/builder/builder-session-cookie-options";
 import { BUILDER_SESSION_COOKIE, createBuilderSessionToken, getBuilderSessionPayload } from "@/lib/builder/builder-session";
-import { buildPaymeCheckoutUrl, computeCheckoutAmountTiyin } from "@/lib/payme/checkout";
+import { buildPaymeCheckoutUrl, computeCheckoutAmountTiyinFromManagedPlan } from "@/lib/payme/checkout";
 import type { PaymePlanTier } from "@/lib/payme/pricing";
 import { readPaymeCredentials } from "@/lib/payme/merchant-auth";
 import { prisma } from "@/lib/prisma";
@@ -49,6 +51,14 @@ export async function POST(request: Request): Promise<NextResponse> {
   const { tier, months, locale } = parsed.data;
   const loc = locale ?? "uz";
 
+  await ensureDefaultManagedPlans();
+  const managedPlan = await prisma.managedSubscriptionPlan.findFirst({
+    where: { slug: tier, isActive: true },
+  });
+  if (!managedPlan) {
+    return NextResponse.json({ ok: false, error: "plan_not_found" }, { status: 404 });
+  }
+
   let billingId = builder.billingId;
   let refreshedCookie = false;
   if (!billingId) {
@@ -57,7 +67,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     refreshedCookie = true;
   }
 
-  const { tiyin, uzs } = computeCheckoutAmountTiyin(tier as PaymePlanTier, months);
+  const { tiyin, uzs } = computeCheckoutAmountTiyinFromManagedPlan(managedPlan, months);
   const returnUrl = `${appBaseUrl()}/${loc}/dashboard?payme=1`;
 
   const checkoutUrl = buildPaymeCheckoutUrl({
@@ -83,14 +93,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       tier: builder.tier,
       subscriptionUntilMs: builder.subscriptionUntilMs,
       billingId,
+      webUserId: builder.webUserId,
+      webSessionVersion: builder.webSessionVersion,
     });
-    response.cookies.set(BUILDER_SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 14 * 24 * 60 * 60,
-      secure: process.env.NODE_ENV === "production",
-    });
+    response.cookies.set(BUILDER_SESSION_COOKIE, token, builderSessionSetCookieOptions(request));
   }
 
   return response;

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { normalizeGoogleGenAiModelId } from "@/lib/ai/chat-handler";
+
 type GeminiVisionResponse = {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
@@ -20,8 +22,9 @@ function resolveGeminiForVision(): { apiKey: string; baseUrl: string; model: str
     /\/$/,
     "",
   );
-  const model = process.env.GOOGLE_GENERATIVE_AI_MODEL?.trim() || "gemini-2.0-flash";
-  return { apiKey, baseUrl, model: model.replace(/^models\//, "") };
+  const modelRaw = process.env.GOOGLE_GENERATIVE_AI_MODEL?.trim() || "gemini-2.0-flash";
+  const model = normalizeGoogleGenAiModelId(modelRaw).replace(/^models\//, "");
+  return { apiKey, baseUrl, model };
 }
 
 export type ReceiptVisionResult = {

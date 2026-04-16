@@ -1,4 +1,5 @@
 import type { SchemaPlanTier } from "@/lib/ai/prompts-schema-spec";
+import { planBillingDiscountFactor } from "@/lib/billing/plan-discount";
 
 export type PaymePlanTier = SchemaPlanTier;
 
@@ -8,13 +9,7 @@ const BASE_USD: Record<PaymePlanTier, number> = {
   premium: 79,
 };
 
-export function discountFactor(months: number): number {
-  if (months >= 12) return 0.78;
-  if (months >= 9) return 0.82;
-  if (months >= 6) return 0.88;
-  if (months >= 3) return 0.93;
-  return 1;
-}
+export const discountFactor = planBillingDiscountFactor;
 
 /** So‘m (butun birlik) — UI va chek uchun. */
 export function uzsForPlanMonths(tier: PaymePlanTier, months: number): number {

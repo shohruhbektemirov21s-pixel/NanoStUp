@@ -73,9 +73,12 @@ export function MiniBuilderClient() {
         credentials: "include",
         body: JSON.stringify({ prompt: p, locale: "uz", templateKind }),
       });
-      const genJson = (await gen.json()) as { schema?: WebsiteSchema; error?: string };
+      const genJson = (await gen.json()) as { schema?: WebsiteSchema; error?: string; code?: string };
       if (!gen.ok || !genJson.schema) {
-        setError(genJson.error ?? "Generatsiya muvaffaqiyatsiz.");
+        const raw = genJson.error ?? "";
+        const busy =
+          genJson.code === "PROVIDER_QUOTA" || /quota|Gemini|googleapis|generativelanguage|HTTP \d{3}/i.test(raw);
+        setError(busy ? "Hozirda so‘rovlar ko‘payib ketdi, iltimos 1 daqiqadan so‘ng qayta urinib ko‘ring." : raw || "Generatsiya muvaffaqiyatsiz.");
         return;
       }
       setSchema(genJson.schema);

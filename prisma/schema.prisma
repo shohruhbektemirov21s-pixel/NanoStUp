@@ -373,16 +373,46 @@ model WebUser {
   lastLoginAt          DateTime?             @map("last_login_at")
   sessionVersion       Int                   @default(0) @map("session_version")
   linkedTelegramUserId String?               @unique @map("linked_telegram_user_id")
+  billingAccountId     String?               @unique @map("billing_account_id")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
   adminAuditLogsTarget AdminAuditLog[]       @relation("AuditWebTarget")
   managedSubscriptions ManagedSubscription[] @relation("ManagedSubWeb")
   linkedTelegramUser   User?                 @relation("TelegramWebLink", fields: [linkedTelegramUserId], references: [id])
+  billingAccount       BillingAccount?       @relation(fields: [billingAccountId], references: [id], onDelete: SetNull)
+  accountLinkChallenges AccountLinkChallenge[]
+  passwordResetTokens   PasswordResetToken[]
 
   @@index([email])
   @@index([phone])
   @@index([isActive])
   @@map("web_users")
+}
+
+model AccountLinkChallenge {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  webUserId  String    @map("web_user_id")
+  webUser    WebUser   @relation(fields: [webUserId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([webUserId, expiresAt])
+  @@map("account_link_challenges")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  webUserId  String    @map("web_user_id")
+  webUser    WebUser   @relation(fields: [webUserId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime  @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@index([webUserId, createdAt(sort: Desc)])
+  @@map("password_reset_tokens")
 }
 
 model ManagedSubscriptionPlan {

@@ -69,6 +69,10 @@ async function ensurePort(port) {
 
 await ensurePort(PORT);
 
+console.info(
+  "[dev] Eslatma: `npm run dev` ishlaganda boshqa terminalda `npm run build` ishga tushirmang — `.next` aralashib, `Cannot find module './vendor-chunks/...'` xatolari chiqadi. Chunk xato bo‘lsa: dev ni to‘xtating (`Ctrl+C`), keyin `npm run dev:clean`.",
+);
+
 const nextArgs = ["dev", "-p", String(PORT), ...(useTurbo ? ["--turbo"] : [])];
 const child = spawn(process.execPath, [nextBin, ...nextArgs], {
   cwd: root,

@@ -88,17 +88,22 @@ export async function targetedWebsiteRegeneration(
 
     let raw: string;
     try {
-      raw = await withTransientHttpRetry(
-        () =>
-          postChatCompletion({
-            config,
-            messages,
-            temperature: input.temperature ?? 0.28,
-            jsonMode: true,
-            signal: input.signal,
-          }),
-        { operationLabel: "postChatCompletion_regenerate", maxAttempts: 3, baseDelayMs: 450 },
-      );
+      const call = () =>
+        postChatCompletion({
+          config,
+          messages,
+          temperature: input.temperature ?? 0.28,
+          jsonMode: true,
+          signal: input.signal,
+        });
+      raw =
+        config.provider === "google"
+          ? await call()
+          : await withTransientHttpRetry(call, {
+              operationLabel: "postChatCompletion_regenerate",
+              maxAttempts: 3,
+              baseDelayMs: 450,
+            });
     } catch (error) {
       if (error instanceof AiEngineError) {
         throw error;

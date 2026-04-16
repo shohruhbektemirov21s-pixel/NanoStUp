@@ -253,3 +253,61 @@ export async function assertWebsiteAiRequest(request: Request, locale: AppLocale
   }
   return assertWebsiteAiGuestRateLimit(request, locale);
 }
+
+function resolveWebsiteGenerationThrottleKey(request: Request): string {
+  const jar = cookies();
+  const builderRaw = jar.get(BUILDER_SESSION_COOKIE)?.value;
+  if (builderRaw) {
+    const p = parseBuilderSessionToken(builderRaw);
+    if (p?.webUserId) {
+      return `wu:${p.webUserId}`;
+    }
+  }
+  const miniRaw = jar.get(MINIAPP_SESSION_COOKIE)?.value;
+  if (miniRaw) {
+    const m = parseMiniappSessionToken(miniRaw);
+    if (m?.userId) {
+      return `tg:${m.userId}`;
+    }
+  }
+  return `ip:${getClientIpFromRequest(request)}`;
+}
+
+/**
+ * Har bir foydalanuvchi / IP uchun generatsiya endpointiga qo‘shimcha cheklov (spam va token tejash).
+ * Admin sessiyasida o‘tkaziladi.
+ */
+export async function assertWebsiteAiGenerationThrottle(request: Request, locale: AppLocale): Promise<NextResponse | null> {
+  if (process.env.ALLOW_AI_WITHOUT_LOGIN === "true") {
+    return null;
+  }
+  if (hasAdminSessionSync()) {
+    return null;
+  }
+  const windowMs = 60_000;
+  const raw = process.env.WEBSITE_AI_GENERATE_PER_MINUTE?.trim();
+  const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+  const maxInWindow = Number.isFinite(parsed) ? Math.max(3, Math.min(60, parsed)) : 5;
+  const hit = checkSlidingWindowRateLimit({
+    key: `website-ai-gen:${resolveWebsiteGenerationThrottleKey(request)}`,
+    windowMs,
+    maxInWindow,
+  });
+  if (hit.ok) {
+    return null;
+  }
+  const copy = getApiGenerateMessages(locale);
+  const retryAfterSec = Math.max(1, Math.ceil(hit.retryAfterMs / 1000));
+  return NextResponse.json(
+    {
+      success: false as const,
+      error: copy.rateLimited,
+      code: "RATE_LIMITED",
+      retryAfterSec,
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSec) },
+    },
+  );
+}

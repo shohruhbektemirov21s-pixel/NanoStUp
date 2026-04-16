@@ -40,21 +40,22 @@ async function fetchModelJson(input: {
   temperature: number;
   signal?: AbortSignal;
 }): Promise<string> {
-  return withTransientHttpRetry(
-    () =>
-      postChatCompletion({
-        config: input.config,
-        messages: input.messages,
-        temperature: input.temperature,
-        jsonMode: true,
-        signal: input.signal,
-      }),
-    {
-      operationLabel: "postChatCompletion",
-      maxAttempts: TRANSIENT_HTTP_MAX_ATTEMPTS,
-      baseDelayMs: TRANSIENT_HTTP_BASE_DELAY_MS,
-    },
-  );
+  const call = () =>
+    postChatCompletion({
+      config: input.config,
+      messages: input.messages,
+      temperature: input.temperature,
+      jsonMode: true,
+      signal: input.signal,
+    });
+  if (input.config.provider === "google") {
+    return call();
+  }
+  return withTransientHttpRetry(call, {
+    operationLabel: "postChatCompletion",
+    maxAttempts: TRANSIENT_HTTP_MAX_ATTEMPTS,
+    baseDelayMs: TRANSIENT_HTTP_BASE_DELAY_MS,
+  });
 }
 
 /**

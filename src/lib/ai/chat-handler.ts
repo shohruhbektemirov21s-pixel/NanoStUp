@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AiEngineError } from "./errors";
+import { withTransientHttpRetry } from "./pipeline/transient-retry";
 
 export type AiProviderId = "openai" | "deepseek" | "google";
 
@@ -38,6 +39,54 @@ type GeminiGenerateResponse = {
 const DEFAULT_OPENAI_BASE = "https://api.openai.com/v1";
 const DEFAULT_DEEPSEEK_BASE = "https://api.deepseek.com/v1";
 const DEFAULT_GOOGLE_GENAI_BASE = "https://generativelanguage.googleapis.com";
+/** Tez va arzon Flash sinf (1.5 Pro o‘rniga). Eski IDlar `normalizeGoogleGenAiModelId` orqali shu oilaga aylanadi. */
+const DEFAULT_GOOGLE_GENAI_MODEL = "gemini-2.0-flash";
+
+const GEMINI_EXTRA_KEY_SLOTS = 32;
+const GOOGLE_HTTP_MAX_ATTEMPTS = 3;
+const GOOGLE_HTTP_BASE_DELAY_MS = 2000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Bir nechta kalit: standart env + `GEMINI_KEY_1` … `GEMINI_KEY_32` (takrorlarsiz tartibda).
+ */
+export function collectGeminiApiKeys(): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (raw: string | undefined) => {
+    const t = raw?.trim();
+    if (t && !seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+    }
+  };
+  push(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+  push(process.env.GEMINI_API_KEY);
+  push(process.env.GOOGLE_API_KEY);
+  for (let i = 1; i <= GEMINI_EXTRA_KEY_SLOTS; i += 1) {
+    push(process.env[`GEMINI_KEY_${i}`]);
+  }
+  return out;
+}
+
+/** v1beta da eski `gemini-1.5-*` IDlari 404 berishi mumkin — barqaror ID ga aylantiramiz. */
+export function normalizeGoogleGenAiModelId(raw: string): string {
+  const id = raw.replace(/^models\//, "").trim().toLowerCase();
+  const legacyToCurrent: Record<string, string> = {
+    "gemini-1.5-flash": DEFAULT_GOOGLE_GENAI_MODEL,
+    "gemini-1.5-flash-8b": DEFAULT_GOOGLE_GENAI_MODEL,
+    "gemini-1.5-flash-latest": DEFAULT_GOOGLE_GENAI_MODEL,
+    "gemini-1.5-pro": DEFAULT_GOOGLE_GENAI_MODEL,
+    "gemini-1.5-pro-latest": DEFAULT_GOOGLE_GENAI_MODEL,
+    "gemini-pro": DEFAULT_GOOGLE_GENAI_MODEL,
+  };
+  return legacyToCurrent[id] ?? raw.trim();
+}
 
 export function resolveAiClientConfig(): ResolvedAiClientConfig {
   const providerRaw = process.env.AI_PROVIDER?.trim().toLowerCase();
@@ -68,19 +117,17 @@ export function resolveAiClientConfig(): ResolvedAiClientConfig {
     return { provider: "deepseek", apiKey, baseUrl, model };
   }
 
-  const apiKey =
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ||
-    process.env.GEMINI_API_KEY?.trim() ||
-    process.env.GOOGLE_API_KEY?.trim();
-  if (!apiKey) {
+  const keys = collectGeminiApiKeys();
+  if (keys.length === 0) {
     throw new AiEngineError(
-      "GOOGLE_GENERATIVE_AI_API_KEY (yoki GEMINI_API_KEY) topilmadi — Gemini uchun .env da qo‘ying.",
+      "GOOGLE_GENERATIVE_AI_API_KEY (yoki GEMINI_API_KEY / GEMINI_KEY_1…) topilmadi — Gemini uchun .env da qo‘ying.",
       "MISSING_API_KEY",
     );
   }
   const baseUrl = (process.env.GOOGLE_GENERATIVE_AI_BASE_URL?.trim() || DEFAULT_GOOGLE_GENAI_BASE).replace(/\/$/, "");
-  const model = process.env.GOOGLE_GENERATIVE_AI_MODEL?.trim() || "gemini-2.0-flash";
-  return { provider: "google", apiKey, baseUrl, model };
+  const envModel = process.env.GOOGLE_GENERATIVE_AI_MODEL?.trim();
+  const model = normalizeGoogleGenAiModelId(envModel && envModel.length > 0 ? envModel : DEFAULT_GOOGLE_GENAI_MODEL);
+  return { provider: "google", apiKey: keys[0], baseUrl, model };
 }
 
 export type PostChatCompletionInput = {
@@ -220,12 +267,49 @@ async function postGoogleGeminiChat(input: PostChatCompletionInput): Promise<str
   return text;
 }
 
+async function postGoogleGeminiCompletionResilient(input: PostChatCompletionInput): Promise<string> {
+  const keys = collectGeminiApiKeys();
+  if (keys.length === 0) {
+    throw new AiEngineError(
+      "GOOGLE_GENERATIVE_AI_API_KEY (yoki GEMINI_API_KEY / GEMINI_KEY_1…) topilmadi — Gemini uchun .env da qo‘ying.",
+      "MISSING_API_KEY",
+    );
+  }
+
+  let lastError: unknown;
+  for (let keyIdx = 0; keyIdx < keys.length; keyIdx += 1) {
+    if (keyIdx > 0) {
+      await sleep(GOOGLE_HTTP_BASE_DELAY_MS * 2 ** (keyIdx - 1));
+    }
+    const cfg = { ...input.config, apiKey: keys[keyIdx] };
+    try {
+      return await withTransientHttpRetry(
+        () => postGoogleGeminiChat({ ...input, config: cfg }),
+        {
+          operationLabel: "postGoogleGeminiChat",
+          maxAttempts: GOOGLE_HTTP_MAX_ATTEMPTS,
+          baseDelayMs: GOOGLE_HTTP_BASE_DELAY_MS,
+        },
+      );
+    } catch (e) {
+      lastError = e;
+      const status = e instanceof AiEngineError ? e.httpStatus : undefined;
+      if (status === 429 && keyIdx < keys.length - 1) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw new AiEngineError("Gemini javob bermadi.", "HTTP_ERROR", lastError, 429);
+}
+
 /**
  * OpenAI, DeepSeek yoki Google Gemini (generateContent) orqali chat completion.
  */
 export async function postChatCompletion(input: PostChatCompletionInput): Promise<string> {
   if (input.config.provider === "google") {
-    return postGoogleGeminiChat(input);
+    return postGoogleGeminiCompletionResilient(input);
   }
   return postOpenAiCompatibleChat(input);
 }

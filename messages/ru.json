@@ -10,7 +10,11 @@
     "pricing": "Тарифы",
     "dashboard": "Кабинет",
     "signup": "Регистрация",
-    "login": "Вход"
+    "login": "Вход",
+    "account": "Аккаунт",
+    "logout": "Выход",
+    "loggedOutToast": "Вы вышли из аккаунта.",
+    "logoutFailedToast": "Не удалось выйти. Попробуйте снова."
   },
   "PlatformFooter": {
     "ariaLabel": "Контакты разработчика и дисклеймер",
@@ -267,6 +271,7 @@
     "templateCardLandingTitle": "Быстрая продажа",
     "templateCardLandingDesc": "Один продукт или акция — коротко и ясно.",
     "toastRateLimited": "Слишком много запросов — подождите и повторите.",
+    "toastProviderBusy": "Сейчас много запросов — подождите около минуты и попробуйте снова.",
     "retryHint": "Последняя генерация не удалась. Можно повторить с тем же промптом.",
     "retryAction": "Повторить",
     "authWallTitle": "Войдите, чтобы использовать AI-генерацию.",
@@ -290,6 +295,7 @@
     "overlayTitle": "Готовится схема сайта…",
     "aiThinkingHint": "Модель синхронизирует структуру, тему и блоки — несколько секунд.",
     "errorTitle": "Превью не загрузилось",
+    "retryPreview": "Повторить",
     "dismiss": "Закрыть",
     "frameTitle": "Внешний вид сайта",
     "footerNote": "Вид задаётся через srcDoc — не влияет на CSS основного приложения.",
@@ -306,6 +312,7 @@
     "toastRefreshDesigning": "Подбираем новую палитру…",
     "toastRefreshed": "Дизайн обновлён.",
     "toastRefreshError": "Не удалось обновить дизайн.",
+    "toastProviderBusy": "Сейчас много запросов — подождите около минуты и попробуйте снова.",
     "undo": "Назад",
     "redo": "Вперёд",
     "undoTitle": "Отменить последнее изменение схемы",
@@ -351,8 +358,11 @@
     "popular": "Популярно",
     "monthsShort": "{n} мес.",
     "perPeriod": "{months} мес.",
+    "pricingCurrencySuffix": "сум",
+    "limitGenShort": "Лимит AI-генераций: {count}",
+    "limitExportShort": "Лимит экспорта: {count}",
     "cta": "Купить",
-    "legalNote": "Оплата через Payme (UZS, в тийинах). USD в таблице — ориентир; расчёт на сервере по PAYME_USD_TO_UZS_RATE. В кабинете Payme задайте поля счёта: user_id, plan, months.",
+    "legalNote": "Суммы берутся из тарифов админки (UZS); скидки по сроку совпадают с checkout. Оплата через Payme (тийины). Поля счёта: user_id, plan, months.",
     "payModalTitle": "Оплата через Payme",
     "payModalBody": "{tier} — {months} мес. Точную сумму в сумах вы увидите на стороне Payme.",
     "payModalHint": "Перед оплатой войдите в builder (/builder-login).",
@@ -364,6 +374,7 @@
     "payErrorNotConfigured": "Payme не настроен на сервере (PAYME_MERCHANT_ID / PAYME_MERCHANT_KEY).",
     "payErrorGeneric": "Не удалось начать оплату.",
     "payErrorNetwork": "Ошибка сети. Проверьте подключение и попробуйте снова.",
+    "payErrorPlanMissing": "Тариф не найден — обновите страницу и попробуйте снова.",
     "tiers": {
       "basic": {
         "name": "Базовый",
@@ -568,6 +579,8 @@
     "contextTooLarge": "Слишком большой контекст чата. Сократите прошлые сообщения.",
     "unauthorized": "Доступ запрещён — нужна сессия builder или admin.",
     "rateLimited": "Слишком много AI-запросов с этой сети. Подождите минуту и повторите.",
+    "providerBusy": "Сейчас слишком много запросов — подождите около минуты и попробуйте снова.",
+    "aiTemporarilyUnavailable": "Сервис AI временно недоступен. Повторите попытку через минуту.",
     "schemaValidation": "На сервере не прошла проверка схемы.",
     "unexpected": "Неожиданная ошибка."
   }
