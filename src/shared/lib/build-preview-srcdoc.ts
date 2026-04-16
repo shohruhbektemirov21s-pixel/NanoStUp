@@ -230,6 +230,12 @@ export function buildPlaceholderPreviewSrcDoc(
         if (!a) return;
         var href = a.getAttribute("href") || "";
         if (href.charAt(0) === "#") return;
+        if (href.charAt(0) === "/" && !href.startsWith("//")) {
+          e.preventDefault();
+          var slug = href.substring(1).split("/")[0];
+          if (slug) window.location.hash = slug;
+          return;
+        }
         e.preventDefault();
       });
     </script>
@@ -253,6 +259,12 @@ export function buildPreviewSrcDoc(schema: WebsiteSchema, opts?: { initialPageSl
         if (!a) return;
         var href = a.getAttribute("href") || "";
         if (href.charAt(0) === "#") return;
+        if (href.charAt(0) === "/" && !href.startsWith("//")) {
+          e.preventDefault();
+          var slug = href.substring(1).split("/")[0];
+          if (slug) window.location.hash = slug;
+          return;
+        }
         e.preventDefault();
       });
     </script>

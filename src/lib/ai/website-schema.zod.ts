@@ -238,16 +238,47 @@ export const sitePageSchema = z.object({
   sections: z.array(sectionSchema).min(1),
 });
 
+export const designDNASchema = z.object({
+  visualStyle: z.enum([
+    "minimal-editorial",
+    "luxury-dark",
+    "startup-gradient",
+    "glassmorphism-soft",
+    "brutalist-grid",
+    "corporate-clean",
+  ]),
+  heroVariant: z.enum([
+    "split-hero",
+    "centered-hero",
+    "full-overlay-hero",
+    "cards-hero",
+    "product-hero",
+  ]),
+  navbarVariant: z.enum(["floating", "classic", "centered-logo", "sidebar"]),
+  typographyMood: z.enum(["clean-sans", "premium-serif", "modern-tech", "friendly-rounded"]),
+  spacingMode: z.enum(["compact", "balanced", "airy"]),
+  cardStyle: z.enum(["soft", "sharp", "glass", "bordered", "elevated"]),
+  colorMode: z.enum([
+    "neutral-light",
+    "dark-premium",
+    "gradient-vibrant",
+    "soft-pastel",
+    "monochrome-bold",
+  ]),
+});
+
 export const websiteSchema = z
   .object({
     schemaVersion: z.enum(["1", "2", "3"]),
     language: z.string().min(2).max(32),
     siteName: z.string().min(1),
+    businessType: z.string().min(1).max(120).optional(),
     seo: z.object({
       title: z.string().min(1),
       description: z.string().min(1),
     }),
     theme: websiteThemeSchema,
+    designDNA: designDNASchema.optional(),
     /** v1: barcha bloklar shu yerda. v2/v3: bo‘sh yoki qoldiq */
     sections: z.array(sectionSchema).default([]),
     pages: z.array(sitePageSchema).optional(),
@@ -307,3 +338,4 @@ export type WebsiteSection = z.infer<typeof sectionSchema>;
 export type WebsiteTheme = z.infer<typeof websiteThemeSchema>;
 export type SitePage = z.infer<typeof sitePageSchema>;
 export type SiteNavigation = z.infer<typeof siteNavigationSchema>;
+export type DesignDNA = z.infer<typeof designDNASchema>;

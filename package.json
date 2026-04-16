@@ -22,6 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@grammyjs/conversations": "^1.2.0",
     "@prisma/client": "^5.22.0",
     "class-variance-authority": "^0.7.1",

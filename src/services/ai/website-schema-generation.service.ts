@@ -136,14 +136,14 @@ export async function runWebsiteSchemaGenerationPipeline(
         httpStatus: error instanceof AiEngineError ? error.httpStatus : undefined,
         message: error instanceof Error ? error.message : "unknown",
       });
-      if (error instanceof AiEngineError) {
-        throw error;
+      // MUHIM FIX: API Quota (429) tushganida yoki oxirgi urinish xato bo'lganda 
+      // Preview buzilib ketmasligi uchun throw qilish o'rniga break qilamiz.
+      // Dastur avtomatik tarzda pastdagi `buildFallbackWebsiteSchema` (zaxira maket) ga tushib qoladi.
+      const status = error instanceof AiEngineError ? error.httpStatus : undefined;
+      if (status === 429 || attempt >= maxRetries) {
+        break;
       }
-      throw new AiEngineError(
-        error instanceof Error ? error.message : "AI tarmoq xatosi.",
-        "HTTP_ERROR",
-        error,
-      );
+      continue;
     }
 
     const recovered = parseModelJsonWithRecovery(raw);
