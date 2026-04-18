@@ -1,0 +1,60 @@
+{
+  "Navbar": {
+    "features": "Imkoniyatlar",
+    "pricing": "Narxlar",
+    "showcase": "Namunalar",
+    "login": "Kirish",
+    "getStarted": "Boshlash"
+  },
+  "Hero": {
+    "badge": "Gemini 1.5 Pro asosida",
+    "titlePrefix": "Veb-saytingizni",
+    "titleSuffix": "birgina prompt bilan quring",
+    "description": "Biznesingizni istalgan tilda tasvirlab bering va bizning sun'iy intellektimiz bir necha soniya ichida matnlar, rasmlar va yuqori konversiyali maketlar bilan ta'minlangan premium veb-sayt yaratib beradi.",
+    "startBuilding": "Yaratishni boshlash",
+    "viewDemo": "Demoni ko'rish"
+  },
+  "Stats": {
+    "generatedSites": "Yaratilgan saytlar",
+    "businessTypes": "Biznes turlari",
+    "countries": "Davlatlar",
+    "uptime": "Ish vaqti"
+  },
+  "Features": {
+    "title": "O'sish uchun kerakli barcha narsa",
+    "subtitle": "Professional biznes uchun professional vositalar.",
+    "multiPage": {
+      "title": "Ko'p sahifali maketlar",
+      "desc": "Asosiy, Biz haqimizda, Xizmatlar, Kontakt va boshqa sahifalardan iborat to'liq saytlar yarating."
+    },
+    "instantPreview": {
+      "title": "Lahzali ko'rinish",
+      "desc": "Sun'iy intellekt sizning raqamli ko'rinishingizni yaratayotganida o'zgarishlarni real vaqtda kuzating."
+    },
+    "multiLanguage": {
+      "title": "Ko'p tilli",
+      "desc": "Ingliz, rus va o'zbek tillarini to'liq qo'llab-quvvatlash imkoniyati mavjud."
+    }
+  },
+  "Pricing": {
+    "title": "Oddiy va shaffof narxlar",
+    "subtitle": "Biznesingiz ehtiyojlari uchun mukammal rejani tanlang.",
+    "free": "Bepul",
+    "basic": "Asosiy",
+    "premium": "Premium",
+    "choose": "Rejani tanlash",
+    "features": {
+      "aiGen": "AI Generatsiyalar",
+      "projects": "Loyihalar",
+      "export": "ZIP formatda eksport",
+      "support": "Ustuvor qo'llab-quvvatlash"
+    }
+  },
+  "Footer": {
+    "desc": "Zamonaviy biznes uchun eng ilg'or sun'iy intellekt asosidagi veb-sayt konstruktori.",
+    "product": "Mahsulot",
+    "company": "Kompaniya",
+    "legal": "Huquqiy",
+    "rights": "Barcha huquqlar himoyalangan."
+  }
+}

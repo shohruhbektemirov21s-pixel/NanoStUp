@@ -8,7 +8,7 @@ const sectionMap: Record<string, React.FC<any>> = {
   // Add more sections here...
 };
 
-export const SiteRenderer = ({ schema }: { schema: any }) => {
+export const SiteRenderer = React.memo(({ schema }: { schema: any }) => {
   if (!schema || !schema.pages) return null;
 
   // For simplicity, we render the first page in the list (or 'home')
@@ -23,4 +23,7 @@ export const SiteRenderer = ({ schema }: { schema: any }) => {
       })}
     </div>
   );
-};
+});
+
+SiteRenderer.displayName = 'SiteRenderer';
+

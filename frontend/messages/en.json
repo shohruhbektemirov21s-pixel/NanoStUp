@@ -1,0 +1,60 @@
+{
+  "Navbar": {
+    "features": "Features",
+    "pricing": "Pricing",
+    "showcase": "Showcase",
+    "login": "Login",
+    "getStarted": "Get Started"
+  },
+  "Hero": {
+    "badge": "Powered by Gemini 1.5 Pro",
+    "titlePrefix": "Build your website",
+    "titleSuffix": "with a single prompt",
+    "description": "Describe your business in any language and watch our AI create a premium, multi-page website with copy, images, and high-converting layouts in seconds.",
+    "startBuilding": "Start Building",
+    "viewDemo": "View Demo"
+  },
+  "Stats": {
+    "generatedSites": "Generated Sites",
+    "businessTypes": "Business Types",
+    "countries": "Countries",
+    "uptime": "Uptime"
+  },
+  "Features": {
+    "title": "Everything you need to grow",
+    "subtitle": "Professional tools for professional businesses.",
+    "multiPage": {
+      "title": "Multi-page Layouts",
+      "desc": "Generate complete sites with Home, About, Services, Contact, and more."
+    },
+    "instantPreview": {
+      "title": "Instant Preview",
+      "desc": "See your changes in real-time as the AI crafts your digital presence."
+    },
+    "multiLanguage": {
+      "title": "Multi-language",
+      "desc": "Full support for English, Russian, and Uzbek out of the box."
+    }
+  },
+  "Pricing": {
+    "title": "Simple, transparent pricing",
+    "subtitle": "Choose the perfect plan for your business needs.",
+    "free": "Free",
+    "basic": "Basic",
+    "premium": "Premium",
+    "choose": "Choose Plan",
+    "features": {
+      "aiGen": "AI Generations",
+      "projects": "Projects",
+      "export": "Export to ZIP",
+      "support": "Priority Support"
+    }
+  },
+  "Footer": {
+    "desc": "The most advanced AI website builder for modern businesses.",
+    "product": "Product",
+    "company": "Company",
+    "legal": "Legal",
+    "rights": "All rights reserved."
+  }
+}

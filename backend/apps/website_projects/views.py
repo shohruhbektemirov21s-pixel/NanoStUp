@@ -26,18 +26,38 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             if not can_create:
                 return Response({"detail": msg}, status=status.HTTP_403_FORBIDDEN)
             
+            # GUARD: Prevent duplicate generating processes for same user
+            from django.utils import timezone
+            from datetime import timedelta
+            
+            # Find any active generation that is NOT older than 10 minutes (safety timeout)
+            stuck_threshold = timezone.now() - timedelta(minutes=10)
+            active_gen = WebsiteProject.objects.filter(
+                user=user, 
+                status=ProjectStatus.GENERATING,
+                generation_started_at__gt=stuck_threshold
+            ).exists()
+            
+            if active_gen:
+                return Response(
+                    {"detail": "You already have a site being generated. Please wait or try again in 10 minutes."}, 
+                    status=status.HTTP_409_CONFLICT
+                )
+
             # Create project record
             project = WebsiteProject.objects.create(
                 user=user,
                 title=serializer.validated_data['title'],
                 prompt=serializer.validated_data['prompt'],
                 language=serializer.validated_data['language'],
-                status=ProjectStatus.GENERATING
+                status=ProjectStatus.GENERATING,
+                generation_started_at=timezone.now()
             )
+
             
             # TODO: Start async generation (Celery)
             # For now, we'll return the project object
-            # In a real app, logic would move to apps/ai_generation/tasks.py
             
             return Response(WebsiteProjectSerializer(project).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
