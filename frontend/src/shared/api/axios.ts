@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/authStore';
 
 const api = axios.create({
   // `localhost` ayrim tizimlarda IPv6 (::1) ga ketib, 127.0.0.1 dagi backendga ulanmasligi mumkin.
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/',
   timeout: 30000,
 });
 

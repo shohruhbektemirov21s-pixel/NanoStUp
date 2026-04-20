@@ -56,5 +56,11 @@
     "company": "Kompaniya",
     "legal": "Huquqiy",
     "rights": "Barcha huquqlar himoyalangan."
+  },
+  "Builder": {
+    "authRequired": "Veb-sayt yaratish uchun iltimos birinchi ro'yxatdan o'ting",
+    "guestMode": "Siz mehmon rejimidagiz. Loyihani saqlash uchun ro'yxatdan o'ting.",
+    "placeholder": "Saytingizni tasvirlab bering (masalan: Toshkentdagi zamonaviy restoran)",
+    "generate": "Yaratish"
   }
 }

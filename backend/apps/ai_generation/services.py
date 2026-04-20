@@ -1,109 +1,101 @@
 import google.generativeai as genai
+import openai
 import json
 import logging
+import re
 from django.conf import settings
-from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Pydantic Schemas for AI Response Validation
-class PageBlueprint(BaseModel):
-    name: str
-    slug: str
-    sections: List[str]
+class DeepSeekService:
+    def __init__(self):
+        self.api_key = getattr(settings, 'DEEPSEEK_API_KEY', None)
+        self.model = getattr(settings, 'DEEPSEEK_MODEL', "deepseek-chat")
+        
+        if not self.api_key:
+            logger.error("DeepSeek API key is missing.")
+            self.client = None
+        else:
+            # DeepSeek uses OpenAI-compatible SDK
+            self.client = openai.OpenAI(
+                api_key=self.api_key,
+                base_url="https://api.deepseek.com"
+            )
 
-class WebsiteBlueprint(BaseModel):
-    siteName: str
-    businessType: str
-    targetAudience: str
-    brandTone: str
-    pages: List[PageBlueprint]
-    designDNA: Dict[str, str]
-
-class SectionContent(BaseModel):
-    id: str
-    type: str
-    variant: str
-    content: Dict[str, Any]
-    settings: Optional[Dict[str, Any]] = {}
-
-class PageSchema(BaseModel):
-    title: str
-    slug: str
-    seo: Dict[str, str]
-    sections: List[SectionContent]
-
-class FullWebsiteSchema(BaseModel):
-    siteName: str
-    brandColors: Dict[str, str]
-    pages: List[PageSchema]
+    def chat(self, prompt: str, history: List[Dict] = None) -> str:
+        if not self.client:
+            return "DeepSeek xizmati sozlanmagan."
+        
+        messages = [{"role": "system", "content": "Siz AI Website Builder platformasining yordamchisisiz. Savollarga qisqa va aniq javob bering."}]
+        if history:
+            messages.extend(history)
+        messages.append({"role": "user", "content": prompt})
+        
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=1000
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"DeepSeek Error: {e}")
+            return "Kechirasiz, suhbat xizmatida xatolik yuz berdi."
 
 class GeminiService:
+    _cached_model_name = None
+
     def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
+        self.api_key = settings.GEMINI_API_KEY
+        if not self.api_key:
+             raise ValueError("Gemini API key is missing.")
+        genai.configure(api_key=self.api_key)
 
-    def generate_blueprint(self, prompt: str, language: str = 'en') -> Dict:
-        """Step 1 AI Generation: Analyze intent and create a structure."""
-        
-        # Basic safety check (Gemini has built-in safety, but we add a layer)
-        unsafe_keywords = ['18+', 'nsfw', 'porn', 'adult', 'sex', 'illegal', 'violence']
-        if any(word in prompt.lower() for word in unsafe_keywords):
-            raise ValueError("Unsafe content detected. Please provide a safe business prompt.")
-
-        system_prompt = f"""
-        You are a senior website architect. Analyze the user prompt and generate a website blueprint.
-        The user language is {language}. All content should be in {language}.
-        Output MUST be a valid JSON matching this structure:
-        {{
-            "siteName": "Name of the site",
-            "businessType": "type of business",
-            "targetAudience": "who is this for",
-            "brandTone": "professional, playful, etc",
-            "pages": [
-                {{"name": "Home", "slug": "home", "sections": ["hero", "features", "contact"]}}
-            ],
-            "designDNA": {{
-                "visualStyle": "minimal-editorial",
-                "colorMode": "light",
-                "typographyMood": "modern"
-            }}
-        }}
-        """
-        
-        response = self.model.generate_content(f"{system_prompt}\n\nUser prompt: {prompt}")
+    def _discover_best_model(self) -> str:
+        if GeminiService._cached_model_name:
+            return GeminiService._cached_model_name
         try:
-            # Clean JSON from response (sometimes Gemini adds ```json ... ```)
-            text = response.text.strip()
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            
-            data = json.loads(text)
-            # Validate with Pydantic
-            WebsiteBlueprint(**data)
-            return data
-        except Exception as e:
-            logger.error(f"Blueprint generation failed: {e}")
-            raise ValueError("Failed to generate a valid website blueprint.")
+            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            for pref in ["models/gemini-1.5-flash-latest", "models/gemini-1.5-flash", "models/gemini-pro"]:
+                if pref in models:
+                    GeminiService._cached_model_name = pref
+                    return pref
+            return models[0] if models else "models/gemini-pro"
+        except Exception:
+            return "models/gemini-1.5-flash-latest"
 
-    def generate_page_content(self, blueprint: Dict, page_name: str, language: str = 'en') -> Dict:
-        """Step 2 AI Generation: Generate detailed content for a specific page."""
-        # This would be a more complex prompt with section-specific instructions
-        system_prompt = f"""
-        Generate full JSON content for the '{page_name}' page based on this blueprint: {json.dumps(blueprint)}.
-        The language must be {language}.
-        Include realistic marketing copy.
-        Section types allowed: hero, features, services, products, about, testimonial, contact, footer.
-        Output MUST be a valid JSON.
-        """
-        
-        response = self.model.generate_content(system_prompt)
+    def _call_gemini(self, prompt: str, system_instruction: str = "") -> str:
+        model_name = self._discover_best_model()
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content(f"{system_instruction}\n\n{prompt}")
+        return response.text
+
+    def _clean_json(self, text: str) -> Dict:
         try:
-            text = response.text.strip()
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
+            text = text.replace('```json', '').replace('```', '').strip()
+            start, end = text.find('{'), text.rfind('}')
+            if start != -1 and end != -1: text = text[start:end+1]
             return json.loads(text)
-        except Exception as e:
-            logger.error(f"Page content generation failed: {e}")
-            return {{}} # Fallback
+        except Exception:
+            raise ValueError("AI JSON formati xatosi.")
+
+    def generate_full_site(self, prompt: str, language: str = 'uz') -> Dict:
+        instr = f"Generate website schema JSON in {language}."
+        res = self._call_gemini(prompt, system_instruction=instr)
+        return self._clean_json(res)
+
+    def revise_site(self, prompt: str, current_schema: Dict, language: str = 'uz') -> Dict:
+        instr = f"Update this JSON schema. Lang: {language}. Schema: {json.dumps(current_schema)}"
+        res = self._call_gemini(prompt, system_instruction=instr)
+        return self._clean_json(res)
+
+class AIRouterService:
+    @staticmethod
+    def detect_intent(prompt: str) -> str:
+        prompt_lower = prompt.lower().strip()
+        gen_keywords = ['sayt', 'yarat', 'qur', 'build', 'create', 'dizayn', 'rang', 'font', 'section', 'tuzat', 'edit']
+        
+        if any(kw in prompt_lower for kw in gen_keywords):
+            return "GEMINI"
+        return "DEEPSEEK"

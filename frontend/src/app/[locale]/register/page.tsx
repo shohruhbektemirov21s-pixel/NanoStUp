@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
+import { useAuthStore } from '@/store/authStore';
 import axios from 'axios';
 
 export default function RegisterPage() {
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   
   const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,17 @@ export default function RegisterPage() {
         password, 
         full_name: fullName 
       });
-      router.push('/login');
+
+      // Auto login
+      const loginResponse = await api.post('/accounts/login/', { email, password });
+      const { access } = loginResponse.data;
+      
+      const userResponse = await api.get('/accounts/me/', {
+        headers: { Authorization: `Bearer ${access}` }
+      });
+      
+      setAuth(userResponse.data, access);
+      router.push('/builder');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const payload = err.response?.data as Record<string, unknown> | undefined;

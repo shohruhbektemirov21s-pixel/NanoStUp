@@ -1,160 +1,93 @@
 import logging
-from datetime import timedelta
-
-from django.utils import timezone
+from django.http import HttpResponse
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.ai_generation.services import GeminiService
-from apps.subscriptions.services import SubscriptionService
-
-from .models import ProjectStatus, WebsiteProject
-from .serializers import CreateProjectSerializer, WebsiteProjectSerializer
+from apps.ai_generation.services import GeminiService, DeepSeekService, AIRouterService
+from apps.accounts.models import User
+from apps.exports.services import ExportService
+from .models import ProjectStatus, WebsiteProject, ProjectVersion
+from .serializers import WebsiteProjectSerializer
 
 logger = logging.getLogger(__name__)
 
-
-def _build_preview_schema(prompt: str, blueprint: dict) -> dict:
-    """
-    Frontend `SiteRenderer` uchun minimal render qilinadigan sxema.
-    Gemini blueprintidagi section stringlarini UI section obyektlariga aylantiradi.
-    """
-    site_name = blueprint.get("siteName") or "AI Website"
-    pages = blueprint.get("pages") or []
-    first_page = pages[0] if pages else {"name": "Home", "slug": "home", "sections": ["hero", "features"]}
-    raw_sections = first_page.get("sections") or ["hero", "features"]
-
-    section_objects = []
-    for section in raw_sections:
-        section_type = str(section).strip().lower()
-        if section_type == "hero":
-            section_objects.append(
-                {
-                    "id": "hero-1",
-                    "type": "hero",
-                    "variant": "default",
-                    "content": {
-                        "title": site_name,
-                        "description": prompt[:180] if prompt else "Your AI generated website is ready.",
-                        "ctaText": "Get Started",
-                    },
-                    "settings": {},
-                }
-            )
-        elif section_type in {"features", "services", "products"}:
-            section_objects.append(
-                {
-                    "id": "features-1",
-                    "type": "features",
-                    "variant": "cards",
-                    "content": {
-                        "title": "What we offer",
-                        "items": [
-                            {"title": "Fast setup", "desc": "Launch quickly with AI-generated structure."},
-                            {"title": "Modern design", "desc": "Clean layout tailored for your business."},
-                            {"title": "Easy edits", "desc": "Adjust text and sections in seconds."},
-                        ],
-                    },
-                    "settings": {},
-                }
-            )
-
-    if not section_objects:
-        section_objects = [
-            {
-                "id": "hero-1",
-                "type": "hero",
-                "variant": "default",
-                "content": {
-                    "title": site_name,
-                    "description": prompt[:180] if prompt else "Your AI generated website is ready.",
-                    "ctaText": "Get Started",
-                },
-                "settings": {},
-            }
-        ]
-
-    return {
-        "siteName": site_name,
-        "brandColors": {
-            "primary": "#111827",
-            "secondary": "#4f46e5",
-            "accent": "#14b8a6",
-        },
-        "pages": [
-            {
-                "title": first_page.get("name") or "Home",
-                "slug": first_page.get("slug") or "home",
-                "seo": {
-                    "title": site_name,
-                    "description": prompt[:160] if prompt else f"{site_name} website",
-                },
-                "sections": section_objects,
-            }
-        ],
-    }
-
 class WebsiteProjectViewSet(viewsets.ModelViewSet):
     serializer_class = WebsiteProjectSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        if self.action in ['process_prompt', 'download_zip']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         return WebsiteProject.objects.filter(user=self.request.user)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
     @action(detail=False, methods=['post'])
-    def generate(self, request):
-        serializer = CreateProjectSerializer(data=request.data)
-        if serializer.is_valid():
-            user = request.user
-            # Check limits
-            can_create, msg = SubscriptionService.check_user_limits(user, 'projects')
-            if not can_create:
-                return Response({"detail": msg}, status=status.HTTP_403_FORBIDDEN)
-            
-            # GUARD: Prevent duplicate generating processes for same user
-            # Find any active generation that is NOT older than 10 minutes (safety timeout)
-            stuck_threshold = timezone.now() - timedelta(minutes=10)
-            active_gen = WebsiteProject.objects.filter(
-                user=user, 
-                status=ProjectStatus.GENERATING,
-                generation_started_at__gt=stuck_threshold
-            ).exists()
-            
-            if active_gen:
-                return Response(
-                    {"detail": "You already have a site being generated. Please wait or try again in 10 minutes."}, 
-                    status=status.HTTP_409_CONFLICT
-                )
+    def process_prompt(self, request):
+        prompt = request.data.get('prompt')
+        project_id = request.data.get('project_id')
+        language = request.data.get('language', 'uz')
 
-            # Create project record
-            project = WebsiteProject.objects.create(
-                user=user,
-                title=serializer.validated_data['title'],
-                prompt=serializer.validated_data['prompt'],
-                language=serializer.validated_data['language'],
-                status=ProjectStatus.GENERATING,
-                generation_started_at=timezone.now()
-            )
+        if not prompt:
+            return Response({"success": False, "error": "Prompt kutilmoqda."}, status=status.HTTP_400_BAD_REQUEST)
 
-            
-            # Perform AI generation synchronously (for demo)
-            gemini = GeminiService()
-            try:
-                blueprint = gemini.generate_blueprint(project.prompt, language=project.language)
-                project.blueprint = blueprint
-                project.schema_data = _build_preview_schema(project.prompt, blueprint)
-                project.status = ProjectStatus.COMPLETED
-                project.save()
-            except Exception as e:
-                logger.error(f"Gemini generation failed: {e}")
-                project.status = ProjectStatus.FAILED
-                project.save()
-                return Response({"detail": "AI generation failed."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        user = request.user if request.user.is_authenticated else User.objects.filter(is_staff=True).first()
+        if not user:
+             user, _ = User.objects.get_or_create(email="tester@example.com", defaults={"full_name": "Tester"})
 
-            # Return the completed project with blueprint
-            return Response(WebsiteProjectSerializer(project).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        intent = AIRouterService.detect_intent(prompt)
+        
+        try:
+            if intent == "DEEPSEEK":
+                # CHAT MODE
+                chat_api = DeepSeekService()
+                chat_res = chat_api.chat(prompt)
+                return Response({
+                    "success": True, "ai_type": "DEEPSEEK", "message": chat_res, "is_chat": True
+                })
+
+            else:
+                # GENERATION MODE (GEMINI)
+                gemini = GeminiService()
+                if project_id:
+                    project = WebsiteProject.objects.get(id=project_id)
+                    new_schema = gemini.revise_site(prompt, project.schema_data, language)
+                    project.schema_data = new_schema
+                    project.save()
+                    ProjectVersion.objects.create(
+                        project=project, prompt=prompt, schema_data=new_schema, 
+                        intent="revise", version_number=project.versions.count() + 1
+                    )
+                else:
+                    new_schema = gemini.generate_full_site(prompt, language)
+                    project = WebsiteProject.objects.create(
+                        user=user, title=new_schema.get('siteName', 'AI Site'),
+                        prompt=prompt, language=language, schema_data=new_schema,
+                        status=ProjectStatus.COMPLETED
+                    )
+                    ProjectVersion.objects.create(
+                        project=project, prompt=prompt, schema_data=new_schema, 
+                        intent="generate", version_number=1
+                    )
+
+                return Response({
+                    "success": True, "ai_type": "GEMINI", "project": WebsiteProjectSerializer(project).data, "is_chat": False
+                })
+
+        except Exception as e:
+            logger.exception(f"AI Router Error: {e}")
+            return Response({
+                "success": False, "error": "AI vaqtincha ishlamayapti", "details": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def download_zip(self, request, pk=None):
+        try:
+            project = self.get_object()
+            zip_buffer = ExportService.generate_static_zip(project)
+            response = HttpResponse(zip_buffer.getvalue(), content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename="{project.title}.zip"'
+            return response
+        except Exception as e:
+            return Response({"error": "Eksport xatosi"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

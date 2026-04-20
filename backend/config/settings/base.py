@@ -42,9 +42,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.ai_generation",
     "apps.website_projects",
-    "apps.previews",
     "apps.exports",
-    "apps.common",
     "apps.notifications",
 ]
 
@@ -147,6 +145,10 @@ CORS_ALLOW_ALL_ORIGINS = True # Change for production
 # Gemini
 GEMINI_MODEL = env("GOOGLE_GENERATIVE_AI_MODEL", default="gemini-flash-latest")
 GEMINI_API_KEY = env("GOOGLE_GENERATIVE_AI_API_KEY", default="")
+
+# DeepSeek
+DEEPSEEK_MODEL = env("DEEPSEEK_MODEL", default="deepseek-chat")
+DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY", default="")
 # SPECTACULAR SETTINGS
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AI Website Builder API',
@@ -154,7 +156,6 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
-
 # UNFOLD PREMIUM ADMIN SETTINGS
 UNFOLD = {
     "SITE_TITLE": "AI Builder Admin",
@@ -224,4 +225,5 @@ UNFOLD = {
         ],
     },
 }
+
 

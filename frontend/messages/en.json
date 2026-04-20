@@ -56,5 +56,11 @@
     "company": "Company",
     "legal": "Legal",
     "rights": "All rights reserved."
+  },
+  "Builder": {
+    "authRequired": "Please register first to generate a website",
+    "guestMode": "You are in guest mode. Register to save your projects.",
+    "placeholder": "Describe your site (e.g. 'A modern art gallery in Paris')",
+    "generate": "Generate"
   }
 }

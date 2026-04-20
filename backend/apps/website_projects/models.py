@@ -37,9 +37,21 @@ class WebsiteProject(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     generation_started_at = models.DateTimeField(null=True, blank=True)
 
-
     def __str__(self):
         return f"{self.title} ({self.user.email})"
 
     class Meta:
         ordering = ['-created_at']
+
+class ProjectVersion(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    project = models.ForeignKey(WebsiteProject, on_delete=models.CASCADE, related_name='versions')
+    prompt = models.TextField()
+    schema_data = models.JSONField()
+    intent = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    version_number = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('project', 'version_number')
