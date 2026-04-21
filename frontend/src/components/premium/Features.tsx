@@ -30,7 +30,7 @@ export function PremiumFeatures() {
     {
       icon: <Cpu className="w-8 h-8" />,
       title: "AI Core Engine",
-      desc: "Powered by Gemini 1.5 Pro with deep understanding of marketing intent.",
+      desc: "Advanced AI with deep understanding of marketing intent and business needs.",
       color: "from-orange-500 to-orange-700"
     },
     {

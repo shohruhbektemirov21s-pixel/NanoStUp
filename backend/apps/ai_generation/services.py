@@ -1,7 +1,7 @@
 """
 AI services:
-  - ArchitectService  — foydalanuvchi bilan gaplashib, sayt spetsifikatsiyasini yig'adi
-  - ClaudeService     — tayyor spetsdan JSON sxema generatsiyasi
+  - ArchitectService  — Gemini orqali foydalanuvchi bilan gaplashib, dizayn variantlar va sayt spetsini yig'adi
+  - ClaudeService     — tayyor spetsdan JSON sxema generatsiyasi (Claude)
   - AIRouterService   — prompt intentini aniqlaydi
 """
 import json
@@ -11,32 +11,77 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import anthropic
+from google import genai
+from google.genai import types as genai_types
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────
-# Arxitektor tizim yo'riqnomasi (Gemini 2.0 Flash roli)
+# Arxitektor tizim yo'riqnomasi (Gemini roli)
 # ─────────────────────────────────────────────────────────────────
-ARCHITECT_SYSTEM_PROMPT = """Sen "Antigravity" loyihasining "Arxitektor AI" rolisida ishlaysan.
+ARCHITECT_SYSTEM_PROMPT = """Sen "Antigravity" platformasining "Arxitektor AI" rolisida ishlaysan. Sen Gemini AI — mijozlar bilan muloqot qilib, sayt loyihasini rejalashtiruvchi ekspert.
 
 ## SENING VAZIFANG:
-1. **Muloqot bosqichi**: Foydalanuvchi sayt so'raganda darhol yaratma. Avval quyidagilarni aniqla:
+1. **Muloqot bosqichi**: Foydalanuvchi sayt so'raganda darhol yaratma. Avval aniqla:
    - Biznes turi va maqsadi
    - Maqsadli auditoriya
-   - Afzal ko'rgan uslub (zamonaviy/klassik/rangdor/minimal)
+   - Kerakli sahifalar
 
-2. **Variantlar taqdim etish**: Har doim kamida 2 ta konseptual variant ber:
-   - Variant 1: (masalan) Minimalistik, qora-oq, professional
-   - Variant 2: (masalan) Rangdor, gradient, zamonaviy
+2. **DIZAYN VARIANTLAR**: Biznes turini bilgach, DOIM 3 ta vizual dizayn variantini taklif et.
+   Variantlarni [DESIGN_VARIANTS] bloki ichida JSON formatida yoz:
 
-3. **Detallar yig'ish**: Qaysi sahifalar kerakligini aniqlashtir:
-   - Hero, Xizmatlar, Haqimizda, Portfolio, Narxlar, Bog'lanish va h.k.
+[DESIGN_VARIANTS]
+[
+  {
+    "id": 1,
+    "name": "Minimalist Pro",
+    "primary": "#1a1a2e",
+    "accent": "#e94560",
+    "bg": "#f8f9fa",
+    "text": "#2d2d2d",
+    "mood": "Professional, toza, ishonchli",
+    "font": "Inter",
+    "layout": "centered",
+    "description": "Qora-oq minimalist, korporativ uslub. Nufuzli brendlar uchun.",
+    "icon": "🏢"
+  },
+  {
+    "id": 2,
+    "name": "Bold Creative",
+    "primary": "#6c63ff",
+    "accent": "#ff6584",
+    "bg": "#ffffff",
+    "text": "#1a1a1a",
+    "mood": "Ijodiy, zamonaviy, energetik",
+    "font": "Poppins",
+    "layout": "dynamic",
+    "description": "Gradient, rangdor, kreativ dizayn. Startuplar va ijodiy agentliklar uchun.",
+    "icon": "🚀"
+  },
+  {
+    "id": 3,
+    "name": "Nature Fresh",
+    "primary": "#2d6a4f",
+    "accent": "#74c69d",
+    "bg": "#f0fdf4",
+    "text": "#1b4332",
+    "mood": "Tabiiy, iliq, ishonchli",
+    "font": "Nunito",
+    "layout": "soft",
+    "description": "Yashil, organik, tabiiy kayfiyat. Ekologik va sog'liqni saqlash sohalari uchun.",
+    "icon": "🌿"
+  }
+]
+[/DESIGN_VARIANTS]
+
+3. **Detallar yig'ish**: Qaysi sahifalar kerakligini aniqlashtir.
 
 ## QOIDA:
-- Foydalanuvchi "Bo'ldi, qur", "Shu variant ma'qul", "Yaratib ber", "Tayyor", "Boshla" KABI iboralarni ishlatgandagina FINAL_SITE_SPEC blokini yaratasan.
+- Foydalanuvchi variant tanlaganda yoki "Bo'ldi, qur", "Yaratib ber", "Tayyor", "Boshla" KABI iboralarni ishlatganda FINAL_SITE_SPEC blokini yaratasan.
 - Undan oldin faqat savol-javob olib bor.
 - Javoblar DOIM o'zbek tilida, do'stona va professional bo'lsin.
+- [DESIGN_VARIANTS] bloki faqat BIRINCHI marta variantlar taklif etilganda yozilsin.
 - Emoji ishlatishingiz mumkin (ortiqchasiz).
 
 ## FINAL_SITE_SPEC formati (FAQAT foydalanuvchi rozi bo'lganda):
@@ -79,6 +124,75 @@ REVISE_SYSTEM_PROMPT = (
     "and return the FULL updated schema. Preserve unrelated fields. Return ONLY valid JSON."
 )
 
+# ─────────────────────────────────────────────────────────────────
+# To'liq kod generatsiyasi tizim yo'riqnomasi (Claude)
+# ─────────────────────────────────────────────────────────────────
+SITE_FILES_SYSTEM_PROMPT = """You are a senior full-stack web developer. Generate a complete, production-ready website package from the provided JSON schema.
+
+Return ONLY a single valid JSON object with this exact structure (no markdown, no explanation):
+{
+  "index.html": "...full HTML content...",
+  "css/styles.css": "...full CSS content...",
+  "js/app.js": "...full JavaScript content...",
+  "backend/server.js": "...full Node.js Express server content...",
+  "backend/package.json": "...package.json content...",
+  "backend/.env.example": "...env example content..."
+}
+
+## index.html requirements:
+- Complete HTML5 document, SEO meta tags, Open Graph
+- Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
+- Google Fonts via CDN (Inter or Outfit)
+- AOS (Animate On Scroll) library via CDN
+- Link to css/styles.css and js/app.js
+- Full responsive layout: hero, navigation (with hamburger), all sections from schema
+- Mobile-first design, professional and modern
+
+## css/styles.css requirements:
+- Custom CSS variables for colors/fonts from schema style
+- Smooth scroll behavior
+- Custom animations (fade-in, slide-up, scale)
+- Navbar scroll effect (shrink + shadow on scroll)
+- Button hover effects, card shadows
+- Loading spinner, mobile menu transitions
+- Custom scrollbar styling
+
+## js/app.js requirements:
+- Vanilla JS (no jQuery)
+- Mobile hamburger menu toggle
+- Smooth scroll for anchor links
+- AOS initialization
+- Navbar shrink on scroll
+- Contact form validation and AJAX submit to backend API
+- Typing animation for hero title (optional)
+- Scroll-to-top button
+
+## backend/server.js requirements:
+- Node.js + Express.js REST API
+- CORS enabled
+- POST /api/contact — receives {name, email, phone, message}, validates, logs
+- GET /api/health — health check
+- Serve static files from parent directory (for production)
+- Environment variables via dotenv
+- Error handling middleware
+- Port from PORT env var, default 3000
+
+## backend/package.json requirements:
+- name, version, description from schema
+- dependencies: express, cors, dotenv, nodemailer
+- scripts: start, dev (nodemon)
+
+## backend/.env.example:
+- PORT=3000
+- SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+- CONTACT_EMAIL
+
+## CRITICAL RULES:
+- ALL text content (headings, descriptions, buttons) must be in the language specified in the schema
+- Professional, modern design with the colors/style from schema
+- The JSON values must be properly escaped strings (\\n for newlines, \\" for quotes inside strings)
+- Return ONLY the JSON object, nothing else"""
+
 CHAT_SYSTEM_PROMPT = (
     "Siz AI Website Builder platformasining yordamchisisiz. "
     "Savollarga qisqa va aniq javob bering. Foydalanuvchi tilida javob yozing."
@@ -93,6 +207,11 @@ READY_TRIGGERS = re.compile(
 
 SPEC_PATTERN = re.compile(
     r"\[FINAL_SITE_SPEC\](.*?)\[/FINAL_SITE_SPEC\]",
+    re.DOTALL,
+)
+
+DESIGN_VARIANTS_PATTERN = re.compile(
+    r"\[DESIGN_VARIANTS\]\s*(\[.*?\])\s*\[/DESIGN_VARIANTS\]",
     re.DOTALL,
 )
 
@@ -117,6 +236,17 @@ def _extract_spec(text: str) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
+def _extract_design_variants(text: str) -> Optional[List[Dict[str, Any]]]:
+    """[DESIGN_VARIANTS] blokidan JSON ro'yxatini ajratib oladi."""
+    m = DESIGN_VARIANTS_PATTERN.search(text)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
 def _spec_to_prompt(spec: str) -> str:
     """Spetsifikatsiyani generatsiya promptiga aylantiradi."""
     return (
@@ -129,7 +259,7 @@ def _spec_to_prompt(spec: str) -> str:
 # ─────────────────────────────────────────────────────────────────
 # Claude client
 # ─────────────────────────────────────────────────────────────────
-def _get_client() -> anthropic.Anthropic:
+def _get_claude_client() -> anthropic.Anthropic:
     api_key = (
         os.environ.get("ANTHROPIC_API_KEY")
         or getattr(settings, "ANTHROPIC_API_KEY", "")
@@ -139,7 +269,7 @@ def _get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
-def _get_model() -> str:
+def _get_claude_model() -> str:
     return (
         os.environ.get("ANTHROPIC_MODEL")
         or getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-4-6")
@@ -147,59 +277,94 @@ def _get_model() -> str:
 
 
 # ─────────────────────────────────────────────────────────────────
-# ArchitectService
+# Gemini client (ArchitectService uchun) — google.genai SDK
+# ─────────────────────────────────────────────────────────────────
+def _get_gemini_client() -> genai.Client:
+    api_key = (
+        os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY")
+        or getattr(settings, "GEMINI_API_KEY", "")
+    )
+    if not api_key:
+        raise RuntimeError("GOOGLE_GENERATIVE_AI_API_KEY .env da topilmadi.")
+    return genai.Client(api_key=api_key)
+
+
+def _get_gemini_model_name() -> str:
+    return (
+        os.environ.get("GOOGLE_GENERATIVE_AI_MODEL")
+        or getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash")
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# ArchitectService  (Gemini bilan muloqot)
 # ─────────────────────────────────────────────────────────────────
 class ArchitectService:
     """
-    Foydalanuvchi bilan muloqot qilib, sayt spetsini yig'adi.
-    Tayyor bo'lganda FINAL_SITE_SPEC bloki bilan javob qaytaradi.
+    Gemini orqali foydalanuvchi bilan muloqot qilib, sayt spetsini va dizayn
+    variantlarini yig'adi. Tayyor bo'lganda FINAL_SITE_SPEC bloki qaytaradi.
     """
 
     def chat(
         self,
         user_message: str,
         history: List[Dict[str, str]],
-    ) -> Tuple[str, Optional[str]]:
+    ) -> Tuple[str, Optional[str], Optional[List[Dict[str, Any]]]]:
         """
-        Returns: (ai_text, spec_or_None)
-        spec_or_None — FINAL_SITE_SPEC topilsa, string.
+        Returns: (ai_text, spec_or_None, design_variants_or_None)
+          - ai_text          — Gemini javob matni ([DESIGN_VARIANTS] bloki olib tashlangan)
+          - spec_or_None     — FINAL_SITE_SPEC topilsa, string
+          - design_variants  — dizayn variantlar ro'yxati yoki None
         """
-        client = _get_client()
-        messages = [
-            {"role": m["role"], "content": m["content"]}
-            for m in history
-        ]
-        messages.append({"role": "user", "content": user_message})
-
         try:
-            response = client.messages.create(
-                model=_get_model(),
-                max_tokens=2048,
-                system=ARCHITECT_SYSTEM_PROMPT,
-                messages=messages,
+            client = _get_gemini_client()
+            model_name = _get_gemini_model_name()
+
+            # Tarixni Gemini Content formatiga o'tkazamiz
+            gemini_history = [
+                genai_types.Content(
+                    role="user" if item.get("role") == "user" else "model",
+                    parts=[genai_types.Part(text=item.get("content", ""))],
+                )
+                for item in history
+            ]
+
+            chat_session = client.chats.create(
+                model=model_name,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=ARCHITECT_SYSTEM_PROMPT,
+                    max_output_tokens=2048,
+                ),
+                history=gemini_history,
             )
-            text: str = response.content[0].text
-        except anthropic.APIError as exc:
-            logger.exception("ArchitectService chat xatosi")
-            raise RuntimeError(f"Arxitektor AI da xatolik: {exc}") from exc
+            response = chat_session.send_message(user_message)
+            text: str = response.text
+        except Exception as exc:
+            logger.exception("ArchitectService (Gemini) chat xatosi")
+            raise RuntimeError(f"Gemini Arxitektor AI da xatolik: {exc}") from exc
 
         spec = _extract_spec(text)
-        return text, spec
+        design_variants = _extract_design_variants(text)
+
+        # Javob matnidan [DESIGN_VARIANTS] blokini olib tashlaymiz (frontend alohida ko'rsatadi)
+        clean_text = DESIGN_VARIANTS_PATTERN.sub("", text).strip()
+
+        return clean_text, spec, design_variants
 
 
 # ─────────────────────────────────────────────────────────────────
 # ClaudeService  (sayt JSON generatsiyasi)
 # ─────────────────────────────────────────────────────────────────
 class ClaudeService:
-    """JSON sxema generatsiyasi va tahrirlash."""
+    """Claude orqali JSON sxema generatsiyasi va tahrirlash."""
 
     def chat(self, prompt: str, history: Optional[List[Dict]] = None) -> str:
-        client = _get_client()
+        client = _get_claude_client()
         messages: List[Dict[str, Any]] = list(history or [])
         messages.append({"role": "user", "content": prompt})
         try:
             response = client.messages.create(
-                model=_get_model(),
+                model=_get_claude_model(),
                 max_tokens=1024,
                 system=CHAT_SYSTEM_PROMPT,
                 messages=messages,
@@ -210,12 +375,12 @@ class ClaudeService:
             raise RuntimeError(f"AI suhbat xizmatida xatolik: {exc}") from exc
 
     def generate_from_spec(self, spec: str) -> Dict[str, Any]:
-        """FINAL_SITE_SPEC dan to'liq sayt sxemasini generatsiya qiladi."""
-        client = _get_client()
+        """FINAL_SITE_SPEC dan to'liq sayt sxemasini generatsiya qiladi (Claude)."""
+        client = _get_claude_client()
         prompt = _spec_to_prompt(spec)
         try:
             response = client.messages.create(
-                model=_get_model(),
+                model=_get_claude_model(),
                 max_tokens=8096,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
@@ -226,12 +391,12 @@ class ClaudeService:
             raise RuntimeError(f"Sayt generatsiyasida xatolik: {exc}") from exc
 
     def generate_full_site(self, prompt: str, language: str = "uz") -> Dict[str, Any]:
-        """To'g'ridan-to'g'ri promptdan generatsiya (architect yo'q)."""
-        client = _get_client()
+        """To'g'ridan-to'g'ri promptdan generatsiya (Claude, architect yo'q)."""
+        client = _get_claude_client()
         user_msg = f"Language for all content: {language}\nUser request:\n{prompt}"
         try:
             response = client.messages.create(
-                model=_get_model(),
+                model=_get_claude_model(),
                 max_tokens=8096,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
@@ -244,14 +409,14 @@ class ClaudeService:
     def revise_site(
         self, prompt: str, current_schema: Dict[str, Any], language: str = "uz"
     ) -> Dict[str, Any]:
-        client = _get_client()
+        client = _get_claude_client()
         user_msg = (
             f"Current schema JSON:\n{json.dumps(current_schema, ensure_ascii=False)}\n\n"
             f"Language: {language}\nChange request:\n{prompt}"
         )
         try:
             response = client.messages.create(
-                model=_get_model(),
+                model=_get_claude_model(),
                 max_tokens=8096,
                 system=REVISE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
@@ -260,6 +425,40 @@ class ClaudeService:
         except anthropic.APIError as exc:
             logger.exception("Claude revise xatosi")
             raise RuntimeError(f"Sayt tahrirlashda xatolik: {exc}") from exc
+
+    def generate_site_files(
+        self, schema: Dict[str, Any], language: str = "uz"
+    ) -> Dict[str, str]:
+        """
+        JSON sxemadan to'liq sayt fayllarini generatsiya qiladi:
+          - index.html (frontend)
+          - css/styles.css
+          - js/app.js
+          - backend/server.js (Node.js + Express)
+          - backend/package.json
+          - backend/.env.example
+        Returns: {"index.html": "...", "css/styles.css": "...", ...}
+        """
+        client = _get_claude_client()
+        user_msg = (
+            f"Website language: {language}\n\n"
+            f"Website JSON schema:\n{json.dumps(schema, ensure_ascii=False, indent=2)}\n\n"
+            "Generate the complete website files as described. Return ONLY the JSON object."
+        )
+        try:
+            response = client.messages.create(
+                model=_get_claude_model(),
+                max_tokens=16000,
+                system=SITE_FILES_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            raw = response.content[0].text
+            files = _extract_json(raw)
+            # Faqat string qiymatlarni qaytaramiz
+            return {k: str(v) for k, v in files.items() if isinstance(v, (str, int, float))}
+        except anthropic.APIError as exc:
+            logger.exception("Claude generate_site_files xatosi")
+            raise RuntimeError(f"Sayt kodi generatsiyasida xatolik: {exc}") from exc
 
 
 # ─────────────────────────────────────────────────────────────────

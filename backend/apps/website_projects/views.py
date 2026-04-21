@@ -10,6 +10,7 @@ from rest_framework.response import Response
 
 from apps.ai_generation.services import AIRouterService, ArchitectService, ClaudeService
 from apps.exports.services import ExportService
+from typing import Optional
 
 from .models import ProjectStatus, ProjectVersion, WebsiteProject
 from .serializers import WebsiteProjectSerializer
@@ -134,14 +135,15 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     "message": f"✅ Sayt yangilandi: «{project.title}»",
                 })
 
-            # ── 2. ARXITEKTOR SUHBAT ─────────────────────────────────────
+            # ── 2. GEMINI ARXITEKTOR SUHBAT ──────────────────────────────
             if intent in ("ARCHITECT", "CHAT"):
                 architect = ArchitectService()
-                ai_text, spec = architect.chat(prompt, history)
+                # Gemini: (ai_text, spec_or_None, design_variants_or_None)
+                ai_text, spec, design_variants = architect.chat(prompt, history)
 
                 if spec:
-                    # FINAL_SITE_SPEC topildi → sayt generatsiyasi boshlandi
-                    logger.info("FINAL_SITE_SPEC aniqlandi, generatsiya boshlandi")
+                    # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi
+                    logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     claude = ClaudeService()
                     new_schema = claude.generate_from_spec(spec)
 
@@ -176,13 +178,16 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                         "message": f"✅ Sayt tayyor: «{project_data['title']}»",
                     })
 
-                # Spec hali yo'q — davom etayotgan suhbat
-                return Response({
+                # Spec hali yo'q — davom etayotgan suhbat (Gemini)
+                resp_data: dict = {
                     "success": True,
                     "phase": "ARCHITECT",
                     "is_chat": True,
                     "message": ai_text,
-                })
+                }
+                if design_variants:
+                    resp_data["design_variants"] = design_variants
+                return Response(resp_data)
 
             # ── 3. TO'G'RIDAN-TO'G'RI GENERATSIYA (qisqa yo'l) ───────────
             claude = ClaudeService()
@@ -239,12 +244,61 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def download_zip(self, request, pk=None):
+        """
+        ZIP yuklab olish.
+        Birinchi marta: Claude frontend (HTML/CSS/JS) + backend (Node.js) kodni generatsiya
+        qiladi va keshda saqlaydi. Keyingi marta keshdan yuklaydi.
+        """
         project = self.get_object()
         try:
-            zip_buffer = ExportService.generate_static_zip(project)
+            # Kesh: generated_files allaqachon saqlangan bo'lsa ishlatamiz
+            if project.generated_files and isinstance(project.generated_files, dict):
+                zip_buffer = ExportService.generate_zip_from_files(
+                    project, project.generated_files
+                )
+                logger.info("ZIP keshdan yuklandi project=%s", project.id)
+            else:
+                # Claude orqali to'liq kod generatsiyasi
+                logger.info("Claude kod generatsiyasi boshlandi project=%s", project.id)
+                claude = ClaudeService()
+                generated_files = claude.generate_site_files(
+                    project.schema_data or {}, project.language or "uz"
+                )
+                # Keshga saqlaymiz
+                project.generated_files = generated_files
+                project.save(update_fields=["generated_files"])
+                zip_buffer = ExportService.generate_zip_from_files(project, generated_files)
+                logger.info(
+                    "ZIP yaratildi project=%s fayllar=%s",
+                    project.id, list(generated_files.keys()),
+                )
+        except RuntimeError as exc:
+            logger.error("Claude kod generatsiyasi xatosi project=%s: %s", project.id, exc)
+            # Fallback: oddiy HTML ZIP
+            try:
+                zip_buffer = ExportService.generate_static_zip(project)
+            except Exception:
+                logger.exception("Fallback ZIP ham xato project=%s", project.id)
+                return Response(
+                    {"error": "ZIP eksport xatosi"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         except Exception:
             logger.exception("ZIP export xatosi project=%s", project.id)
-            return Response({"error": "Eksport xatosi"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "Eksport xatosi"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        safe_title = "".join(c for c in project.title if c.isalnum() or c in " -_").strip()
         resp = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
-        resp["Content-Disposition"] = f'attachment; filename="{project.title}.zip"'
+        resp["Content-Disposition"] = f'attachment; filename="{safe_title}.zip"'
         return resp
+
+    @action(detail=True, methods=["post"])
+    def regenerate_code(self, request, pk=None):
+        """Mavjud loyiha uchun kodni qaytadan generatsiya qiladi (keshni tozalaydi)."""
+        project = self.get_object()
+        project.generated_files = None
+        project.save(update_fields=["generated_files"])
+        return Response({"success": True, "message": "Kod keshi tozalandi. ZIP yuklaganda qayta generatsiya bo'ladi."})

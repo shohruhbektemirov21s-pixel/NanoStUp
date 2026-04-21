@@ -29,6 +29,8 @@ class WebsiteProject(models.Model):
     # The generated content
     blueprint = models.JSONField(null=True, blank=True)
     schema_data = models.JSONField(null=True, blank=True)
+    # Claude-generated code files: {"index.html": "...", "css/styles.css": "...", ...}
+    generated_files = models.JSONField(null=True, blank=True)
     
     # Metadata
     business_type = models.CharField(max_length=100, blank=True)

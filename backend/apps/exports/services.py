@@ -2,7 +2,7 @@ import io
 import json
 import zipfile
 from html import escape
-from typing import Any, Dict, Iterable
+from typing import Any, Dict, Iterable, Optional
 
 from apps.website_projects.models import WebsiteProject
 
@@ -152,24 +152,90 @@ def _build_index_html(project: WebsiteProject) -> str:
 """
 
 
+def _build_readme(project: WebsiteProject, has_backend: bool) -> str:
+    backend_section = """
+## Backend ishga tushirish (Node.js)
+```bash
+cd backend
+npm install
+cp .env.example .env
+# .env faylida o'z sozlamalaringizni kiriting
+npm start
+```
+
+Backend API endpointlari:
+- `GET  /api/health`         — server holati
+- `POST /api/contact`        — kontakt formasi (name, email, phone, message)
+""" if has_backend else ""
+
+    return f"""# {project.title}
+> AI Website Builder (Gemini + Claude) yordamida yaratildi
+
+## Loyiha tuzilmasi
+```
+{project.title}/
+├── index.html          ← Asosiy sahifa (frontend)
+├── css/
+│   └── styles.css      ← Maxsus stillar va animatsiyalar
+├── js/
+│   └── app.js          ← Interaktivlik (menu, forma, animatsiyalar)
+{"├── backend/" if has_backend else ""}{"             ← Node.js + Express backend" if has_backend else ""}
+{"│   ├── server.js      ← REST API server" if has_backend else ""}
+{"│   ├── package.json   ← Node.js paketlar" if has_backend else ""}
+{"│   └── .env.example   ← Muhit o'zgaruvchilari namuna" if has_backend else ""}
+└── README.md
+```
+
+## Frontend ishga tushirish
+```bash
+# Oddiy usul — brauzerda oching:
+open index.html
+
+# Yoki VS Code Live Server kengaytmasi bilan
+# Yoki Python simple server:
+python3 -m http.server 8080
+```
+{backend_section}
+## Texnologiyalar
+- **Frontend**: HTML5, Tailwind CSS (CDN), Vanilla JavaScript
+- **Animatsiyalar**: AOS (Animate On Scroll)
+- **Shrift**: Google Fonts
+{"- **Backend**: Node.js, Express.js, Nodemailer" if has_backend else ""}
+
+---
+Yaratilgan: {project.created_at.strftime('%Y-%m-%d %H:%M')} | AI Website Builder
+"""
+
+
 class ExportService:
+
+    @staticmethod
+    def generate_zip_from_files(
+        project: WebsiteProject,
+        generated_files: Dict[str, str],
+    ) -> io.BytesIO:
+        """Claude tomonidan yaratilgan fayllardan ZIP tuzadi."""
+        has_backend = "backend/server.js" in generated_files
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for file_path, content in generated_files.items():
+                zf.writestr(file_path, content)
+            zf.writestr("README.md", _build_readme(project, has_backend))
+            zf.writestr(
+                "schema_data.json",
+                json.dumps(project.schema_data or {}, indent=2, ensure_ascii=False),
+            )
+        buffer.seek(0)
+        return buffer
+
     @staticmethod
     def generate_static_zip(project: WebsiteProject) -> io.BytesIO:
+        """Fallback: JSON sxemadan oddiy HTML ZIP tuzadi (Claude fayllari yo'q bo'lsa)."""
         buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            zip_file.writestr("index.html", _build_index_html(project))
-            zip_file.writestr(
-                "README.md",
-                (
-                    f"# {project.title} — AI Generated Website\n\n"
-                    "Ushbu loyiha AI Website Builder platformasi orqali yaratildi.\n\n"
-                    "## Ishga tushirish\n"
-                    "1. ZIP faylni oching.\n"
-                    "2. `index.html` faylini brauzerda oching (yoki VS Code Live Server).\n\n"
-                    f"Yaratilgan sana: {project.created_at.strftime('%Y-%m-%d %H:%M')}\n"
-                ),
-            )
-            zip_file.writestr(
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("index.html", _build_index_html(project))
+            zf.writestr("README.md", _build_readme(project, has_backend=False))
+            zf.writestr(
                 "schema_data.json",
                 json.dumps(project.schema_data or {}, indent=2, ensure_ascii=False),
             )
