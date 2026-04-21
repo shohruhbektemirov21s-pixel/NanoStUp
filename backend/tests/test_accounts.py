@@ -1,27 +1,39 @@
 import pytest
-from django.urls import reverse
-from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
+from rest_framework.test import APIClient
 
 User = get_user_model()
+
 
 @pytest.fixture
 def api_client():
     return APIClient()
 
+
 @pytest.fixture
 def admin_user(db):
-    user = User.objects.create_superuser(email="admin@example.com", password="adminpass")
-    return user
+    return User.objects.create_superuser(email="admin@example.com", password="adminpass")
 
-def test_admin_login(api_client, admin_user):
-    # Obtain JWT token (assuming JWT auth endpoint exists at /api/token/)
-    response = api_client.post("/api/token/", {"email": admin_user.email, "password": "adminpass"})
-    assert response.status_code == 200
-    token = response.data.get("access")
-    assert token
-    # Access admin endpoint (list users)
+
+def _obtain_token(client, email, password):
+    resp = client.post("/api/accounts/login/", {"email": email, "password": password}, format="json")
+    assert resp.status_code == 200, resp.content
+    return resp.data["access"]
+
+
+def test_admin_login_and_me(api_client, admin_user):
+    token = _obtain_token(api_client, admin_user.email, "adminpass")
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    resp = api_client.get(reverse("user-list"))  # Assuming router basename for User is 'user'
-    # Should be allowed for admin
+    resp = api_client.get("/api/accounts/me/")
     assert resp.status_code == 200
+    assert resp.data["email"] == admin_user.email
+
+
+def test_register_creates_user(api_client, db):
+    resp = api_client.post(
+        "/api/accounts/register/",
+        {"email": "new@example.com", "password": "StrongPass123", "full_name": "New"},
+        format="json",
+    )
+    assert resp.status_code == 201
+    assert User.objects.filter(email="new@example.com").exists()

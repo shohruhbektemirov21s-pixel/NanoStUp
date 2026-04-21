@@ -10,11 +10,11 @@ env = environ.Env()
 # Read environment variables from .env file
 environ.Env.read_env(os.path.join(BASE_DIR.parent, ".env"))
 
-SECRET_KEY = env("SECRET_KEY", default="django-insecure-default-key-change-me")
+SECRET_KEY = env("SECRET_KEY")  # .env da DOIM o'rnatilishi shart — default yo'q
 
 DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
 # Application definition
 INSTALLED_APPS = [
@@ -48,6 +48,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.security_middleware.SecurityHeadersMiddleware",
+    "config.audit_middleware.AuditLogMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -89,9 +91,14 @@ AUTH_USER_MODEL = "accounts.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "OPTIONS": {"min_length": 8},
+    },
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "apps.accounts.password_validators.StrongPasswordValidator"},
+    {"NAME": "apps.accounts.password_validators.NoCommonPasswordValidator"},
 ]
 
 # i18n
@@ -107,6 +114,55 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Django ishga tushganda xavfsizlikni tekshiradi
+SILENCED_SYSTEM_CHECKS: list[str] = []
+CHECKS = [
+    "config.startup_checks.run_security_checks",
+]
+
+# Audit logging
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "audit": {
+            "format": "{asctime} AUDIT {message}",
+            "style": "{",
+        },
+        "standard": {
+            "format": "{levelname} {asctime} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+        "audit_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "audit",
+        },
+    },
+    "loggers": {
+        "audit": {
+            "handlers": ["audit_console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
 
 # DRF
 REST_FRAMEWORK = {
@@ -124,10 +180,23 @@ REST_FRAMEWORK = {
 
 # JWT
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "UPDATE_LAST_LOGIN": True,
 }
+
+# So'rov hajmi cheklovi (10 MB max)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+
+# Xavfsizlik sarlavhalari
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Channels / Redis
 CHANNEL_LAYERS = {
@@ -139,8 +208,13 @@ CHANNEL_LAYERS = {
     },
 }
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True # Change for production
+# CORS: in DEBUG allow local Next.js; in prod require explicit origins via env.
+CORS_ALLOWED_ORIGINS = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://localhost:3000", "http://127.0.0.1:3000"],
+)
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
+CORS_ALLOW_CREDENTIALS = True
 
 # Gemini
 GEMINI_MODEL = env("GOOGLE_GENERATIVE_AI_MODEL", default="gemini-flash-latest")
@@ -149,6 +223,11 @@ GEMINI_API_KEY = env("GOOGLE_GENERATIVE_AI_API_KEY", default="")
 # DeepSeek
 DEEPSEEK_MODEL = env("DEEPSEEK_MODEL", default="deepseek-chat")
 DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY", default="")
+
+# Anthropic (Claude)
+ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-3-5-sonnet-20241022")
+ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
+
 # SPECTACULAR SETTINGS
 SPECTACULAR_SETTINGS = {
     'TITLE': 'AI Website Builder API',
@@ -159,10 +238,11 @@ SPECTACULAR_SETTINGS = {
 # UNFOLD PREMIUM ADMIN SETTINGS
 UNFOLD = {
     "SITE_TITLE": "AI Builder Admin",
-    "SITE_HEADER": "AI Website Builder Control Panel",
-    "SITE_SYMBOL": "speed", # font awesome or similar symbols
+    "SITE_HEADER": "AI Website Builder",
+    "SITE_SYMBOL": "auto_awesome",
     "SHOW_HISTORY": True,
-    "SHOW_VIEW_ON_SITE": True,
+    "SHOW_VIEW_ON_SITE": False,
+    "DASHBOARD_CALLBACK": "config.dashboard.dashboard_callback",
     "COLORS": {
         "primary": {
             "50": "250 245 255",
@@ -180,45 +260,60 @@ UNFOLD = {
     },
     "SIDEBAR": {
         "show_search": True,
-        "show_all_applications": True,
+        "show_all_applications": False,
         "navigation": [
             {
-                "title": "Main Navigation",
+                "title": "Boshqaruv",
                 "items": [
                     {
                         "title": "Dashboard",
                         "icon": "dashboard",
-                        "link": "admin:index",
+                        "link": "/17210707admin/",
                     },
+                ],
+            },
+            {
+                "title": "Foydalanuvchilar",
+                "items": [
                     {
-                        "title": "Users & Security",
+                        "title": "Barcha userlar",
                         "icon": "people",
-                        "link": "admin:accounts_user_changelist",
+                        "link": "/17210707admin/accounts/user/",
                     },
                 ],
             },
             {
-                "title": "AI Generation",
+                "title": "Obuna va Tariflar",
                 "items": [
                     {
-                        "title": "Projects",
-                        "icon": "auto_awesome",
-                        "link": "admin:website_projects_websiteproject_changelist",
+                        "title": "Tariflar (narxlar)",
+                        "icon": "sell",
+                        "link": "/17210707admin/subscriptions/tariff/",
                     },
-                ],
-            },
-            {
-                "title": "Billing & Subs",
-                "items": [
                     {
-                        "title": "Plans",
+                        "title": "Obunalar",
+                        "icon": "card_membership",
+                        "link": "/17210707admin/subscriptions/subscription/",
+                    },
+                    {
+                        "title": "To'lovlar",
                         "icon": "payments",
-                        "link": "admin:subscriptions_subscriptionplan_changelist",
+                        "link": "/17210707admin/payments/paymenttransaction/",
+                    },
+                ],
+            },
+            {
+                "title": "AI Loyihalar",
+                "items": [
+                    {
+                        "title": "Yaratilgan saytlar",
+                        "icon": "auto_awesome",
+                        "link": "/17210707admin/website_projects/websiteproject/",
                     },
                     {
-                        "title": "Payments",
-                        "icon": "shopping_cart",
-                        "link": "admin:payments_payment_changelist",
+                        "title": "Versiyalar",
+                        "icon": "history",
+                        "link": "/17210707admin/website_projects/projectversion/",
                     },
                 ],
             },

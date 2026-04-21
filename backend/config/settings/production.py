@@ -1,0 +1,73 @@
+"""
+Production sozlamalari.
+DJANGO_SETTINGS_MODULE=config.settings.production
+"""
+from .base import *  # noqa: F401, F403
+
+DEBUG = False
+
+# ── Xavfsizlik ─────────────────────────────────────────────────────
+
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")  # .env da aniq domen ko'rsatilsin
+
+# HTTPS majburiy
+SECURE_SSL_REDIRECT = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_HSTS_SECONDS = 31_536_000   # 1 yil
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# CORS — faqat ko'rsatilgan domenlar
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_CREDENTIALS = True
+
+# Sessiya umri
+SESSION_COOKIE_AGE = 86_400  # 1 kun
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# ── Database — PostgreSQL ──────────────────────────────────────────
+DATABASES = {
+    "default": env.db("DATABASE_URL")
+}
+
+# ── Logging ────────────────────────────────────────────────────────
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": "/var/log/aibuilder/django.log",
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
+    },
+    "root": {"handlers": ["console", "file"], "level": "WARNING"},
+    "loggers": {
+        "django": {"handlers": ["console", "file"], "level": "WARNING", "propagate": False},
+        "apps": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+    },
+}
+
+# ── Channels — Redis ───────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [env("REDIS_URL")]},
+    }
+}

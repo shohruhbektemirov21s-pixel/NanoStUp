@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.env$\")",
+      "Bash(python3 -c \"import venv\")",
+      "Bash(dpkg -s python3-venv)",
+      "Bash(python3 -m venv \"/home/xezretov/Desktop/sayt yaratish/backend/venv\")",
+      "Bash(\"/home/xezretov/Desktop/sayt yaratish/backend/venv/bin/pip\" install --upgrade pip -q)",
+      "Bash(./venv/bin/pip install *)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.development ./venv/bin/python manage.py check)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.development ./venv/bin/python manage.py migrate)",
+      "Bash(npm install *)",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.development ./venv/bin/python manage.py runserver 0.0.0.0:8000)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"Django health: HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/api/schema/)",
+      "Bash(curl -s -o /dev/null -w \"Django admin: HTTP %{http_code}\\\\n\" http://127.0.0.1:8000/admin/)",
+      "Bash(curl -s http://127.0.0.1:8000/)",
+      "Bash(pkill -f \"sayt yaratish/backend/venv/bin/python manage.py runserver\")",
+      "Bash(awk 'NR>1 {print $4}')",
+      "Bash(DJANGO_SETTINGS_MODULE=config.settings.development ./venv/bin/python manage.py runserver 0.0.0.0:8080)",
+      "Bash(PORT=3002 npm run dev)",
+      "Bash(chmod +x \"/home/xezretov/Desktop/sayt yaratish/frontend/node_modules/.bin/\"*)",
+      "Bash(curl -s -o /dev/null -w \"Django /admin: HTTP %{http_code}\\\\nDjango /api/schema/: HTTP %{http_code}\\\\n\" http://127.0.0.1:8080/admin/)",
+      "Bash(curl -s -o /dev/null -w \"Django /api/schema/: HTTP %{http_code}\\\\n\" http://127.0.0.1:8080/api/schema/)",
+      "Bash(curl -s -o /dev/null -w \"Next.js /: HTTP %{http_code}\\\\n\" http://127.0.0.1:3002/)",
+      "Bash(curl -s -o /dev/null -w \"Next.js /en: HTTP %{http_code}\\\\n\" http://127.0.0.1:3002/en)",
+      "Bash(curl -s -o /dev/null -w \"backend: %{http_code}\\\\n\" http://127.0.0.1:8080/api/schema/)",
+      "Bash(curl -s -o /dev/null -w \"frontend: %{http_code}\\\\n\" http://127.0.0.1:3002/en)",
+      "Bash(curl -s -o /dev/null -w \"django: %{http_code}\\\\n\" http://127.0.0.1:8080/api/schema/)"
+    ]
+  }
+}

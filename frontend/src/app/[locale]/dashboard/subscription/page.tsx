@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Zap, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import api from '@/shared/api/axios';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<any>(null);
