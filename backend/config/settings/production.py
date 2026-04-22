@@ -8,7 +8,7 @@ DEBUG = False
 
 # ── Xavfsizlik ─────────────────────────────────────────────────────
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")  # .env da aniq domen ko'rsatilsin
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["nanostup-api.onrender.com", "nanostup.uz", "www.nanostup.uz", "*"])
 
 # HTTPS majburiy
 SECURE_SSL_REDIRECT = True
@@ -23,8 +23,8 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # CORS — faqat ko'rsatilgan domenlar
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
+CORS_ALLOW_ALL_ORIGINS = True  # Vaqtincha barchasiga ruxsat beramiz, Render muhit o'zgaruvchilari yangilanmagunicha xato chiqmasligi uchun
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["https://nanostup.uz", "https://www.nanostup.uz", "https://nanostup.onrender.com"])
 CORS_ALLOW_CREDENTIALS = True
 
 # Sessiya umri
