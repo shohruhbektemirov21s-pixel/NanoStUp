@@ -68,7 +68,7 @@ export function PremiumNavbar() {
         "fixed top-0 w-full z-50 transition-all duration-300 backdrop-blur-xl h-20 flex items-center"
       )}
     >
-      <div className="max-w-7xl mx-auto px-6 w-full flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-110 transition-transform duration-300">
             <Sparkles className="w-6 h-6 text-white" />
@@ -98,7 +98,7 @@ export function PremiumNavbar() {
         <div className="flex items-center gap-4">
           <LanguageSwitcher />
 
-          {/* Auth'siz ko'rinish */}
+          {/* Auth'siz ko'rinish (desktop) */}
           {mounted && !isAuthenticated && (
             <div className="hidden sm:flex items-center gap-4">
               <Link href="/login" className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
@@ -110,6 +110,15 @@ export function PremiumNavbar() {
                 </Button>
               </Link>
             </div>
+          )}
+
+          {/* Auth'siz ko'rinish (mobil) */}
+          {mounted && !isAuthenticated && (
+            <Link href="/login" className="sm:hidden">
+              <Button className="bg-white text-black hover:bg-zinc-200 rounded-xl h-9 px-4 text-sm font-bold">
+                {t('login')}
+              </Button>
+            </Link>
           )}
 
           {/* Auth bo'lgan user ko'rinishi */}

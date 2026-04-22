@@ -167,26 +167,42 @@ export default function HistoryPage() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
       {/* Header */}
-      <header className="border-b border-white/5 px-6 py-4 flex items-center gap-4 shrink-0">
-        <Link href="/builder" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+      <header className="border-b border-white/5 px-4 md:px-6 py-3 md:py-4 flex items-center gap-3 md:gap-4 shrink-0">
+        {/* Mobilda: tafsilot ochiq bo'lsa, orqaga qaytish; aks holda Builder'ga */}
+        {selectedId ? (
+          <button
+            onClick={() => setSelectedId(null)}
+            className="md:hidden flex items-center gap-1 text-zinc-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm">Orqaga</span>
+          </button>
+        ) : null}
+        <Link href="/builder" className={cn(
+          "items-center gap-2 text-zinc-400 hover:text-white transition-colors",
+          selectedId ? "hidden md:flex" : "flex"
+        )}>
           <ArrowLeft className="w-4 h-4" />
           <span className="text-sm">Builder</span>
         </Link>
-        <div className="flex-1">
-          <h1 className="text-xl font-black flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-purple-400" />
-            Suhbatlar tarixi
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base md:text-xl font-black flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
+            <span className="truncate">Suhbatlar tarixi</span>
           </h1>
-          <p className="text-xs text-zinc-500">AI bilan barcha yozishmalaringiz shu yerda saqlanadi</p>
+          <p className="text-[10px] md:text-xs text-zinc-500 hidden sm:block">AI bilan barcha yozishmalaringiz shu yerda saqlanadi</p>
         </div>
-        <div className="text-sm text-zinc-400">
+        <div className="text-xs md:text-sm text-zinc-400 shrink-0">
           Jami: <span className="font-bold text-white">{conversations.length}</span>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Ro'yxat */}
-        <aside className="w-[360px] border-r border-white/5 overflow-y-auto shrink-0">
+        {/* Ro'yxat — mobilda to'liq kenglik, desktopda 360px */}
+        <aside className={cn(
+          "w-full md:w-[360px] border-r border-white/5 overflow-y-auto shrink-0",
+          selectedId ? "hidden md:block" : "block"
+        )}>
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
@@ -251,8 +267,11 @@ export default function HistoryPage() {
           )}
         </aside>
 
-        {/* Tafsilot */}
-        <main className="flex-1 overflow-y-auto">
+        {/* Tafsilot — mobilda faqat tanlanganda ko'rinadi */}
+        <main className={cn(
+          "flex-1 overflow-y-auto",
+          selectedId ? "block" : "hidden md:block"
+        )}>
           {!selectedId ? (
             <div className="h-full flex items-center justify-center text-zinc-500">
               <div className="text-center">
@@ -265,7 +284,7 @@ export default function HistoryPage() {
               <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
             </div>
           ) : detail ? (
-            <div className="max-w-3xl mx-auto p-6">
+            <div className="max-w-3xl mx-auto p-4 md:p-6">
               {/* Sarlavha */}
               <div className="mb-6 pb-6 border-b border-white/5">
                 <h2 className="text-2xl font-black mb-2">{detail.title}</h2>

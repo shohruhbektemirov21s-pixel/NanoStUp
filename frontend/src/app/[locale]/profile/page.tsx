@@ -148,7 +148,7 @@ export default function ProfilePage() {
   const tokens = user?.tokens_balance ?? 0;
 
   return (
-    <div className="min-h-screen bg-black text-white pt-32 pb-20 px-4">
+    <div className="min-h-screen bg-black text-white pt-20 md:pt-32 pb-20 px-4">
       <div className="max-w-6xl mx-auto">
 
         {/* ── Salomlashuv ── */}

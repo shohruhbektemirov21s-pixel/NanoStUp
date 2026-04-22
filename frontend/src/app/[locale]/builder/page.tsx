@@ -5,7 +5,7 @@ import {
   Bot, CheckCircle2, Clock, Code2, Cpu, Download, Eye, Layers, Loader2,
   MessageSquare, Monitor, MousePointer2, RefreshCw, Send,
   Settings, Smartphone, Sparkles, Wand2, Palette, Zap,
-  BarChart2, Coins,
+  BarChart2, Coins, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -523,6 +523,15 @@ export default function BuilderPage() {
       ? saved : 340;
   });
   const [isResizingChat, setIsResizingChat] = useState(false);
+  // Mobil chat drawer (kichik ekranlar uchun)
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   const { setCurrentProject } = useProjectStore();
   const { isAuthenticated, user, updateBalance } = useAuthStore();
@@ -844,7 +853,7 @@ export default function BuilderPage() {
     <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
 
       {/* Header */}
-      <header className="h-14 border-b border-white/5 px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0">
+      <header className="h-14 border-b border-white/5 px-3 md:px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0 gap-2">
         <div className="flex items-center gap-3">
           <Link href="/">
             <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
@@ -985,8 +994,8 @@ export default function BuilderPage() {
       {/* Main */}
       <main className="flex-1 flex overflow-hidden min-h-0">
 
-        {/* Sidebar */}
-        <aside className="w-14 border-r border-white/5 flex flex-col items-center py-5 gap-5 bg-zinc-950 shrink-0">
+        {/* Sidebar — desktop only */}
+        <aside className="hidden md:flex w-14 border-r border-white/5 flex-col items-center py-5 gap-5 bg-zinc-950 shrink-0">
           <button className="p-2.5 text-purple-400 bg-purple-500/10 rounded-xl ring-1 ring-purple-500/20"><Layers className="w-4 h-4" /></button>
           <button className="p-2.5 text-zinc-600 hover:text-white transition-all hover:bg-white/5 rounded-xl"><MousePointer2 className="w-4 h-4" /></button>
           <button className="p-2.5 text-zinc-600 hover:text-white transition-all hover:bg-white/5 rounded-xl"><MessageSquare className="w-4 h-4" /></button>
@@ -1091,29 +1100,55 @@ export default function BuilderPage() {
           )}
         </div>
 
-        {/* Chat panel resize handle */}
+        {/* Chat panel resize handle — faqat desktop */}
         <div
           onMouseDown={() => setIsResizingChat(true)}
           onDoubleClick={() => { setChatWidth(340); localStorage.setItem('builder:chatWidth', '340'); }}
           className={cn(
-            'w-1 shrink-0 cursor-col-resize group relative transition-colors',
+            'hidden md:block w-1 shrink-0 cursor-col-resize group relative transition-colors',
             isResizingChat ? 'bg-purple-500' : 'bg-white/5 hover:bg-purple-500/40'
           )}
           title="Surib kenglikni o'zgartiring (ikki marta bosib qaytaring)"
         >
-          {/* Kattaroq clickable zona */}
           <div className="absolute inset-y-0 -left-1.5 -right-1.5" />
-          {/* Markazdagi ishora */}
           <div className={cn(
             'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full transition-colors',
             isResizingChat ? 'bg-white' : 'bg-white/20 group-hover:bg-white/60'
           )} />
         </div>
 
-        {/* Chat panel */}
+        {/* Mobil: chatni ochish tugmasi (FAB) */}
+        {!isChatOpen && (
+          <button
+            onClick={() => setIsChatOpen(true)}
+            className="md:hidden fixed bottom-5 right-5 z-30 w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 shadow-2xl shadow-purple-500/40 flex items-center justify-center active:scale-95 transition-transform"
+            aria-label="AI chatni ochish"
+          >
+            <MessageSquare className="w-6 h-6 text-white" />
+            {chatMessages.length > 0 && (
+              <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-zinc-950">
+                {chatMessages.length > 9 ? '9+' : chatMessages.length}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Mobil overlay (drawer ochiq paytda) */}
+        {isMobile && isChatOpen && (
+          <div
+            className="md:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsChatOpen(false)}
+          />
+        )}
+
+        {/* Chat panel — desktopda yonda, mobilda drawer */}
         <div
-          className="border-l border-white/5 flex flex-col bg-zinc-950 shrink-0"
-          style={{ width: `${chatWidth}px` }}
+          className={cn(
+            'border-l border-white/5 flex flex-col bg-zinc-950 shrink-0',
+            'max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-50 max-md:w-[92vw] max-md:max-w-sm max-md:transition-transform max-md:duration-300 max-md:shadow-2xl',
+            isMobile && !isChatOpen ? 'max-md:translate-x-full' : 'max-md:translate-x-0'
+          )}
+          style={isMobile ? undefined : { width: `${chatWidth}px` }}
         >
 
           {/* Chat header */}
@@ -1133,6 +1168,14 @@ export default function BuilderPage() {
                   {isGenerating ? 'Ishlayapti' : phase === 'done' ? 'Tayyor' : 'Kutmoqda'}
                 </span>
               </div>
+              {/* Mobilda yopish tugmasi */}
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="md:hidden p-1.5 text-zinc-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                aria-label="Chatni yopish"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
