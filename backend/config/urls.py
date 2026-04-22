@@ -37,6 +37,7 @@ urlpatterns = [
     path("api/accounts/", include("apps.accounts.urls")),
     path("api/subscriptions/", include("apps.subscriptions.urls")),
     path("api/projects/", include("apps.website_projects.urls")),
+    path("api/public/", include("apps.website_projects.public_urls")),
     path("api/conversations/", include(("apps.website_projects.conversation_urls", "conversations"), namespace="conversations")),
     path("api/ai/", include("apps.ai_generation.urls")),
     path("api/payments/", include("apps.payments.urls")),

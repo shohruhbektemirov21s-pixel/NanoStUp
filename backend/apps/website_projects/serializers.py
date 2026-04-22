@@ -7,7 +7,11 @@ class WebsiteProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = WebsiteProject
         fields = '__all__'
-        read_only_fields = ('id', 'user', 'status', 'blueprint', 'schema_data', 'created_at', 'updated_at')
+        read_only_fields = (
+            'id', 'user', 'status', 'blueprint', 'schema_data',
+            'slug', 'is_published', 'published_at', 'view_count',
+            'created_at', 'updated_at',
+        )
 
 
 class CreateProjectSerializer(serializers.Serializer):

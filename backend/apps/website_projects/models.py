@@ -34,7 +34,14 @@ class WebsiteProject(models.Model):
     
     # Metadata
     business_type = models.CharField(max_length=100, blank=True)
-    
+
+    # ── Publish / share ────────────────────────────────────────
+    # Saytni publik URL orqali ko'rish uchun: /s/<slug>
+    slug = models.SlugField(max_length=80, unique=True, null=True, blank=True, db_index=True)
+    is_published = models.BooleanField(default=False)
+    published_at = models.DateTimeField(null=True, blank=True)
+    view_count = models.PositiveIntegerField(default=0)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     generation_started_at = models.DateTimeField(null=True, blank=True)

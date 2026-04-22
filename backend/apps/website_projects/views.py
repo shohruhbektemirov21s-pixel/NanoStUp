@@ -1,12 +1,16 @@
 import logging
+import secrets
 import time
 from collections import deque
 from threading import Lock
 from typing import Dict, Optional
 
+from django.db.models import F
 from django.http import HttpResponse
+from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import permissions, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
 from apps.accounts.models import (
@@ -22,6 +26,21 @@ from apps.exports.services import ExportService
 # True bo'lsa — token balans tekshirilmaydi (cheklovsiz test).
 # False — real balans tizimi ishlaydi (chat bonus + obuna nano koin).
 TOKEN_LIMITS_DISABLED = False
+
+
+def _auto_publish(project) -> None:
+    """Loyihani avtomatik publik qiladi — slug beradi va is_published=True."""
+    updates = []
+    if not project.slug:
+        project.slug = _generate_unique_slug(project.title)
+        updates.append("slug")
+    if not project.is_published:
+        project.is_published = True
+        project.published_at = timezone.now()
+        updates += ["is_published", "published_at"]
+    if updates:
+        updates.append("updated_at")
+        project.save(update_fields=updates)
 
 
 def _estimate_complexity(schema: Dict) -> Dict:
@@ -50,8 +69,6 @@ def _estimate_complexity(schema: Dict) -> Dict:
         "sections": section_count,
         "pages": page_count,
     }
-
-from django.db.models import F
 
 from .models import ChatMessage, ChatRole, Conversation, ProjectStatus, ProjectVersion, WebsiteProject
 from .serializers import WebsiteProjectSerializer
@@ -294,6 +311,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 project.schema_data = new_schema
                 project.status = ProjectStatus.COMPLETED
                 project.save(update_fields=["schema_data", "status", "updated_at"])
+                _auto_publish(project)  # REVISE — agar birinchi marta bo'lsa, slug + publish
                 version = ProjectVersion.objects.create(
                     project=project, prompt=prompt, schema_data=new_schema,
                     intent="revise", version_number=project.versions.count() + 1,
@@ -388,6 +406,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             schema_data=new_schema,
                             status=ProjectStatus.COMPLETED,
                         )
+                        _auto_publish(project)  # Yangi sayt — avtomatik publik URL
                         version = ProjectVersion.objects.create(
                             project=project, prompt=spec, schema_data=new_schema,
                             intent="generate", version_number=1,
@@ -505,6 +524,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     schema_data=new_schema,
                     status=ProjectStatus.COMPLETED,
                 )
+                _auto_publish(project)  # Yangi sayt — avtomatik publik URL
                 version = ProjectVersion.objects.create(
                     project=project, prompt=prompt, schema_data=new_schema,
                     intent="generate", version_number=1,
@@ -829,6 +849,93 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         except Exception:
             logger.exception("revise_inline kutilmagan xato")
             return Response({"success": False, "error": "AI xizmatida xatolik"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ─────────────────────────────────────────────────────────────
+# Publish / Share — publik sayt uchun slug generatsiyasi
+# ─────────────────────────────────────────────────────────────
+
+def _generate_unique_slug(title: str) -> str:
+    """Saytni publik URL uchun unikal slug (masalan: 'napoli-pizza-a3f2')."""
+    base = slugify(title or "site", allow_unicode=False)[:60] or "site"
+    # Takrorlanmaslik uchun qisqa tasodifiy qo'shimcha
+    for _ in range(5):
+        candidate = f"{base}-{secrets.token_hex(2)}"  # 4 belgi hex
+        if not WebsiteProject.objects.filter(slug=candidate).exists():
+            return candidate
+    # juda qattiq holat — uzunroq random
+    return f"{base}-{secrets.token_hex(4)}"
+
+
+# WebsiteProjectViewSet ga qo'shimcha action'lar (publish/unpublish)
+def publish(self, request, pk=None):
+    project = self.get_object()
+    if not project.schema_data:
+        return Response(
+            {"success": False, "error": "Sayt hali generatsiya qilinmagan."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not project.slug:
+        project.slug = _generate_unique_slug(project.title)
+    project.is_published = True
+    project.published_at = timezone.now()
+    project.save(update_fields=["slug", "is_published", "published_at", "updated_at"])
+    return Response({
+        "success": True,
+        "slug": project.slug,
+        "is_published": True,
+        "published_at": project.published_at,
+        "public_url": f"/s/{project.slug}",
+    })
+
+
+def unpublish(self, request, pk=None):
+    project = self.get_object()
+    project.is_published = False
+    project.save(update_fields=["is_published", "updated_at"])
+    return Response({"success": True, "is_published": False})
+
+
+WebsiteProjectViewSet.publish = action(detail=True, methods=["post"])(publish)
+WebsiteProjectViewSet.unpublish = action(detail=True, methods=["post"])(unpublish)
+
+
+# ─────────────────────────────────────────────────────────────
+# Publik sayt endpoint — auth talab qilmaydi
+# ─────────────────────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def public_site(request, slug: str):
+    """
+    /api/public/sites/<slug>/ — Publik URL uchun sayt sxemasini qaytaradi.
+    Faqat `is_published=True` bo'lgan loyihalar ko'rinadi.
+    """
+    try:
+        project = WebsiteProject.objects.only(
+            "id", "title", "schema_data", "language",
+            "slug", "is_published", "view_count", "updated_at",
+        ).get(slug=slug, is_published=True)
+    except WebsiteProject.DoesNotExist:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki o'chirilgan."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # View counter — atomik inkrement
+    WebsiteProject.objects.filter(pk=project.pk).update(view_count=F("view_count") + 1)
+
+    return Response({
+        "success": True,
+        "site": {
+            "title": project.title,
+            "schema_data": project.schema_data,
+            "language": project.language,
+            "slug": project.slug,
+            "view_count": project.view_count + 1,
+            "updated_at": project.updated_at,
+        },
+    })
 
 
 # ─────────────────────────────────────────────────────────────

@@ -2,9 +2,9 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Bot, CheckCircle2, Clock, Code2, Cpu, Download, Eye, Layers, Loader2,
+  Bot, CheckCircle2, Clock, Code2, Copy, Cpu, Download, Eye, Globe, Layers, Loader2,
   MessageSquare, Monitor, MousePointer2, RefreshCw, Send,
-  Settings, Smartphone, Sparkles, Wand2, Palette, Zap,
+  Settings, Share2, Smartphone, Sparkles, Wand2, Palette, Zap,
   BarChart2, Coins, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -68,6 +68,8 @@ interface ApiResponse {
     title: string;
     status: 'IDLE' | 'GENERATING' | 'COMPLETED' | 'FAILED';
     schema_data: Record<string, unknown> | null;
+    slug?: string | null;
+    is_published?: boolean;
   };
   balance?: Balance;
   insufficient_tokens?: boolean;
@@ -494,6 +496,11 @@ export default function BuilderPage() {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  // Publish / share
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<'idle' | 'architect' | 'building' | 'done'>('idle');
@@ -689,12 +696,25 @@ export default function BuilderPage() {
             .trim();
           if (clean) addMsg('ai', clean, 'DONE');
         }
-        addMsg('ai', `✅ Sayt yaratildi: «${data.project.title}»\n\nChap tomonda preview ko'rinmoqda.\n📦 ZIP tugmasini bosib kodni yuklab oling.`, 'DONE');
+        // Publik link (agar backend avtomatik publish qilgan bo'lsa)
+        const slug = data.project.slug ?? null;
+        const shareUrl = slug && typeof window !== 'undefined'
+          ? `${window.location.origin}/uz/s/${slug}`
+          : '';
+        const linkLine = shareUrl
+          ? `\n\n🌐 **Publik link:** ${shareUrl}\n_Do'stlaringizga yuboring yoki "Ulashish" tugmasini bosib ulashing._`
+          : '';
+        addMsg(
+          'ai',
+          `✅ Sayt yaratildi: «${data.project.title}»\n\nChap tomonda preview ko'rinmoqda.\n📦 ZIP tugmasini bosib kodni yuklab oling.${linkLine}\n\n✏️ **Biror joyi yoqmasa — shu yerga yozing, men tahrirlayman:**\n• "Hero rangini ko'k qil"\n• "Narxlar bo'limini o'chir"\n• "Kontaktga Instagram qo'sh"\n• "Zamonaviyroq ko'rinishga o'tkaz"`,
+          'DONE',
+        );
 
         // Preview ni yangilaymiz, loyihaga tegmaymiz
         setPreviewSchema(data.project.schema_data);
         setPreviewTitle(data.project.title);
         setPreviewId(data.project.id);
+        if (slug) setPublishedSlug(slug);
         setCurrentProject(data.project as Parameters<typeof setCurrentProject>[0]);
         setDesignVariants(null);
         setPhase('done');
@@ -800,8 +820,50 @@ export default function BuilderPage() {
     setFiles(null);
     setFilesReceivedAt(null);
     setBuildView('code');
+    setPublishedSlug(null);
+    setShowShareModal(false);
+    setCopied(false);
     // Yangi chat = yangi 500 bonus (backend tomonida yangi Conversation yaratiladi)
     setConversationId(null);
+  };
+
+  // Saytni publik URL orqali ulashish (publish)
+  const handlePublish = async () => {
+    if (!previewId || isPublishing) return;
+    setIsPublishing(true);
+    try {
+      const res = await api.post<{ success: boolean; slug?: string; error?: string }>(
+        `/projects/${previewId}/publish/`,
+      );
+      if (res.data.success && res.data.slug) {
+        setPublishedSlug(res.data.slug);
+        setShowShareModal(true);
+      } else {
+        alert(res.data.error ?? 'Publish qilishda xatolik.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Publish qilishda xatolik.';
+      alert(msg);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Publik URL ni hisoblash — brauzerda origin qo'shamiz
+  const publicUrl = publishedSlug && typeof window !== 'undefined'
+    ? `${window.location.origin}/uz/s/${publishedSlug}`
+    : '';
+
+  const handleCopyLink = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback — prompt
+      window.prompt('Nusxa oling:', publicUrl);
+    }
   };
 
   // DONE bo'lganda kod fayllarini avtomatik olish (IDE ko'rinishi uchun)
@@ -912,6 +974,27 @@ export default function BuilderPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors">
                 <RefreshCw className="w-3.5 h-3.5" /> Yangidan
               </motion.button>
+              {/* Publish / Share — faqat saqlangan loyiha uchun (login'dan keyin) */}
+              {previewId && (
+                <motion.button
+                  whileHover={{ scale: isPublishing ? 1 : 1.04 }} whileTap={{ scale: isPublishing ? 1 : 0.96 }}
+                  onClick={() => {
+                    if (publishedSlug) {
+                      setShowShareModal(true);
+                    } else {
+                      handlePublish();
+                    }
+                  }}
+                  disabled={isPublishing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-70 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-emerald-500/20 min-w-[110px] justify-center"
+                  title="Saytni publik URL orqali ulashish">
+                  {isPublishing
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Chiqarilmoqda…</>
+                    : publishedSlug
+                      ? <><Globe className="w-3.5 h-3.5" /> Linkni ko&apos;rish</>
+                      : <><Share2 className="w-3.5 h-3.5" /> Ulashish</>}
+                </motion.button>
+              )}
               <motion.button
                 whileHover={{ scale: isDownloading ? 1 : 1.04 }} whileTap={{ scale: isDownloading ? 1 : 0.96 }}
                 onClick={async () => {
@@ -1245,7 +1328,7 @@ export default function BuilderPage() {
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); } }}
-                placeholder={phase === 'done' ? 'Tahrir yoki yangi so\'rov…' : 'Biznesingizni tasvirlab bering…'}
+                placeholder={phase === 'done' ? 'Nimani o\'zgartiray? Masalan: "hero rangini ko\'k qil"…' : 'Biznesingizni tasvirlab bering…'}
                 rows={2}
                 className="flex-1 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"
               />
@@ -1260,6 +1343,88 @@ export default function BuilderPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Share / Publish Modal ─────────────────────────────── */}
+      <AnimatePresence>
+        {showShareModal && publishedSlug && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setShowShareModal(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl shadow-2xl p-6 relative">
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/5 text-zinc-400 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+                  <Globe className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-base">Saytingiz onlayn! 🎉</h3>
+                  <p className="text-xs text-zinc-400">Quyidagi linkni do&apos;stlaringizga yuboring</p>
+                </div>
+              </div>
+
+              {/* URL display + copy */}
+              <div className="flex items-center gap-2 bg-zinc-800/70 border border-white/10 rounded-2xl p-2 mb-4">
+                <div className="flex-1 px-3 text-xs text-zinc-300 truncate font-mono" title={publicUrl}>
+                  {publicUrl}
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={handleCopyLink}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all shrink-0',
+                    copied
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white',
+                  )}>
+                  {copied
+                    ? <><CheckCircle2 className="w-3.5 h-3.5" /> Nusxa olindi</>
+                    : <><Copy className="w-3.5 h-3.5" /> Nusxa olish</>}
+                </motion.button>
+              </div>
+
+              {/* Share buttons */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(`${previewTitle} — AI yaratgan sayt`)}`}
+                  target="_blank" rel="noreferrer"
+                  className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
+                  <span className="text-lg">✈️</span>
+                  <span>Telegram</span>
+                </a>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`${previewTitle}: ${publicUrl}`)}`}
+                  target="_blank" rel="noreferrer"
+                  className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
+                  <span className="text-lg">💬</span>
+                  <span>WhatsApp</span>
+                </a>
+                <a
+                  href={publicUrl}
+                  target="_blank" rel="noreferrer"
+                  className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
+                  <span className="text-lg">🔗</span>
+                  <span>Ochish</span>
+                </a>
+              </div>
+
+              <p className="text-[11px] text-zinc-500 text-center leading-relaxed">
+                Sayt yangilanganda link avtomatik yangilanadi. Chatda tahrirlash yetarli.
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
