@@ -16,7 +16,7 @@ from .services import SubscriptionService
 @admin.register(Tariff)
 class TariffAdmin(ModelAdmin):
     list_display = [
-        "name", "price_display", "nano_coins_display", "weekly_display", "duration_days",
+        "name", "price_display", "nano_coins_display", "tokens_display", "duration_days",
         "projects_limit", "ai_generations_limit", "is_active", "subscribers_count",
     ]
     list_editable = ["is_active"]
@@ -26,11 +26,13 @@ class TariffAdmin(ModelAdmin):
         ("Asosiy", {
             "fields": ("name", "description", "price", "duration_days", "is_active"),
         }),
-        ("💎 Nano koin (AI kod yozuvchi uchun)", {
+        ("💎 Nano koin / Token (AI kod uchun)", {
             "fields": ("nano_coins_included",),
             "description": (
-                "1 oyga beriladigan umumiy nano koin miqdori. Haftada 1/4 qismi "
-                "avtomatik hisobga qo'shiladi. 1 chat xabar = 500 nano koin."
+                "To'lov muvaffaqiyatli tasdiqlangandan so'ng foydalanuvchiga BIR YO‘LA "
+                "beriladigan umumiy nano koin miqdori. 1 nano koin = 10 token. "
+                "Misol: bu yerga 5000 yozsangiz, user 50 000 token oladi. "
+                "1 chat xabar (AI kod yaratish) = 500 nano / 5 000 token."
             ),
         }),
         ("Cheklovlar", {
@@ -39,7 +41,7 @@ class TariffAdmin(ModelAdmin):
     )
 
     def price_display(self, obj):
-        return format_html("<b>${}</b>", obj.price)
+        return format_html("<b>{:,.0f} so'm</b>", float(obj.price))
     price_display.short_description = "Narxi"
     price_display.admin_order_field = "price"
 
@@ -53,14 +55,16 @@ class TariffAdmin(ModelAdmin):
     nano_coins_display.short_description = "Oyiga nano"
     nano_coins_display.admin_order_field = "nano_coins_included"
 
-    def weekly_display(self, obj):
+    def tokens_display(self, obj):
+        """Foydalanuvchi sotib olgach oladigan token miqdori (nano × 10)."""
         if obj.nano_coins_included == 0:
             return "—"
+        tokens = obj.nano_coins_included * 10
         return format_html(
-            '<span style="color:#3b82f6;font-weight:600">{}/hafta</span>',
-            f"{obj.weekly_allowance:,}",
+            '<span style="color:#3b82f6;font-weight:600">{} token</span>',
+            f"{tokens:,}",
         )
-    weekly_display.short_description = "Haftalik (÷4)"
+    tokens_display.short_description = "Beriladigan token"
 
     def subscribers_count(self, obj):
         count = Subscription.objects.filter(tariff=obj, status=SubscriptionStatus.ACTIVE).count()

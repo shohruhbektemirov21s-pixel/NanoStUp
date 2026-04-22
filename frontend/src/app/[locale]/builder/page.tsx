@@ -5,7 +5,7 @@ import {
   Bot, CheckCircle2, Clock, Code2, Copy, Cpu, Download, Eye, Globe, Layers, Loader2,
   MessageSquare, Monitor, MousePointer2, Paperclip, RefreshCw, Send,
   Settings, Share2, Smartphone, Sparkles, Wand2, Palette, Zap,
-  BarChart2, Coins, X,
+  BarChart2, Coins, X, StopCircle, Pencil,
 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
@@ -17,6 +17,7 @@ import { SiteRenderer } from '@/features/builder/SiteRenderer';
 import { Link } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 import api from '@/shared/api/axios';
+import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 import { useProjectStore } from '@/store/projectStore';
 
@@ -329,20 +330,36 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
 
 // ── Chat Bubble ────────────────────────────────────────────────────
 
-function ChatBubble({ msg, index }: { msg: ChatMessage; index: number }) {
+function ChatBubble({
+  msg, index, onEdit,
+}: {
+  msg: ChatMessage;
+  index: number;
+  onEdit?: (index: number) => void;
+}) {
   const isUser = msg.role === 'user';
   const isDone = msg.phase === 'DONE';
   return (
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: index * 0.02, duration: 0.25 }}
-      className={cn('flex', isUser ? 'justify-end' : 'justify-start')}
+      className={cn('flex group', isUser ? 'justify-end' : 'justify-start')}
     >
       {!isUser && (
         <div className={cn('w-7 h-7 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5',
           isDone ? 'bg-emerald-600' : 'bg-gradient-to-tr from-blue-600 to-purple-600')}>
           {isDone ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : <Zap className="w-3.5 h-3.5 text-white" />}
         </div>
+      )}
+      {/* Edit tugmasi — user xabarning chap tomonida, hoverda ko'rinadi */}
+      {isUser && onEdit && (
+        <button
+          onClick={() => onEdit(index)}
+          title="Xabarni tahrirlash"
+          className="self-center mr-1.5 p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
       )}
       <div className={cn('max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
         isUser ? 'bg-purple-600 text-white rounded-br-sm'
@@ -514,6 +531,8 @@ function PhaseBadge({ phase }: { phase: 'idle' | 'architect' | 'building' | 'don
 export default function BuilderPage() {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  // Chatni to'xtatish uchun AbortController
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   // Publish / share
   const [isPublishing, setIsPublishing] = useState(false);
@@ -759,6 +778,39 @@ export default function BuilderPage() {
     void handleSend(`${variant.icon} "${variant.name}" variantini tanladim — ${variant.description}`);
   };
 
+  // Chatni to'xtatish — joriy API requestni bekor qiladi (AbortController orqali).
+  // Optimistik yechib olingan tokenlarni /accounts/me/ orqali sinxronlaymiz (finally bloki).
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  };
+
+  // Xabarni tahrirlash — yuborilgan user xabarini textarea'ga qaytarib, keyingi
+  // AI javob bilan birga ro'yxatdan olib tashlaymiz. Undan keyin foydalanuvchi
+  // matnni o'zgartirib qayta "Yuborish" bosishi mumkin.
+  const handleEditMessage = (index: number) => {
+    const msg = chatMessages[index];
+    if (!msg || msg.role !== 'user' || isGenerating) return;
+    setPrompt(msg.text);
+    // Bu xabar va undan keyingi hamma narsani kesamiz (qayta yuborsa — yangisi qo'shiladi)
+    setChatMessages(prev => prev.slice(0, index));
+    // History (AI kontekstiga beriladigan) ni ham tozalaymiz — o'sha nuqtagacha
+    setHistory(prev => {
+      // user xabarlarning sonini hisoblaymiz va mos keluvchisigacha qisqartiramiz
+      let userSeen = 0;
+      for (let i = 0; i < prev.length; i++) {
+        if (prev[i].role === 'user') {
+          if (userSeen === chatMessages.slice(0, index).filter(m => m.role === 'user').length) {
+            return prev.slice(0, i);
+          }
+          userSeen++;
+        }
+      }
+      return prev;
+    });
+    textareaRef.current?.focus();
+  };
+
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? prompt).trim();
     // Rasm(lar) biriktirilgan bo'lsa — bo'sh matn bilan ham yuborish mumkin
@@ -795,6 +847,10 @@ export default function BuilderPage() {
       optimisticDeductNano(500); // CHAT_COST_NANO (backend konstanta bilan mos)
     }
 
+    // Yangi AbortController — har bir request uchun alohida
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       let res: { data: ApiResponse };
 
@@ -811,12 +867,12 @@ export default function BuilderPage() {
             prompt: promptForApi, language: 'uz', history: newHistory, project_id: previewId,
             conversation_id: conversationId,
             images: imagesPayload,
-          });
+          }, { signal: controller.signal });
         } else {
           // Login qilinmagan — schema inline yuboramiz
           res = await api.post<ApiResponse>('/projects/revise_inline/', {
             prompt: promptForApi, language: 'uz', schema_data: previewSchema,
-          });
+          }, { signal: controller.signal });
         }
       } else {
         // Oddiy suhbat / yangi generatsiya
@@ -824,7 +880,7 @@ export default function BuilderPage() {
           prompt: promptForApi, language: 'uz', history: newHistory,
           conversation_id: conversationId,
           images: imagesPayload,
-        });
+        }, { signal: controller.signal });
       }
       const data = res.data;
 
@@ -942,6 +998,13 @@ export default function BuilderPage() {
       setIsGenerating(false);
 
     } catch (err: unknown) {
+      // Foydalanuvchi "To'xtatish" bosdi — quiet cancel
+      if (axios.isCancel(err) || (err as { code?: string })?.code === 'ERR_CANCELED') {
+        addMsg('ai', '⏹️ **Javob to\'xtatildi.** Qayta yuborishingiz mumkin.');
+        setBuildStartTime(null);
+        setIsGenerating(false);
+        return;
+      }
       let msg = 'Server bilan ulanishda xato.';
       // Axios 4xx/5xx'ni throw qiladi — response data ni tekshiramiz
       const axiosErr = err as { response?: { data?: ApiResponse } };
@@ -1449,7 +1512,14 @@ export default function BuilderPage() {
 
           {/* Messages */}
           <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-4 space-y-3 min-h-0">
-            {chatMessages.map((msg, i) => <ChatBubble key={i} msg={msg} index={i} />)}
+            {chatMessages.map((msg, i) => (
+              <ChatBubble
+                key={i}
+                msg={msg}
+                index={i}
+                onEdit={!isGenerating ? handleEditMessage : undefined}
+              />
+            ))}
 
             <AnimatePresence>
               {designVariants && (
@@ -1572,12 +1642,22 @@ export default function BuilderPage() {
                 rows={2}
                 className="flex-1 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"
               />
-              <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-                onClick={() => void handleSend()}
-                disabled={isGenerating || (!prompt.trim() && attachedImages.length === 0)}
-                className="h-10 w-10 bg-gradient-to-tr from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-zinc-800 disabled:shadow-none rounded-xl shrink-0 flex items-center justify-center transition-all shadow-lg shadow-blue-500/20">
-                {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              </motion.button>
+              {isGenerating ? (
+                // To'xtatish tugmasi — generatsiya davom etayotganda ko'rinadi
+                <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                  onClick={handleStop}
+                  title="Javobni to'xtatish"
+                  className="h-10 w-10 bg-gradient-to-tr from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 rounded-xl shrink-0 flex items-center justify-center transition-all shadow-lg shadow-red-500/30">
+                  <StopCircle className="w-4 h-4" />
+                </motion.button>
+              ) : (
+                <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
+                  onClick={() => void handleSend()}
+                  disabled={!prompt.trim() && attachedImages.length === 0}
+                  className="h-10 w-10 bg-gradient-to-tr from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-zinc-800 disabled:shadow-none rounded-xl shrink-0 flex items-center justify-center transition-all shadow-lg shadow-blue-500/20">
+                  <Send className="w-4 h-4" />
+                </motion.button>
+              )}
             </div>
             <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter = yuborish · Shift+Enter = yangi qator · 📎 Ko'p rasm qo'shish mumkin</p>
           </div>

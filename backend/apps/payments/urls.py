@@ -1,8 +1,24 @@
 from django.urls import path
 
-from .views import initiate_payment, payment_status, resend_sms, verify_payment
+from .views import (
+    create_checkout,
+    initiate_payment,
+    payment_status,
+    resend_sms,
+    verify_payment,
+    webhook_click,
+    webhook_payme,
+    webhook_paynet,
+)
 
 urlpatterns = [
+    # Real to'lov (Payme / Click / Paynet)
+    path("checkout/", create_checkout, name="payment-checkout"),
+    path("webhook/payme/", webhook_payme, name="payment-webhook-payme"),
+    path("webhook/click/", webhook_click, name="payment-webhook-click"),
+    path("webhook/paynet/", webhook_paynet, name="payment-webhook-paynet"),
+
+    # SMS-mock (test rejimi)
     path("initiate/", initiate_payment, name="payment-initiate"),
     path("verify/", verify_payment, name="payment-verify"),
     path("resend/", resend_sms, name="payment-resend"),

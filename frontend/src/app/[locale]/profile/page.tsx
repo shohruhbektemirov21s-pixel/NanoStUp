@@ -296,23 +296,20 @@ export default function ProfilePage() {
                         <span className="text-4xl font-black">{priceLabel(tariff.price)}</span>
                       </div>
 
-                      {/* Obuna tagida nano koin miqdori */}
+                      {/* Sotib olingach qo'shiladigan token miqdori */}
                       {tariff.nano_coins_included > 0 && (
                         <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-amber-300/80 uppercase font-bold tracking-wider">
-                              Oyiga nano koin
+                              Beriladigan token
                             </span>
                             <Coins className="w-4 h-4 text-amber-400" />
                           </div>
                           <div className="text-2xl font-black text-amber-200 mt-1">
-                            💎 {tariff.nano_coins_included.toLocaleString('en')}
-                          </div>
-                          <div className="text-[11px] text-amber-400/70 mt-1">
-                            Haftada: <strong className="text-amber-300">{tariff.weekly_allowance.toLocaleString('en')} nano</strong> (1 oy ÷ 4)
+                            💎 {(tariff.nano_coins_included * 10).toLocaleString('en')}
                           </div>
                           <div className="text-[10px] text-zinc-500 mt-1">
-                            ~{Math.floor(tariff.nano_coins_included / 500)} ta chat (1 chat = 500 nano)
+                            ~{Math.floor((tariff.nano_coins_included * 10) / 5000)} ta chat (1 chat = 5 000 token)
                           </div>
                         </div>
                       )}
@@ -333,7 +330,7 @@ export default function ProfilePage() {
                       </li>
                       <li className="flex items-center gap-2 text-zinc-300">
                         <Zap className="w-4 h-4 text-blue-400 shrink-0" />
-                        <span>1 chat = 500 nano koin</span>
+                        <span>1 chat = 5 000 token</span>
                       </li>
                     </ul>
 

@@ -21,6 +21,33 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 # requestlariga noto'g'ri CSP qaytaradi va unfold (Alpine.js) ishlamaydi.
 ADMIN_URL = env("ADMIN_URL", default="17210707admin")
 
+# ═════════════════════════════════════════════════════════════════════
+# To'lov tizimlari (Uzbekistan)
+# ─────────────────────────────────────────────────────────────────────
+# Har bir provayder uchun merchant hisob ochib, kalitlarni .env ga qo'shing.
+# Bo'sh qoldirilsa — provayder "hozircha sozlanmagan" deb javob qaytaradi.
+# ═════════════════════════════════════════════════════════════════════
+
+# Foydalanuvchi to'lovdan keyin qaytadigan URL (frontend profile sahifasi)
+PAYMENT_RETURN_URL = env("PAYMENT_RETURN_URL", default="")
+
+# Payme (Paycom) — https://business.payme.uz/
+PAYME_MERCHANT_ID = env("PAYME_MERCHANT_ID", default="")
+PAYME_SECRET_KEY = env("PAYME_SECRET_KEY", default="")
+PAYME_CHECKOUT_URL = env("PAYME_CHECKOUT_URL", default="https://checkout.paycom.uz")
+
+# Click.uz — https://my.click.uz/
+CLICK_SERVICE_ID = env("CLICK_SERVICE_ID", default="")
+CLICK_MERCHANT_ID = env("CLICK_MERCHANT_ID", default="")
+CLICK_SECRET_KEY = env("CLICK_SECRET_KEY", default="")
+CLICK_CHECKOUT_URL = env("CLICK_CHECKOUT_URL", default="https://my.click.uz/services/pay")
+
+# Paynet.uz
+PAYNET_USERNAME = env("PAYNET_USERNAME", default="")
+PAYNET_PASSWORD = env("PAYNET_PASSWORD", default="")
+PAYNET_TERMINAL_ID = env("PAYNET_TERMINAL_ID", default="")
+PAYNET_CHECKOUT_URL = env("PAYNET_CHECKOUT_URL", default="")
+
 # Application definition
 INSTALLED_APPS = [
     "unfold",

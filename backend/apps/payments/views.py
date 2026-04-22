@@ -20,6 +20,7 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -27,6 +28,7 @@ from rest_framework.response import Response
 from apps.accounts.models import TOKENS_PER_NANO_COIN
 from apps.subscriptions.models import Subscription, SubscriptionStatus, Tariff
 
+from .gateways import PROVIDERS
 from .models import PaymentStatus, PaymentTransaction
 
 logger = logging.getLogger(__name__)
@@ -154,9 +156,10 @@ def verify_payment(request):
             end_date=end,
         )
 
-        # Haftalik ulush — 1/4 qismi darhol beriladi
-        weekly = tariff.weekly_allowance
-        tokens_to_add = weekly * TOKENS_PER_NANO_COIN
+        # To'lov tasdiqlandi — tarifdagi TO'LIQ nano koin miqdori zudlik bilan
+        # beriladi (admin paneldagi `nano_coins_included` qiymatiga ko'ra).
+        nano_granted = tariff.nano_coins_included or 0
+        tokens_to_add = nano_granted * TOKENS_PER_NANO_COIN
         if tokens_to_add > 0:
             user.tokens_balance = (user.tokens_balance or 0) + tokens_to_add
             user.save(update_fields=["tokens_balance"])
@@ -169,10 +172,14 @@ def verify_payment(request):
         "success": True,
         "subscription_id": sub.id,
         "tariff_name": tariff.name,
-        "nano_granted": weekly,
+        "nano_granted": nano_granted,
+        "tokens_granted": tokens_to_add,
         "new_balance": user.tokens_balance,
         "nano_coins": user.nano_coins,
-        "message": f"🎉 «{tariff.name}» obunasi faollashtirildi!",
+        "message": (
+            f"🎉 «{tariff.name}» obunasi faollashtirildi! "
+            f"+{tokens_to_add:,} token hisobingizga qo'shildi."
+        ),
     })
 
 
@@ -238,3 +245,95 @@ def payment_status(request, payment_id: int):
         "seconds_until_resend": _seconds_until_resend(payment),
         "attempts_left": max(0, MAX_SMS_ATTEMPTS - payment.sms_attempts),
     })
+
+
+# ═════════════════════════════════════════════════════════════════════
+# To'lov tizimi (Payme / Click / Paynet) — checkout URL yaratish
+# ═════════════════════════════════════════════════════════════════════
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def create_checkout(request):
+    """
+    Foydalanuvchi tanlagan provayder orqali to'lov boshlash.
+
+    Body:
+      { "tariff_id": 1, "provider": "payme" | "click" | "paynet" }
+
+    Javob (muvaffaqiyatli holatda):
+      { "success": True, "payment_id": 42, "checkout_url": "https://..." }
+
+    Foydalanuvchi `checkout_url` ga yo'naltiriladi. To'lov muvaffaqiyatli
+    tasdiqlangach, provayder webhook'i obunani faollashtiradi va tokenlar
+    beriladi (gateways/ ichida).
+    """
+    tariff_id = request.data.get("tariff_id")
+    provider = (request.data.get("provider") or "").lower().strip()
+
+    if not tariff_id:
+        return Response({"error": "tariff_id talab qilinadi."}, status=status.HTTP_400_BAD_REQUEST)
+    if provider not in PROVIDERS:
+        return Response({
+            "error": "Noto'g'ri provayder.",
+            "allowed": list(PROVIDERS.keys()),
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        tariff = Tariff.objects.get(pk=tariff_id, is_active=True)
+    except Tariff.DoesNotExist:
+        return Response({"error": "Tarif topilmadi."}, status=status.HTTP_404_NOT_FOUND)
+
+    payment = PaymentTransaction.objects.create(
+        user=request.user,
+        tariff=tariff,
+        amount=tariff.price,
+        provider=provider,
+        status=PaymentStatus.PENDING,
+    )
+
+    url = PROVIDERS[provider]["build_checkout_url"](payment)
+    if not url:
+        payment.status = PaymentStatus.FAILED
+        payment.save(update_fields=["status", "updated_at"])
+        return Response({
+            "error": (
+                f"{PROVIDERS[provider]['label']} hozircha sozlanmagan. "
+                "Admin bilan bog'laning yoki boshqa usulni tanlang."
+            ),
+        }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    return Response({
+        "success": True,
+        "payment_id": payment.id,
+        "provider": provider,
+        "provider_label": PROVIDERS[provider]["label"],
+        "checkout_url": url,
+    }, status=status.HTTP_201_CREATED)
+
+
+# ═════════════════════════════════════════════════════════════════════
+# Webhook endpointlari — provayderdan keladi (auth anonim, signature orqali)
+# ═════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+@api_view(["POST", "GET"])
+@permission_classes([permissions.AllowAny])
+def webhook_payme(request):
+    """Payme merchant JSON-RPC callback."""
+    return PROVIDERS["payme"]["handle_webhook"](request)
+
+
+@csrf_exempt
+@api_view(["POST", "GET"])
+@permission_classes([permissions.AllowAny])
+def webhook_click(request):
+    """Click Prepare + Complete webhook."""
+    return PROVIDERS["click"]["handle_webhook"](request)
+
+
+@csrf_exempt
+@api_view(["POST", "GET"])
+@permission_classes([permissions.AllowAny])
+def webhook_paynet(request):
+    """Paynet callback."""
+    return PROVIDERS["paynet"]["handle_webhook"](request)

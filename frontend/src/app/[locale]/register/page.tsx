@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
@@ -56,6 +56,13 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+      <Link
+        href="/"
+        className="fixed top-6 left-6 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-sm"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="hidden sm:inline">Bosh sahifa</span>
+      </Link>
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}

@@ -17,7 +17,8 @@ class TariffSerializer(serializers.ModelSerializer):
     def get_features(self, obj):
         features = []
         if obj.nano_coins_included > 0:
-            features.append(f"💎 {obj.nano_coins_included:,} nano koin (haftada {obj.weekly_allowance:,})")
+            tokens = obj.nano_coins_included * 10
+            features.append(f"💎 {tokens:,} token ({obj.nano_coins_included:,} nano koin)")
         if obj.projects_limit == 0:
             features.append("Cheksiz loyihalar")
         else:

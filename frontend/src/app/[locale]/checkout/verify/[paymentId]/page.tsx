@@ -24,6 +24,7 @@ interface VerifyResponse {
   success: boolean;
   tariff_name?: string;
   nano_granted?: number;
+  tokens_granted?: number;
   new_balance?: number;
   nano_coins?: number;
   message?: string;
