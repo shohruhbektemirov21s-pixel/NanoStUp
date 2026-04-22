@@ -71,6 +71,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, updateBalance } = useAuthStore();
   const tp = useTranslations('Pricing');
+  const tProfile = useTranslations('Profile');
   const priceLabel = (price: string) =>
     formatUzsPrice(price, tp('currency'), tp('free'));
 
@@ -114,40 +115,20 @@ export default function ProfilePage() {
     if (isAuthenticated) load();
   }, [isAuthenticated, load]);
 
-  // Tarifni sotib olish
-  const handlePurchase = async (tariff: Tariff) => {
+  // Tarifni sotib olish — Checkout sahifasiga yo'naltiramiz (karta + SMS tasdig'i).
+  // Tokenlar faqat to'lov muvaffaqiyatli amalga oshgandan so'ng qo'shiladi.
+  const handlePurchase = (tariff: Tariff) => {
     if (parseFloat(tariff.price) === 0) {
       setMessage({ type: 'error', text: "Bepul tarifni sotib olish shart emas." });
       return;
     }
-    setPurchasing(tariff.id);
-    setMessage(null);
-    try {
-      const res = await api.post<PurchaseResponse>(`/subscriptions/tariffs/${tariff.id}/purchase/`);
-      if (res.data.success) {
-        updateBalance(res.data.new_balance, res.data.nano_coins);
-        setCurrentSub(res.data.subscription);
-        setMessage({
-          type: 'success',
-          text: res.data.message ?? `🎉 «${tariff.name}» obunasi faollashdi! +${res.data.nano_granted.toLocaleString('en')} nano koin hisobingizga qo'shildi.`,
-        });
-      }
-    } catch (err) {
-      const axiosErr = err as { response?: { data?: { error?: string; detail?: string } } };
-      setMessage({
-        type: 'error',
-        text: axiosErr.response?.data?.error ?? axiosErr.response?.data?.detail ?? "Xatolik yuz berdi",
-      });
-    } finally {
-      setPurchasing(null);
-    }
+    router.push(`/checkout/${tariff.id}`);
   };
 
   if (!isAuthenticated) {
     return null;
   }
 
-  const nanoCoins = user?.nano_coins ?? 0;
   const tokens = user?.tokens_balance ?? 0;
 
   return (
@@ -183,20 +164,20 @@ export default function ProfilePage() {
 
         {/* ── Balans va ma'lumotlar grid ── */}
         <div className="grid md:grid-cols-3 gap-5 mb-10">
-          {/* Nano koin */}
+          {/* Token balansi */}
           <motion.div
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
             className="p-6 bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/30 rounded-2xl"
           >
             <div className="flex items-center gap-2 text-amber-400 mb-3">
               <Coins className="w-5 h-5" />
-              <span className="text-xs uppercase tracking-wider font-bold">Nano koinlar</span>
+              <span className="text-xs uppercase tracking-wider font-bold">{tProfile('tokensLabel')}</span>
             </div>
             <div className="text-4xl font-black text-amber-200">
-              {nanoCoins.toLocaleString('en')}
+              {tokens.toLocaleString('en')}
             </div>
             <p className="text-xs text-amber-400/70 mt-2">
-              ({tokens.toLocaleString('en')} token)
+              {tProfile('perChat', { count: 5000 })}
             </p>
           </motion.div>
 
@@ -384,10 +365,11 @@ export default function ProfilePage() {
         </div>
 
         {/* ── Eslatma ── */}
-        <div className="mt-10 p-5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-          <p className="text-sm text-amber-200/80">
-            <strong className="text-amber-300">⚡ Test rejimi:</strong> Haqiqiy to&apos;lov tizimi hali ulanmagan.
-            Sotib olish tugmasini bosganingizda obunangiz zudlik bilan faollashadi va tokenlar qo&apos;shiladi.
+        <div className="mt-10 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+          <p className="text-sm text-emerald-200/80">
+            <strong className="text-emerald-300">🔒 Xavfsiz to'lov:</strong> Sotib olish tugmasini bosganingizda
+            bank kartangiz orqali to'lov sahifasiga o'tasiz. Tokenlar faqat to'lov
+            muvaffaqiyatli amalga oshgandan so&apos;ng avtomatik hisobingizga qo&apos;shiladi.
           </p>
         </div>
       </div>

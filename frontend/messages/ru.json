@@ -165,7 +165,9 @@
     "delete": "Удалить",
     "deleteConfirm": "Вы уверены, что хотите удалить проект?",
     "chatHistory": "История чатов",
-    "goToHistory": "Перейти к истории"
+    "goToHistory": "Перейти к истории",
+    "tokensLabel": "Токены",
+    "perChat": "1 чат = {count} токенов"
   },
   "History": {
     "title": "История чатов",

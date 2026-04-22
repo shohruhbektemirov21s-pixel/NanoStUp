@@ -836,10 +836,10 @@ export default function BuilderPage() {
       if (!data.success) {
         // Token yetmaganda maxsus xabar
         if (data.insufficient_tokens) {
-          const needNano = Math.ceil((data.required_tokens ?? 3000) / 10);
-          const haveNano = Math.floor((data.current_tokens ?? 0) / 10);
-          const msg = `💎 Nano koin yetarli emas!\n\nKerak: ${needNano} nano (${data.required_tokens ?? 3000} token)\nSizda: ${haveNano} nano (${data.current_tokens ?? 0} token)\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
-          setErrorMsg('Nano koin yetarli emas');
+          const needTokens = data.required_tokens ?? 3000;
+          const haveTokens = data.current_tokens ?? 0;
+          const msg = `� Token yetarli emas!\n\nKerak: ${needTokens.toLocaleString()} token\nSizda: ${haveTokens.toLocaleString()} token\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
+          setErrorMsg('Token yetarli emas');
           addMsg('ai', msg);
         } else {
           setErrorMsg(data.error ?? 'Xatolik yuz berdi.');
@@ -905,24 +905,25 @@ export default function BuilderPage() {
           const bonusLeft = data.balance.chat_bonus_left ?? 0;
           const subNano = data.balance.nano_coins ?? 0;
 
+          // UI'da token ko'rsatamiz (nano × 10)
           if (d) {
             const parts: string[] = [];
-            if (d.from_bonus_nano > 0) parts.push(`💬 ${d.from_bonus_nano} chat bonusdan`);
-            if (d.from_subscription_nano > 0) parts.push(`💎 ${d.from_subscription_nano} obunadan`);
+            if (d.from_bonus_nano > 0) parts.push(`💬 ${(d.from_bonus_nano * 10).toLocaleString()} chat bonusdan`);
+            if (d.from_subscription_nano > 0) parts.push(`💎 ${(d.from_subscription_nano * 10).toLocaleString()} obunadan`);
             addMsg('ai',
-              `💸 **To'lov:** ${parts.join(' + ')}\n\n` +
-              `📊 **Qoldi:** 💬 ${bonusLeft} chat bonus · 💎 ${subNano} obuna nano`,
+              `💸 **To'lov:** ${parts.join(' + ')} token\n\n` +
+              `📊 **Qoldi:** 💬 ${(bonusLeft * 10).toLocaleString()} chat bonus · 💎 ${(subNano * 10).toLocaleString()} obuna (token)`,
             );
           } else {
-            addMsg('ai', `💎 Qoldi: ${subNano} nano obuna · ${bonusLeft} chat bonus`);
+            addMsg('ai', `� Qoldi: ${(subNano * 10).toLocaleString()} token obuna · ${(bonusLeft * 10).toLocaleString()} chat bonus`);
           }
 
-          // Balans kam qolsa ogohlantirish
-          const totalLeft = bonusLeft + subNano;
-          if (totalLeft < 500) {
-            addMsg('ai', `⚠️ **Nano koin tugadi!** Umumiy ${totalLeft} nano qoldi. Yangi chat oching (+500 bonus) yoki [obuna sotib oling](/profile).`);
-          } else if (totalLeft < 2000) {
-            addMsg('ai', `⚡ **Diqqat:** umumiy **${totalLeft} nano** qoldi (~${Math.floor(totalLeft / 500)} ta amal uchun). Yangi chat oching yoki obunani yangilang.`);
+          // Balans kam qolsa ogohlantirish (token'da)
+          const totalLeftTokens = (bonusLeft + subNano) * 10;
+          if (totalLeftTokens < 5000) {
+            addMsg('ai', `⚠️ **Token tugadi!** Umumiy ${totalLeftTokens.toLocaleString()} token qoldi. Yangi chat oching (+5000 token bonus) yoki [obuna sotib oling](/profile).`);
+          } else if (totalLeftTokens < 20000) {
+            addMsg('ai', `⚡ **Diqqat:** umumiy **${totalLeftTokens.toLocaleString()} token** qoldi (~${Math.floor(totalLeftTokens / 5000)} ta amal uchun). Yangi chat oching yoki obunani yangilang.`);
           }
         }
 
@@ -946,10 +947,10 @@ export default function BuilderPage() {
       const axiosErr = err as { response?: { data?: ApiResponse } };
       if (axiosErr.response?.data?.insufficient_tokens) {
         const d = axiosErr.response.data;
-        const needNano = Math.ceil((d.required_tokens ?? 3000) / 10);
-        const haveNano = Math.floor((d.current_tokens ?? 0) / 10);
-        const chatMsg = `💎 Nano koin yetarli emas!\n\nKerak: ${needNano} nano (${d.required_tokens ?? 3000} token)\nSizda: ${haveNano} nano (${d.current_tokens ?? 0} token)\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
-        setErrorMsg('Nano koin yetarli emas');
+        const needTokens = d.required_tokens ?? 3000;
+        const haveTokens = d.current_tokens ?? 0;
+        const chatMsg = `� Token yetarli emas!\n\nKerak: ${needTokens.toLocaleString()} token\nSizda: ${haveTokens.toLocaleString()} token\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
+        setErrorMsg('Token yetarli emas');
         addMsg('ai', chatMsg);
         setBuildStartTime(null);
         setIsGenerating(false);
@@ -993,7 +994,7 @@ export default function BuilderPage() {
     setCurrentProject(null as unknown as Parameters<typeof setCurrentProject>[0]);
     setChatMessages([{
       role: 'ai',
-      text: '🔄 **Yangi chat ochildi!** 💬 Sizga 500 chat bonus nano koin berildi.\n\nQanday biznes uchun sayt kerak?',
+      text: '🔄 **Yangi chat ochildi!** 💬 Sizga 5000 token chat bonus berildi.\n\nQanday biznes uchun sayt kerak?',
     }]);
     setHistory([]);
     setPhase('idle');
@@ -1231,8 +1232,8 @@ export default function BuilderPage() {
               title={`${user.tokens_balance.toLocaleString()} token balans`}
             >
               <Coins className="w-3.5 h-3.5" />
-              <span>{(user.nano_coins ?? 0).toLocaleString()}</span>
-              <span className="text-[10px] opacity-70 font-normal">nano</span>
+              <span>{user.tokens_balance.toLocaleString()}</span>
+              <span className="text-[10px] opacity-70 font-normal">token</span>
             </motion.div>
           )}
           {isAuthenticated && (

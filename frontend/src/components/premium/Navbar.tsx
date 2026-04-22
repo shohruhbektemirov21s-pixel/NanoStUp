@@ -43,7 +43,7 @@ export function PremiumNavbar() {
     router.push('/');
   };
 
-  const nanoCoins = user?.nano_coins ?? 0;
+  const tokens = user?.tokens_balance ?? 0;
   const initials = (user?.full_name || user?.email || '?').slice(0, 1).toUpperCase();
   
   const backgroundColor = useTransform(
@@ -135,7 +135,7 @@ export function PremiumNavbar() {
               >
                 <Coins className="w-4 h-4 text-amber-400" />
                 <span className="text-sm font-bold text-amber-200">
-                  {nanoCoins.toLocaleString('en')} <span className="text-[10px] text-amber-400/80 font-semibold">nano</span>
+                  {tokens.toLocaleString('en')} <span className="text-[10px] text-amber-400/80 font-semibold">token</span>
                 </span>
               </Link>
 
@@ -166,8 +166,8 @@ export function PremiumNavbar() {
                       <p className="font-bold text-white truncate">{user.full_name || user.email}</p>
                       <p className="text-xs text-zinc-400 truncate">{user.email}</p>
                       <div className="mt-3 flex items-center justify-between px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                        <span className="text-xs text-amber-200/80">{tProfile('nanoCoins')}</span>
-                        <span className="text-sm font-black text-amber-300">{nanoCoins.toLocaleString('en')}</span>
+                        <span className="text-xs text-amber-200/80">{tProfile('tokens')}</span>
+                        <span className="text-sm font-black text-amber-300">{tokens.toLocaleString('en')}</span>
                       </div>
                     </div>
                     <div className="py-2">

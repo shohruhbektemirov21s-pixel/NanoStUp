@@ -27,7 +27,7 @@ class TariffSerializer(serializers.ModelSerializer):
         else:
             features.append(f"{obj.ai_generations_limit} ta AI generatsiya")
         features.append(f"{obj.duration_days} kunlik obuna")
-        features.append("1 chat = 500 nano koin (AI kod)")
+        features.append("1 chat = 5 000 token (AI kod)")
         return features
 
 class SubscriptionSerializer(serializers.ModelSerializer):

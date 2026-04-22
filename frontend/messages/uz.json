@@ -165,7 +165,9 @@
     "delete": "O'chirish",
     "deleteConfirm": "Loyihani o'chirishga ishonchingiz komilmi?",
     "chatHistory": "Suhbatlar tarixi",
-    "goToHistory": "Tarixga o'tish"
+    "goToHistory": "Tarixga o'tish",
+    "tokensLabel": "Tokenlar",
+    "perChat": "1 chat = {count} token"
   },
   "History": {
     "title": "Suhbatlar tarixi",

@@ -165,7 +165,9 @@
     "delete": "Delete",
     "deleteConfirm": "Are you sure you want to delete the project?",
     "chatHistory": "Chat history",
-    "goToHistory": "Go to history"
+    "goToHistory": "Go to history",
+    "tokensLabel": "Tokens",
+    "perChat": "1 chat = {count} tokens"
   },
   "History": {
     "title": "Chat history",
