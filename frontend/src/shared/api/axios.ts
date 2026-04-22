@@ -1,8 +1,15 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
+const getBaseUrl = () => {
+  let url = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/';
+  if (!url.endsWith('/')) url += '/';
+  if (!url.endsWith('api/')) url += 'api/';
+  return url;
+};
+
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api/',
+  baseURL: getBaseUrl(),
   timeout: 180000,
   withCredentials: false,
 });
