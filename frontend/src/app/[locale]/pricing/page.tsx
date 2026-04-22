@@ -2,10 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { Check, Loader2, Sparkles } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Link } from '@/i18n/routing';
+import { useRouter } from '@/i18n/routing';
+import { useAuthStore } from '@/store/authStore';
 import api from '@/shared/api/axios';
 
 interface Tariff {
@@ -61,26 +63,35 @@ function isPopular(tariff: Tariff, all: Tariff[]) {
 export default function PricingPage() {
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const t = useTranslations('Pricing');
+  const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
     api.get<Tariff[]>('/subscriptions/tariffs/')
-      .then((res) => setTariffs(res.data.filter((t) => t.is_active !== false)))
+      .then((res) => setTariffs(res.data.filter((tf) => tf.is_active !== false)))
       .catch(() => setTariffs(FALLBACK_TIERS))
       .finally(() => setLoading(false));
   }, []);
 
   const displayTariffs = tariffs.length > 0 ? tariffs : FALLBACK_TIERS;
 
+  const handleSelectPlan = (tariff: Tariff) => {
+    if (parseFloat(tariff.price) === 0) {
+      // Bepul reja — ro'yxatdan o'tish kifoya
+      router.push(isAuthenticated ? '/profile' : '/register');
+      return;
+    }
+    if (!isAuthenticated) {
+      router.push('/login');
+      return;
+    }
+    router.push(`/checkout/${tariff.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-black text-white pt-32 pb-20 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-20">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">Oddiy va shaffof narxlar</h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            O&apos;zingizga mos rejani tanlang. Barcha rejalarda NanoStUp mavjud.
-          </p>
-        </div>
-
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
@@ -103,7 +114,7 @@ export default function PricingPage() {
                 >
                   {popular && (
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-purple-600 rounded-full text-xs font-bold flex items-center gap-1 whitespace-nowrap">
-                      <Sparkles className="w-3 h-3" /> ENG MASHHUR
+                      <Sparkles className="w-3 h-3" /> {t('mostPopular')}
                     </div>
                   )}
 
@@ -112,11 +123,11 @@ export default function PricingPage() {
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-bold">{getPriceLabel(tier.price)}</span>
                       {parseFloat(tier.price) > 0 && (
-                        <span className="text-gray-500">/oy</span>
+                        <span className="text-gray-500">{t('perMonth')}</span>
                       )}
                     </div>
                     {tier.duration_days > 0 && (
-                      <p className="mt-1 text-xs text-gray-500">{tier.duration_days} kunlik obuna</p>
+                      <p className="mt-1 text-xs text-gray-500">{t('daysSubscription', { days: tier.duration_days })}</p>
                     )}
                     <p className="mt-4 text-gray-400 text-sm leading-relaxed">{tier.description}</p>
                   </div>
@@ -132,17 +143,16 @@ export default function PricingPage() {
                     ))}
                   </div>
 
-                  <Link href="/register">
-                    <Button
-                      className={`w-full py-6 rounded-2xl font-bold transition-all ${
-                        popular
-                          ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                          : 'bg-white text-black hover:bg-gray-200'
-                      }`}
-                    >
-                      {parseFloat(tier.price) === 0 ? 'Bepul boshlash' : 'Boshlash'}
-                    </Button>
-                  </Link>
+                  <Button
+                    onClick={() => handleSelectPlan(tier)}
+                    className={`w-full py-6 rounded-2xl font-bold transition-all ${
+                      popular
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-white text-black hover:bg-gray-200'
+                    }`}
+                  >
+                    {parseFloat(tier.price) === 0 ? t('startFree') : t('choose')}
+                  </Button>
                 </motion.div>
               );
             })}

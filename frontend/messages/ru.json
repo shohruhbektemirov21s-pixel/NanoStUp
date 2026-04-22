@@ -37,18 +37,80 @@
     }
   },
   "Pricing": {
-    "title": "Простые и прозрачные цены",
-    "subtitle": "Выберите идеальный план для нужд вашего бизнеса.",
     "free": "Бесплатно",
     "basic": "Базовый",
     "premium": "Премиум",
     "choose": "Выбрать план",
+    "startFree": "Начать бесплатно",
+    "mostPopular": "ПОПУЛЯРНЫЙ",
+    "perMonth": "/мес",
+    "daysSubscription": "Подписка на {days} дней",
     "features": {
       "aiGen": "ИИ Генерации",
       "projects": "Проектов",
       "export": "Экспорт в ZIP",
       "support": "Приоритетная поддержка"
     }
+  },
+  "Checkout": {
+    "backToPricing": "К тарифам",
+    "selectedPlan": "Выбранный план",
+    "perMonth": "/мес",
+    "confirmPayment": "Подтверждение оплаты",
+    "viaSms": "По SMS коду",
+    "phoneLabel": "Номер телефона",
+    "phonePlaceholder": "+998 90 123 45 67",
+    "phoneHint": "На этот номер придёт 6-значный SMS код.",
+    "phoneInvalid": "Введите полный номер телефона.",
+    "submitSendCode": "Отправить SMS код",
+    "submitting": "Отправка…",
+    "secureSsl": "Безопасная оплата · SSL шифрование",
+    "tariffNotFound": "Тариф не найден",
+    "back": "Назад",
+    "initiateError": "Ошибка при создании платежа."
+  },
+  "VerifySms": {
+    "back": "Назад",
+    "title": "Введите SMS код",
+    "sentTo": "Отправлен на {phone}",
+    "enterFullCode": "Введите код полностью.",
+    "wrongCode": "Неверный код.",
+    "attemptsLeft": "(осталось попыток: {count})",
+    "verify": "Подтвердить",
+    "verifying": "Проверка…",
+    "resendIn": "Повторная отправка",
+    "resendNow": "Отправить код заново",
+    "resending": "Отправка…",
+    "resendError": "Ошибка повторной отправки.",
+    "successTitle": "🎉 Подписка активна!",
+    "successDesc": "«{tariff}» успешно активирован.",
+    "redirecting": "Перенаправление в профиль…",
+    "paymentNotFound": "Платёж не найден",
+    "backToPricing": "К тарифам",
+    "codeNotReceived": "Код не пришёл? Проверьте папку Спам или отправьте заново."
+  },
+  "Share": {
+    "title": "Ваш сайт онлайн! 🎉",
+    "subtitle": "Отправьте эту ссылку друзьям",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "open": "Открыть",
+    "footer": "При обновлении сайта ссылка обновится автоматически. Просто отредактируйте в чате.",
+    "publicLink": "Публичная ссылка",
+    "shareHint": "Отправьте друзьям или нажмите «Поделиться».",
+    "editHint": "Что-то не нравится? Напишите сюда — я отредактирую:",
+    "editExamples": {
+      "color": "Сделай Hero синим",
+      "remove": "Удали раздел цены",
+      "add": "Добавь Instagram в контакты",
+      "modern": "Сделай более современным"
+    }
+  },
+  "PublicSite": {
+    "generatedBy": "Создано с помощью ИИ",
+    "notFound": "Сайт не найден"
   },
   "Footer": {
     "desc": "Самый продвинутый ИИ-конструктор сайтов для современного бизнеса.",

@@ -24,7 +24,14 @@ class PaymentTransaction(models.Model):
         choices=PaymentStatus.choices, 
         default=PaymentStatus.PENDING
     )
-    
+
+    # ── SMS verifikatsiya (mock/real) ────────────────────────────
+    phone = models.CharField(max_length=20, blank=True, default="")
+    sms_code = models.CharField(max_length=6, blank=True, default="")
+    sms_sent_at = models.DateTimeField(null=True, blank=True)
+    sms_attempts = models.PositiveIntegerField(default=0)
+    verified_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

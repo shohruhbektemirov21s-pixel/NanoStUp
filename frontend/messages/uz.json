@@ -37,18 +37,80 @@
     }
   },
   "Pricing": {
-    "title": "Oddiy va shaffof narxlar",
-    "subtitle": "Biznesingiz ehtiyojlari uchun mukammal rejani tanlang.",
     "free": "Bepul",
     "basic": "Asosiy",
     "premium": "Premium",
     "choose": "Rejani tanlash",
+    "startFree": "Bepul boshlash",
+    "mostPopular": "ENG MASHHUR",
+    "perMonth": "/oy",
+    "daysSubscription": "{days} kunlik obuna",
     "features": {
       "aiGen": "AI Generatsiyalar",
       "projects": "Loyihalar",
       "export": "ZIP formatda eksport",
       "support": "Ustuvor qo'llab-quvvatlash"
     }
+  },
+  "Checkout": {
+    "backToPricing": "Tariflarga qaytish",
+    "selectedPlan": "Tanlangan reja",
+    "perMonth": "/oy",
+    "confirmPayment": "To'lovni tasdiqlash",
+    "viaSms": "SMS kod orqali",
+    "phoneLabel": "Telefon raqam",
+    "phonePlaceholder": "+998 90 123 45 67",
+    "phoneHint": "Bu raqamga 6 xonali SMS kod yuboriladi.",
+    "phoneInvalid": "To'liq telefon raqamini kiriting.",
+    "submitSendCode": "SMS kod yuborish",
+    "submitting": "Yuborilmoqda…",
+    "secureSsl": "Xavfsiz to'lov · SSL shifrlash",
+    "tariffNotFound": "Tarif topilmadi",
+    "back": "Orqaga",
+    "initiateError": "To'lov boshlashda xatolik."
+  },
+  "VerifySms": {
+    "back": "Orqaga",
+    "title": "SMS kodni kiriting",
+    "sentTo": "{phone} raqamiga yuborildi",
+    "enterFullCode": "Kodni to'liq kiriting.",
+    "wrongCode": "Kod noto'g'ri.",
+    "attemptsLeft": "({count} urinish qoldi)",
+    "verify": "Tasdiqlash",
+    "verifying": "Tekshirilmoqda…",
+    "resendIn": "Qayta yuborish",
+    "resendNow": "Kodni qayta yuborish",
+    "resending": "Yuborilmoqda…",
+    "resendError": "Qayta yuborish xatosi.",
+    "successTitle": "🎉 Obuna faol!",
+    "successDesc": "«{tariff}» muvaffaqiyatli aktivlashtirildi.",
+    "redirecting": "Profilga yo'naltirilmoqda…",
+    "paymentNotFound": "To'lov topilmadi",
+    "backToPricing": "Tariflarga qaytish",
+    "codeNotReceived": "Kod kelmadimi? Spam papkasini tekshiring yoki qayta yuboring."
+  },
+  "Share": {
+    "title": "Saytingiz onlayn! 🎉",
+    "subtitle": "Quyidagi linkni do'stlaringizga yuboring",
+    "copy": "Nusxa olish",
+    "copied": "Nusxa olindi",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "open": "Ochish",
+    "footer": "Sayt yangilanganda link avtomatik yangilanadi. Chatda tahrirlash yetarli.",
+    "publicLink": "Publik link",
+    "shareHint": "Do'stlaringizga yuboring yoki \"Ulashish\" tugmasini bosib ulashing.",
+    "editHint": "Biror joyi yoqmasa — shu yerga yozing, men tahrirlayman:",
+    "editExamples": {
+      "color": "Hero rangini ko'k qil",
+      "remove": "Narxlar bo'limini o'chir",
+      "add": "Kontaktga Instagram qo'sh",
+      "modern": "Zamonaviyroq ko'rinishga o'tkaz"
+    }
+  },
+  "PublicSite": {
+    "generatedBy": "AI yordamida yaratilgan",
+    "notFound": "Sayt topilmadi"
   },
   "Footer": {
     "desc": "Zamonaviy biznes uchun eng ilg'or sun'iy intellekt asosidagi veb-sayt konstruktori.",

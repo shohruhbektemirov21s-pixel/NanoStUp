@@ -18,6 +18,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (user: User, token: string, expiresInSeconds?: number) => void;
   updateBalance: (tokens: number, nanoCoins: number) => void;
+  optimisticDeductNano: (nanoAmount: number) => void;
   logout: () => void;
   isTokenExpired: () => boolean;
 }
@@ -44,6 +45,16 @@ export const useAuthStore = create<AuthState>()(
         const current = get().user;
         if (!current) return;
         set({ user: { ...current, tokens_balance: tokens, nano_coins: nanoCoins } });
+      },
+
+      // Serverga so'rov yuborishdan oldin balansni darhol kamaytirish (UX uchun).
+      // Server javob qaytarganda aniq qiymat bilan almashtiriladi.
+      optimisticDeductNano: (nanoAmount) => {
+        const current = get().user;
+        if (!current) return;
+        const nextNano = Math.max(0, (current.nano_coins ?? 0) - nanoAmount);
+        const nextTokens = Math.max(0, (current.tokens_balance ?? 0) - nanoAmount * 10);
+        set({ user: { ...current, tokens_balance: nextTokens, nano_coins: nextNano } });
       },
 
       logout: () => set({

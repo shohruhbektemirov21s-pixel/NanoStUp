@@ -338,18 +338,38 @@ class ArchitectService:
         self,
         user_message: str,
         history: List[Dict[str, str]],
+        image: Optional[Dict[str, str]] = None,
     ) -> Tuple[str, Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Returns: (ai_text, spec_or_None, design_variants_or_None)
+
+        image: optional dict {"media_type": "image/jpeg", "data": "<base64>"}
         """
         # ── Claude (faol) ──────────────────────────────────────────
         try:
             client = _get_claude_client()
-            messages = [
+            messages: List[Dict[str, Any]] = [
                 {"role": m["role"], "content": m["content"]}
                 for m in history
             ]
-            messages.append({"role": "user", "content": user_message})
+            # Agar rasm bor bo'lsa — content bloklari (image + text) sifatida yuboramiz
+            if image and image.get("data"):
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": image.get("media_type", "image/jpeg"),
+                                "data": image["data"],
+                            },
+                        },
+                        {"type": "text", "text": user_message or "Rasmni tahlil qil."},
+                    ],
+                })
+            else:
+                messages.append({"role": "user", "content": user_message})
             response = client.messages.create(
                 model=_get_claude_model(),
                 max_tokens=2048,

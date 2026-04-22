@@ -37,18 +37,80 @@
     }
   },
   "Pricing": {
-    "title": "Simple, transparent pricing",
-    "subtitle": "Choose the perfect plan for your business needs.",
     "free": "Free",
     "basic": "Basic",
     "premium": "Premium",
     "choose": "Choose Plan",
+    "startFree": "Start Free",
+    "mostPopular": "MOST POPULAR",
+    "perMonth": "/mo",
+    "daysSubscription": "{days}-day subscription",
     "features": {
       "aiGen": "AI Generations",
       "projects": "Projects",
       "export": "Export to ZIP",
       "support": "Priority Support"
     }
+  },
+  "Checkout": {
+    "backToPricing": "Back to pricing",
+    "selectedPlan": "Selected plan",
+    "perMonth": "/mo",
+    "confirmPayment": "Confirm payment",
+    "viaSms": "Via SMS code",
+    "phoneLabel": "Phone number",
+    "phonePlaceholder": "+1 555 123 4567",
+    "phoneHint": "A 6-digit SMS code will be sent to this number.",
+    "phoneInvalid": "Please enter a complete phone number.",
+    "submitSendCode": "Send SMS code",
+    "submitting": "Sending…",
+    "secureSsl": "Secure payment · SSL encryption",
+    "tariffNotFound": "Tariff not found",
+    "back": "Back",
+    "initiateError": "Failed to initiate payment."
+  },
+  "VerifySms": {
+    "back": "Back",
+    "title": "Enter SMS code",
+    "sentTo": "Sent to {phone}",
+    "enterFullCode": "Please enter the full code.",
+    "wrongCode": "Wrong code.",
+    "attemptsLeft": "({count} attempts left)",
+    "verify": "Verify",
+    "verifying": "Verifying…",
+    "resendIn": "Resend in",
+    "resendNow": "Resend code",
+    "resending": "Sending…",
+    "resendError": "Failed to resend code.",
+    "successTitle": "🎉 Subscription active!",
+    "successDesc": "«{tariff}» has been activated.",
+    "redirecting": "Redirecting to profile…",
+    "paymentNotFound": "Payment not found",
+    "backToPricing": "Back to pricing",
+    "codeNotReceived": "Didn't get the code? Check spam or resend."
+  },
+  "Share": {
+    "title": "Your site is online! 🎉",
+    "subtitle": "Send this link to your friends",
+    "copy": "Copy",
+    "copied": "Copied",
+    "telegram": "Telegram",
+    "whatsapp": "WhatsApp",
+    "open": "Open",
+    "footer": "The link auto-updates when you edit the site. Just edit in chat.",
+    "publicLink": "Public link",
+    "shareHint": "Share with friends or click the \"Share\" button.",
+    "editHint": "Don't like something? Just type here and I'll edit it:",
+    "editExamples": {
+      "color": "Make the hero blue",
+      "remove": "Remove the pricing section",
+      "add": "Add Instagram to contacts",
+      "modern": "Make it more modern"
+    }
+  },
+  "PublicSite": {
+    "generatedBy": "Generated with AI",
+    "notFound": "Site not found"
   },
   "Footer": {
     "desc": "The most advanced AI website builder for modern businesses.",

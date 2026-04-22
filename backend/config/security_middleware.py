@@ -8,9 +8,12 @@ import environ
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
-# ADMIN_URL — .env dan o'qiymiz (masalan '17210707admin')
+# ADMIN_URL — .env dan o'qiymiz (masalan '17210707admin').
+# Default `config/urls.py` bilan bir xil bo'lishi kerak, aks holda
+# admin URL'lari noto'g'ri CSP branch'iga tushib qoladi (Alpine.js unsafe-eval
+# ruxsati berilmaydi va unfold admin ishlamaydi).
 _env = environ.Env()
-_ADMIN_URL_PREFIX = "/" + _env("ADMIN_URL", default="admin").strip("/") + "/"
+_ADMIN_URL_PREFIX = "/" + _env("ADMIN_URL", default="17210707admin").strip("/") + "/"
 
 
 class SecurityHeadersMiddleware:
@@ -42,7 +45,14 @@ class SecurityHeadersMiddleware:
 
         # ── Content-Security-Policy ───────────────────────────────
         # Admin panelda unfold CDN kerak; APIda hech narsa yuklanmaydi.
+        # settings.ADMIN_URL ham tekshiriladi (agar mavjud bo'lsa) — production'da
+        # env mismatch bo'lganda ham admin CSP branch'iga to'g'ri tushadi.
         is_admin = request.path.startswith(_ADMIN_URL_PREFIX)
+        settings_admin_url = getattr(settings, "ADMIN_URL", None)
+        if not is_admin and settings_admin_url:
+            is_admin = request.path.startswith(
+                "/" + str(settings_admin_url).strip("/") + "/"
+            )
         is_docs = request.path.startswith(("/api/docs", "/api/redoc", "/api/schema"))
         if is_docs:
             # Swagger/Redoc CDN'dan JS/CSS yuklaydi

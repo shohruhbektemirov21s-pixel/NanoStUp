@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 
 import { SiteRenderer } from '@/features/builder/SiteRenderer';
 
@@ -41,11 +42,12 @@ async function fetchPublicSite(slug: string): Promise<PublicSiteResponse['site']
 // ── Dynamic metadata: OG / Twitter ─────────────────────────────
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> },
+  { params }: { params: Promise<{ slug: string; locale: string }> },
 ): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const site = await fetchPublicSite(slug);
-  if (!site) return { title: 'Sayt topilmadi' };
+  const t = await getTranslations({ locale, namespace: 'PublicSite' });
+  if (!site) return { title: t('notFound') };
   const title = site.title || 'AI Sayt';
   const description = `${title} — AI yordamida yaratilgan sayt.`;
   return {
@@ -61,16 +63,20 @@ export async function generateMetadata(
 export default async function PublicSitePage(
   { params }: { params: Promise<{ slug: string; locale: string }> },
 ) {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const site = await fetchPublicSite(slug);
   if (!site || !site.schema_data) notFound();
+
+  const t = await getTranslations({ locale, namespace: 'PublicSite' });
+  const localeMap: Record<string, string> = { en: 'en-US', ru: 'ru-RU', uz: 'uz-UZ' };
+  const dateLocale = localeMap[locale] ?? 'uz-UZ';
 
   // SiteRenderer client-agnostic (oddiy JSX) — server'da ham ishlaydi
   return (
     <main className="w-full">
       <SiteRenderer schema={site.schema_data as Parameters<typeof SiteRenderer>[0]['schema']} />
       <footer className="py-6 px-6 text-center text-xs text-zinc-400 border-t border-zinc-100">
-        AI yordamida yaratilgan · {new Date(site.updated_at).toLocaleDateString('uz-UZ')}
+        {t('generatedBy')} · {new Date(site.updated_at).toLocaleDateString(dateLocale)}
       </footer>
     </main>
   );

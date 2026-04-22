@@ -3,10 +3,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Bot, CheckCircle2, Clock, Code2, Copy, Cpu, Download, Eye, Globe, Layers, Loader2,
-  MessageSquare, Monitor, MousePointer2, RefreshCw, Send,
+  MessageSquare, Monitor, MousePointer2, Paperclip, RefreshCw, Send,
   Settings, Share2, Smartphone, Sparkles, Wand2, Palette, Zap,
   BarChart2, Coins, X,
 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,7 @@ interface ChatMessage {
   role: 'user' | 'ai';
   text: string;
   phase?: 'ARCHITECT' | 'DONE';
+  imageUrl?: string; // data URL (rasm biriktirilgan xabarlar uchun)
 }
 
 interface DesignVariant {
@@ -346,6 +349,14 @@ function ChatBubble({ msg, index }: { msg: ChatMessage; index: number }) {
           : isDone ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 rounded-bl-sm'
             : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
       )}>
+        {msg.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={msg.imageUrl}
+            alt="attachment"
+            className="mb-2 max-w-full max-h-64 rounded-xl object-cover"
+          />
+        )}
         {msg.text}
       </div>
       {isUser && (
@@ -501,6 +512,13 @@ export default function BuilderPage() {
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Chat rasm (Claude vision)
+  const [attachedImage, setAttachedImage] = useState<{
+    dataUrl: string; // preview uchun
+    base64: string;  // serverga yuborish uchun (prefix'siz)
+    mediaType: string;
+    name: string;
+  } | null>(null);
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<'idle' | 'architect' | 'building' | 'done'>('idle');
@@ -541,9 +559,37 @@ export default function BuilderPage() {
   }, []);
 
   const { setCurrentProject } = useProjectStore();
-  const { isAuthenticated, user, updateBalance } = useAuthStore();
+  const { isAuthenticated, user, updateBalance, optimisticDeductNano } = useAuthStore();
+  const locale = useLocale();
+  const tShare = useTranslations('Share');
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Rasm tanlash: File → base64 (prefix'siz) + dataURL (preview uchun)
+  const handleImagePick = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('Faqat rasm fayllarini yuklash mumkin.');
+      return;
+    }
+    // Max 5 MB (base64 qilgandan keyin ~6.7 MB bo'ladi, backend limiti ~5.5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Rasm juda katta (max 5 MB).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1] ?? '';
+      setAttachedImage({
+        dataUrl,
+        base64,
+        mediaType: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     // Sahifa ochilganda eski loyihani tozalaymiz
@@ -604,15 +650,92 @@ export default function BuilderPage() {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [chatMessages, isGenerating, designVariants]);
 
+  const searchParams = useSearchParams();
+  const queryConversationId = searchParams.get('conversation');
+  const queryProjectId = searchParams.get('project');
+
   useEffect(() => {
+    // URL da ?conversation=<id> bo'lsa — suhbatni tiklaymiz (ChatGPT uslubi)
+    if (queryConversationId && isAuthenticated) {
+      (async () => {
+        try {
+          interface RemoteMsg {
+            id: string; role: 'user' | 'assistant' | 'system';
+            content: string; intent: string;
+            metadata: Record<string, unknown> | null;
+          }
+          interface ConvDetail {
+            id: string; title: string; project: string | null;
+            messages: RemoteMsg[];
+          }
+          const res = await api.get<ConvDetail>(`/conversations/${queryConversationId}/`);
+          const conv = res.data;
+          // Xabarlarni chat format'iga o'tkazamiz
+          const loadedMsgs: ChatMessage[] = conv.messages
+            .filter(m => m.role !== 'system')
+            .map(m => ({
+              role: m.role === 'user' ? 'user' : 'ai',
+              text: m.content,
+              phase: m.intent === 'ARCHITECT' ? 'ARCHITECT' :
+                     (m.intent === 'GENERATE' || m.intent === 'REVISE') ? 'DONE' : undefined,
+            }));
+          setChatMessages(loadedMsgs.length > 0 ? loadedMsgs : [{
+            role: 'ai',
+            text: '👋 Salom! Suhbatni davom ettiring.',
+          }]);
+          // History — AI uchun kontekst
+          setHistory(
+            conv.messages
+              .filter(m => m.role === 'user' || m.role === 'assistant')
+              .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+          );
+          setConversationId(conv.id);
+
+          // Agar bog'langan loyiha bo'lsa — preview tiklaymiz
+          const projectIdToLoad = conv.project || queryProjectId;
+          if (projectIdToLoad) {
+            interface ProjectData {
+              id: string; title: string;
+              schema_data: Record<string, unknown> | null;
+              slug?: string | null; is_published?: boolean;
+            }
+            const projRes = await api.get<ProjectData>(`/projects/${projectIdToLoad}/`);
+            const p = projRes.data;
+            if (p.schema_data) {
+              setPreviewSchema(p.schema_data);
+              setPreviewTitle(p.title);
+              setPreviewId(p.id);
+              if (p.slug && p.is_published) setPublishedSlug(p.slug);
+              setPhase('done');
+              // Kod fayllarini background'da yuklaymiz
+              void fetchFiles(p.id, p.schema_data);
+            }
+          }
+        } catch (err) {
+          console.error('Conversation yuklanmadi:', err);
+          setChatMessages([{
+            role: 'ai',
+            text: '⚠️ Suhbatni yuklab bo\'lmadi. Yangi suhbat boshlanadi.',
+          }]);
+        }
+      })();
+      return;
+    }
+    // Oddiy rejim — boshlang'ich xabar
     setChatMessages([{
       role: 'ai',
       text: '👋 Salom! Men sizning AI arxitektoringizman.\n\nAvval bir nechta savol beraman, keyin saytingizni yarataman.\n\nQanday biznes yoki loyiha uchun sayt kerak?',
     }]);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryConversationId, queryProjectId, isAuthenticated]);
 
-  const addMsg = (role: 'user' | 'ai', text: string, msgPhase?: ChatMessage['phase']) =>
-    setChatMessages(prev => [...prev, { role, text, phase: msgPhase }]);
+  const addMsg = (
+    role: 'user' | 'ai',
+    text: string,
+    msgPhase?: ChatMessage['phase'],
+    imageUrl?: string,
+  ) =>
+    setChatMessages(prev => [...prev, { role, text, phase: msgPhase, imageUrl }]);
 
   const handleVariantSelect = (variant: DesignVariant) => {
     setDesignVariants(null);
@@ -621,36 +744,64 @@ export default function BuilderPage() {
 
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? prompt).trim();
-    if (!text || isGenerating) return;
+    // Rasm biriktirilgan bo'lsa — bo'sh matn bilan ham yuborish mumkin
+    const currentImage = attachedImage;
+    if (!text && !currentImage) return;
+    if (isGenerating) return;
     if (!overrideText) setPrompt('');
-    addMsg('user', text);
+    // Rasm tozalanishi kerak — yuborilgandan keyin yana qo'shish mumkin
+    if (currentImage) setAttachedImage(null);
+    addMsg('user', text || '(rasm yuborildi)', undefined, currentImage?.dataUrl);
     setErrorMsg('');
     setIsGenerating(true);
 
-    const newHistory: HistoryItem[] = [...history, { role: 'user', content: text }];
+    const promptForApi = text || 'Rasmni tahlil qil va nima yordam kerakligini ayt.';
+    const newHistory: HistoryItem[] = [...history, { role: 'user', content: promptForApi }];
+
+    // ── Optimistik balans kamaytirish (real-time UX) ──────────────
+    // Agar bu so'rov pulli bo'lishi ehtimoli yuqori bo'lsa — badge'ni darhol tushiramiz.
+    // Server javobi kelganda `data.balance` bilan aniq qiymatga sinxronlanadi.
+    // Pulli bo'ladigan holatlar:
+    //   • REVISE — sayt tayyor, user tahrir so'raydi (phase===done + previewId)
+    //   • GENERATE — yangi sayt generatsiya (uzun prompt yoki "yarat" so'zi)
+    const looksLikeGenerate = /\b(yarat|qur|build|create|generate|qil)\b/i.test(text);
+    const willLikelyCost = isAuthenticated && (
+      (phase === 'done' && !!previewId) ||        // REVISE
+      (phase !== 'done' && (text.length > 30 || looksLikeGenerate))  // GENERATE
+    );
+    if (willLikelyCost) {
+      optimisticDeductNano(500); // CHAT_COST_NANO (backend konstanta bilan mos)
+    }
 
     try {
       let res: { data: ApiResponse };
+
+      // Rasm body (agar biriktirilgan bo'lsa) — Claude vision uchun
+      const imagePayload = currentImage
+        ? { media_type: currentImage.mediaType, data: currentImage.base64 }
+        : undefined;
 
       // Sayt tayyor bo'lsa va user dizayn o'zgartirmoqchi bo'lsa — inline revise
       if (phase === 'done' && previewSchema) {
         if (previewId) {
           // Login qilingan — DB orqali revise
           res = await api.post<ApiResponse>('/projects/process_prompt/', {
-            prompt: text, language: 'uz', history: newHistory, project_id: previewId,
+            prompt: promptForApi, language: 'uz', history: newHistory, project_id: previewId,
             conversation_id: conversationId,
+            image: imagePayload,
           });
         } else {
           // Login qilinmagan — schema inline yuboramiz
           res = await api.post<ApiResponse>('/projects/revise_inline/', {
-            prompt: text, language: 'uz', schema_data: previewSchema,
+            prompt: promptForApi, language: 'uz', schema_data: previewSchema,
           });
         }
       } else {
         // Oddiy suhbat / yangi generatsiya
         res = await api.post<ApiResponse>('/projects/process_prompt/', {
-          prompt: text, language: 'uz', history: newHistory,
+          prompt: promptForApi, language: 'uz', history: newHistory,
           conversation_id: conversationId,
+          image: imagePayload,
         });
       }
       const data = res.data;
@@ -699,14 +850,14 @@ export default function BuilderPage() {
         // Publik link (agar backend avtomatik publish qilgan bo'lsa)
         const slug = data.project.slug ?? null;
         const shareUrl = slug && typeof window !== 'undefined'
-          ? `${window.location.origin}/uz/s/${slug}`
+          ? `${window.location.origin}/${locale}/s/${slug}`
           : '';
         const linkLine = shareUrl
-          ? `\n\n🌐 **Publik link:** ${shareUrl}\n_Do'stlaringizga yuboring yoki "Ulashish" tugmasini bosib ulashing._`
+          ? `\n\n🌐 **${tShare('publicLink')}:** ${shareUrl}\n_${tShare('shareHint')}_`
           : '';
         addMsg(
           'ai',
-          `✅ Sayt yaratildi: «${data.project.title}»\n\nChap tomonda preview ko'rinmoqda.\n📦 ZIP tugmasini bosib kodni yuklab oling.${linkLine}\n\n✏️ **Biror joyi yoqmasa — shu yerga yozing, men tahrirlayman:**\n• "Hero rangini ko'k qil"\n• "Narxlar bo'limini o'chir"\n• "Kontaktga Instagram qo'sh"\n• "Zamonaviyroq ko'rinishga o'tkaz"`,
+          `✅ «${data.project.title}»\n${linkLine}\n\n✏️ **${tShare('editHint')}**\n• "${tShare('editExamples.color')}"\n• "${tShare('editExamples.remove')}"\n• "${tShare('editExamples.add')}"\n• "${tShare('editExamples.modern')}"`,
           'DONE',
         );
 
@@ -791,6 +942,17 @@ export default function BuilderPage() {
       addMsg('ai', `❌ ${msg}`);
       setBuildStartTime(null);
       setIsGenerating(false);
+    } finally {
+      // Optimistik yechim xato bo'lishi mumkin — serverdan aniq balansni qayta olamiz
+      if (willLikelyCost) {
+        api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
+          .then(r => {
+            if (typeof r.data.tokens_balance === 'number') {
+              updateBalance(r.data.tokens_balance, r.data.nano_coins ?? 0);
+            }
+          })
+          .catch(() => { /* ignore — 20s poll sync qiladi */ });
+      }
     }
   };
 
@@ -851,7 +1013,7 @@ export default function BuilderPage() {
 
   // Publik URL ni hisoblash — brauzerda origin qo'shamiz
   const publicUrl = publishedSlug && typeof window !== 'undefined'
-    ? `${window.location.origin}/uz/s/${publishedSlug}`
+    ? `${window.location.origin}/${locale}/s/${publishedSlug}`
     : '';
 
   const handleCopyLink = async () => {
@@ -1322,24 +1484,75 @@ export default function BuilderPage() {
 
           {/* Input */}
           <div className="p-3 border-t border-white/5 shrink-0">
+            {/* Biriktirilgan rasm preview (thumbnail + o'chirish) */}
+            <AnimatePresence>
+              {attachedImage && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-2">
+                  <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={attachedImage.dataUrl}
+                      alt={attachedImage.name}
+                      className="h-20 w-20 object-cover rounded-xl border border-white/10"
+                    />
+                    <button
+                      onClick={() => setAttachedImage(null)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-900 border border-white/20 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      title="Rasmni olib tashlash">
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[10px] text-zinc-500 truncate max-w-[200px]">
+                    {attachedImage.name}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex items-end gap-2">
+              {/* Rasm biriktirish tugmasi */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImagePick(file);
+                  // Reset — bir xil faylni qayta tanlash ishlashi uchun
+                  e.target.value = '';
+                }}
+              />
+              <motion.button
+                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isGenerating || !!attachedImage}
+                title={attachedImage ? "Rasm allaqachon biriktirilgan" : "Rasm biriktirish"}
+                className="h-10 w-10 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 rounded-xl shrink-0 flex items-center justify-center transition-all border border-white/10">
+                <Paperclip className="w-4 h-4 text-zinc-300" />
+              </motion.button>
               <textarea
                 ref={textareaRef}
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); } }}
-                placeholder={phase === 'done' ? 'Nimani o\'zgartiray? Masalan: "hero rangini ko\'k qil"…' : 'Biznesingizni tasvirlab bering…'}
+                placeholder={attachedImage
+                  ? 'Rasm haqida nima so\'rayapsiz? (ixtiyoriy)'
+                  : phase === 'done' ? 'Nimani o\'zgartiray? Masalan: "hero rangini ko\'k qil"…' : 'Biznesingizni tasvirlab bering…'}
                 rows={2}
                 className="flex-1 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"
               />
               <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
                 onClick={() => void handleSend()}
-                disabled={isGenerating || !prompt.trim()}
+                disabled={isGenerating || (!prompt.trim() && !attachedImage)}
                 className="h-10 w-10 bg-gradient-to-tr from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-zinc-800 disabled:shadow-none rounded-xl shrink-0 flex items-center justify-center transition-all shadow-lg shadow-blue-500/20">
                 {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </motion.button>
             </div>
-            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter = yuborish · Shift+Enter = yangi qator</p>
+            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter = yuborish · Shift+Enter = yangi qator · 📎 Rasm biriktirish</p>
           </div>
         </div>
       </main>
@@ -1368,8 +1581,8 @@ export default function BuilderPage() {
                   <Globe className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-base">Saytingiz onlayn! 🎉</h3>
-                  <p className="text-xs text-zinc-400">Quyidagi linkni do&apos;stlaringizga yuboring</p>
+                  <h3 className="text-white font-bold text-base">{tShare('title')}</h3>
+                  <p className="text-xs text-zinc-400">{tShare('subtitle')}</p>
                 </div>
               </div>
 
@@ -1388,38 +1601,38 @@ export default function BuilderPage() {
                       : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white',
                   )}>
                   {copied
-                    ? <><CheckCircle2 className="w-3.5 h-3.5" /> Nusxa olindi</>
-                    : <><Copy className="w-3.5 h-3.5" /> Nusxa olish</>}
+                    ? <><CheckCircle2 className="w-3.5 h-3.5" /> {tShare('copied')}</>
+                    : <><Copy className="w-3.5 h-3.5" /> {tShare('copy')}</>}
                 </motion.button>
               </div>
 
               {/* Share buttons */}
               <div className="grid grid-cols-3 gap-2 mb-4">
                 <a
-                  href={`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(`${previewTitle} — AI yaratgan sayt`)}`}
+                  href={`https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent(previewTitle)}`}
                   target="_blank" rel="noreferrer"
                   className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
                   <span className="text-lg">✈️</span>
-                  <span>Telegram</span>
+                  <span>{tShare('telegram')}</span>
                 </a>
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(`${previewTitle}: ${publicUrl}`)}`}
                   target="_blank" rel="noreferrer"
                   className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
                   <span className="text-lg">💬</span>
-                  <span>WhatsApp</span>
+                  <span>{tShare('whatsapp')}</span>
                 </a>
                 <a
                   href={publicUrl}
                   target="_blank" rel="noreferrer"
                   className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
                   <span className="text-lg">🔗</span>
-                  <span>Ochish</span>
+                  <span>{tShare('open')}</span>
                 </a>
               </div>
 
               <p className="text-[11px] text-zinc-500 text-center leading-relaxed">
-                Sayt yangilanganda link avtomatik yangilanadi. Chatda tahrirlash yetarli.
+                {tShare('footer')}
               </p>
             </motion.div>
           </motion.div>

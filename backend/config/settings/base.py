@@ -16,6 +16,11 @@ DEBUG = env.bool("DEBUG", default=False)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
+# Admin URL prefix — config/urls.py va security_middleware.py da ishlatiladi.
+# Default `urls.py` bilan mos kelishi SHART, aks holda middleware admin
+# requestlariga noto'g'ri CSP qaytaradi va unfold (Alpine.js) ishlamaydi.
+ADMIN_URL = env("ADMIN_URL", default="17210707admin")
+
 # Application definition
 INSTALLED_APPS = [
     "unfold",
