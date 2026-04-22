@@ -32,6 +32,9 @@ class SecurityHeadersMiddleware:
 
     @staticmethod
     def _is_api(request: HttpRequest) -> bool:
+        # API docs (Swagger/Redoc) — alohida sahifalar, CSP yumshoq bo'lishi kerak
+        if request.path.startswith(("/api/docs", "/api/redoc", "/api/schema")):
+            return False
         return request.path.startswith("/api/")
 
     def _add_headers(self, request: HttpRequest, response: HttpResponse) -> None:
@@ -40,7 +43,15 @@ class SecurityHeadersMiddleware:
         # ── Content-Security-Policy ───────────────────────────────
         # Admin panelda unfold CDN kerak; APIda hech narsa yuklanmaydi.
         is_admin = request.path.startswith(_ADMIN_URL_PREFIX)
-        if not is_admin and not self._is_api(request):
+        is_docs = request.path.startswith(("/api/docs", "/api/redoc", "/api/schema"))
+        if is_docs:
+            # Swagger/Redoc CDN'dan JS/CSS yuklaydi
+            response["Content-Security-Policy"] = (
+                "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data: https:;"
+            )
+        elif not is_admin and not self._is_api(request):
             response["Content-Security-Policy"] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com; "
