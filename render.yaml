@@ -1,0 +1,44 @@
+services:
+  # 1. PostgreSQL Databazasi
+  - type: psql
+    name: nanostup-db
+    plan: starter # Pullik $7/oy, bepul uchun "free" yoziladi
+    region: frankfurt
+
+  # 2. Backend (Django)
+  - type: web
+    name: nanostup-api
+    env: python
+    rootDir: backend
+    region: frankfurt
+    plan: standard # Siz tanlagan 2GB RAM ($25)
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nanostup-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "nanostup-api.onrender.com"
+      - key: DEBUG
+        value: "False"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://nanostup.onrender.com"
+
+  # 3. Frontend (Next.js)
+  - type: web
+    name: nanostup
+    env: node
+    rootDir: frontend
+    region: frankfurt
+    plan: free # Frontend uchun bepul tarif yetadi
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://nanostup-api.onrender.com"
+      - key: NODE_VERSION
+        value: "20.10.0" # Node versiyasini aniqlashtirish
