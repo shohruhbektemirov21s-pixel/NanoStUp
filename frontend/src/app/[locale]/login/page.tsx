@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
+import { useSearchParams } from 'next/navigation';
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
 import axios from 'axios';
@@ -19,6 +20,8 @@ export default function LoginPage() {
   const [lockedMinutes, setLockedMinutes] = useState<number | null>(null);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams.get('next') || '/builder';
   const t = useTranslations('Auth');
   const setAuth = useAuthStore((state) => state.setAuth);
 
@@ -37,7 +40,8 @@ export default function LoginPage() {
       });
 
       setAuth(userResponse.data, access);
-      router.push('/builder');
+      // `?next=/some/path` bo'lsa — o'sha sahifaga qaytaramiz (default: /builder)
+      router.push(nextPath as Parameters<typeof router.push>[0]);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const data = err.response?.data as {

@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DeveloperView, type FileMap } from '@/features/builder/DeveloperView';
 import { SiteRenderer } from '@/features/builder/SiteRenderer';
-import { Link } from '@/i18n/routing';
+import { Link, useRouter } from '@/i18n/routing';
 import { cn } from '@/lib/utils';
 import api from '@/shared/api/axios';
 import axios from 'axios';
@@ -588,7 +588,20 @@ export default function BuilderPage() {
 
   const { setCurrentProject } = useProjectStore();
   const { isAuthenticated, user, updateBalance, optimisticDeductNano } = useAuthStore();
+  const router = useRouter();
   const locale = useLocale();
+
+  // ── Auth guard ─────────────────────────────────────────────────
+  // Builder (AI chat + sayt generatsiya) faqat ro'yxatdan o'tgan
+  // foydalanuvchilar uchun. Hydration tugagach tekshiramiz.
+  const [authChecked, setAuthChecked] = useState(false);
+  useEffect(() => {
+    // Zustand persist hydration'dan keyin ishga tushadi
+    setAuthChecked(true);
+    if (!useAuthStore.getState().isAuthenticated) {
+      router.replace('/login?next=/builder');
+    }
+  }, [router]);
   const tShare = useTranslations('Share');
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -833,16 +846,14 @@ export default function BuilderPage() {
     const newHistory: HistoryItem[] = [...history, { role: 'user', content: promptForApi }];
 
     // ── Optimistik balans kamaytirish (real-time UX) ──────────────
-    // Agar bu so'rov pulli bo'lishi ehtimoli yuqori bo'lsa — badge'ni darhol tushiramiz.
-    // Server javobi kelganda `data.balance` bilan aniq qiymatga sinxronlanadi.
-    // Pulli bo'ladigan holatlar:
-    //   • REVISE — sayt tayyor, user tahrir so'raydi (phase===done + previewId)
-    //   • GENERATE — yangi sayt generatsiya (uzun prompt yoki "yarat" so'zi)
-    const looksLikeGenerate = /\b(yarat|qur|build|create|generate|qil)\b/i.test(text);
-    const willLikelyCost = isAuthenticated && (
-      (phase === 'done' && !!previewId) ||        // REVISE
-      (phase !== 'done' && (text.length > 30 || looksLikeGenerate))  // GENERATE
-    );
+    // Chat (arxitekt suhbat) — CHEKSIZ, BEPUL. Gemini ishlatiladi, Claude chaqirilmaydi,
+    // shuning uchun token ham yechilmaydi. Faqat Claude (haqiqiy sayt generatsiya) paytida
+    // balans tushadi — u yerda ham tushurishni server `data.balance` dan sinxron oladi.
+    //
+    // Pulli bo'ladigan YAGONA holat bu yerda: REVISE (tayyor saytni tahrirlash).
+    // Boshqa barcha holatlarda optimistik yechish yo'q — chunki user "bir og'iz yozsam
+    // ham balansim kamayib ketdi" degan noto'g'ri taassurot olmasin.
+    const willLikelyCost = isAuthenticated && phase === 'done' && !!previewId;
     if (willLikelyCost) {
       optimisticDeductNano(500); // CHAT_COST_NANO (backend konstanta bilan mos)
     }
@@ -1158,6 +1169,48 @@ export default function BuilderPage() {
   };
 
   const isBuilding = isGenerating && (phase === 'building' || (phase !== 'architect' && phase !== 'idle' && phase !== 'done'));
+
+  // Hydration/auth tekshiruvi tugamaguncha bo'sh ekran (flicker'ni oldini olish)
+  if (!authChecked) {
+    return (
+      <div className="h-screen bg-zinc-950 text-white flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-purple-500" />
+      </div>
+    );
+  }
+
+  // Auth qilinmagan — login sahifaga yo'naltirilayotganini kutmoqdamiz
+  if (!isAuthenticated) {
+    return (
+      <div className="h-screen bg-zinc-950 text-white flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full text-center p-8 rounded-3xl border border-white/10 bg-white/5"
+        >
+          <div className="w-14 h-14 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <Sparkles className="w-7 h-7" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Avval ro&apos;yxatdan o&apos;ting</h2>
+          <p className="text-sm text-zinc-400 mb-6">
+            AI builder va chat faqat ro&apos;yxatdan o&apos;tgan foydalanuvchilar uchun.
+            Tezda hisob oching yoki kiring — bepul 5 000 token bonus beriladi.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <Link href="/login">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 rounded-xl">
+                Kirish
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="outline" className="bg-white/5 border-white/10 text-zinc-200 hover:bg-white/10 px-6 rounded-xl">
+                Ro&apos;yxatdan o&apos;tish
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">

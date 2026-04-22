@@ -490,7 +490,11 @@ class ClaudeService:
 
     def revise_site(
         self, prompt: str, current_schema: Dict[str, Any], language: str = "uz"
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], Dict[str, int]]:
+        """
+        Mavjud saytni tahrirlaydi.
+        Returns: (schema, usage) — usage = {input_tokens, output_tokens}
+        """
         client = _get_claude_client()
         user_msg = (
             f"Current schema JSON:\n{json.dumps(current_schema, ensure_ascii=False)}\n\n"
@@ -503,7 +507,11 @@ class ClaudeService:
                 system=REVISE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
-            return _extract_json(response.content[0].text)
+            usage = {
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            }
+            return _extract_json(response.content[0].text), usage
         except anthropic.APIError as exc:
             logger.exception("Claude revise xatosi")
             raise RuntimeError(f"Sayt tahrirlashda xatolik: {exc}") from exc

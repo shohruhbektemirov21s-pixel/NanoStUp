@@ -217,10 +217,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def process_prompt(self, request):
         """
-        Arxitektor oqimi:
+        Arxitektor oqimi (FAQAT ro'yxatdan o'tgan foydalanuvchilar):
           1. Foydalanuvchi bilan muloqot (ArchitectService)
           2. FINAL_SITE_SPEC tayyor bo'lganda ClaudeService sayt generatsiya qiladi
           3. Mavjud loyiha bo'lsa — revise rejimi
@@ -324,8 +324,13 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     )
                 gen_start = time.monotonic()
                 claude = ClaudeService()
-                new_schema = claude.revise_site(prompt, project.schema_data or {}, language)
+                new_schema, usage = claude.revise_site(prompt, project.schema_data or {}, language)
                 gen_ms = int((time.monotonic() - gen_start) * 1000)
+                # Haqiqiy Claude xarajati = input + output token (10 tok = 1 nano)
+                actual_cost_tokens = max(
+                    (usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),
+                    CHAT_COST_NANO * TOKENS_PER_NANO_COIN,  # minimum = 1 chat = 5000 tokens
+                )
                 project.schema_data = new_schema
                 project.status = ProjectStatus.COMPLETED
                 project.save(update_fields=["schema_data", "status", "updated_at"])
@@ -341,15 +346,20 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     conversation, ChatRole.ASSISTANT,
                     f"✅ Sayt yangilandi: «{project.title}»",
                     intent="REVISE",
+                    tokens_input=usage.get("input_tokens", 0),
+                    tokens_output=usage.get("output_tokens", 0),
                     duration_ms=gen_ms,
                     project_version=version,
                     metadata={"project_id": str(project.id), "title": project.title},
                 )
-                # Nano koin yechamiz — avval chat bonusi, keyin obuna
+                # Nano koin yechamiz — HAQIQIY Claude xarajatiga asoslangan
+                # (10 token sarflansa = 1 nano koin). Avval chat bonusi, keyin obuna.
                 deduction = None
                 if not TOKEN_LIMITS_DISABLED:
                     try:
-                        deduction = _deduct_for_generation(request.user, conversation, SITE_CREATION_COST)
+                        deduction = _deduct_for_generation(
+                            request.user, conversation, actual_cost_tokens,
+                        )
                     except ValueError:
                         return Response({
                             "success": False,
@@ -367,7 +377,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     "balance": {
                         "tokens": request.user.tokens_balance,
                         "nano_coins": request.user.nano_coins,
-                        "cost": SITE_CREATION_COST,
+                        "cost": actual_cost_tokens,
                         "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                         "deduction": deduction,
                     },
@@ -404,6 +414,11 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     new_schema, usage = claude.generate_from_spec(spec)
                     gen_ms = int((time.monotonic() - gen_start) * 1000)
                     complexity = _estimate_complexity(new_schema)
+                    # HAQIQIY Claude xarajati (input + output token)
+                    actual_cost_tokens = max(
+                        (usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),
+                        CHAT_COST_NANO * TOKENS_PER_NANO_COIN,  # minimum = 5000 tokens
+                    )
                     logger.info(
                         "Claude schema: type=%s keys=%s siteName=%s pages=%s sections_in_first_page=%s",
                         type(new_schema).__name__,
@@ -447,14 +462,17 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                                     "architect_message": ai_text,
                                 },
                             )
-                        # Nano koin yechamiz — avval chat bonusi, keyin obuna
+                        # Nano koin yechamiz — HAQIQIY Claude xarajatiga asoslangan
+                        # (10 token sarflansa = 1 nano koin). Avval chat bonusi, keyin obuna.
                         if not TOKEN_LIMITS_DISABLED:
                             try:
-                                deduction = _deduct_for_generation(request.user, conversation, SITE_CREATION_COST)
+                                deduction = _deduct_for_generation(
+                                    request.user, conversation, actual_cost_tokens,
+                                )
                                 balance_data = {
                                     "tokens": request.user.tokens_balance,
                                     "nano_coins": request.user.nano_coins,
-                                    "cost": SITE_CREATION_COST,
+                                    "cost": actual_cost_tokens,
                                     "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                                     "deduction": deduction,
                                 }
@@ -531,6 +549,11 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             new_schema, usage = claude.generate_full_site(prompt, language)
             gen_ms = int((time.monotonic() - gen_start) * 1000)
             complexity = _estimate_complexity(new_schema)
+            # HAQIQIY Claude xarajati (input + output token, min = 5 000 token)
+            actual_cost_tokens2 = max(
+                (usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),
+                CHAT_COST_NANO * TOKENS_PER_NANO_COIN,
+            )
 
             balance_data2: Optional[dict] = None
             if is_auth:
@@ -565,11 +588,13 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     )
                 if not TOKEN_LIMITS_DISABLED:
                     try:
-                        deduction2 = _deduct_for_generation(request.user, conversation, SITE_CREATION_COST)
+                        deduction2 = _deduct_for_generation(
+                            request.user, conversation, actual_cost_tokens2,
+                        )
                         balance_data2 = {
                             "tokens": request.user.tokens_balance,
                             "nano_coins": request.user.nano_coins,
-                            "cost": SITE_CREATION_COST,
+                            "cost": actual_cost_tokens2,
                             "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                             "deduction": deduction2,
                         }
@@ -818,10 +843,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         resp["Content-Disposition"] = f'attachment; filename="{safe_title}.zip"'
         return resp
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def revise_inline(self, request):
         """
-        Login talab qilmasdan mavjud schema ni tahrirlaydi.
+        Mavjud schema ni tahrirlaydi (FAQAT ro'yxatdan o'tgan foydalanuvchilar).
         schema_data + prompt yuboriladi, yangi schema qaytariladi.
         """
         prompt = (request.data.get("prompt") or "").strip()

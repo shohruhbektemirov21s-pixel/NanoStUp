@@ -79,12 +79,16 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # ⚠️ CorsMiddleware HAR DOIM ENG YUQORIDA bo'lishi shart (django-cors-headers
+    # hujjatida talab). Aks holda 500 xatolarda Access-Control-Allow-Origin
+    # header qo'shilmaydi va brauzer CORS xatosi ko'rsatadi (haqiqiy xato
+    # yashirinib qoladi).
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "config.security_middleware.SecurityHeadersMiddleware",
     "config.audit_middleware.AuditLogMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
