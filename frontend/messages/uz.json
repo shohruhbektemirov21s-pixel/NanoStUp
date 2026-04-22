@@ -50,7 +50,8 @@
       "projects": "Loyihalar",
       "export": "ZIP formatda eksport",
       "support": "Ustuvor qo'llab-quvvatlash"
-    }
+    },
+    "currency": "so'm"
   },
   "Checkout": {
     "backToPricing": "Tariflarga qaytish",
@@ -124,5 +125,73 @@
     "guestMode": "Siz mehmon rejimidagiz. Loyihani saqlash uchun ro'yxatdan o'ting.",
     "placeholder": "Saytingizni tasvirlab bering (masalan: Toshkentdagi zamonaviy restoran)",
     "generate": "Yaratish"
+  },
+  "Auth": {
+    "loginTitle": "Xush kelibsiz",
+    "loginSubtitle": "Davom etish uchun hisobingizga kiring",
+    "email": "Email manzili",
+    "password": "Parol",
+    "login": "Kirish",
+    "noAccount": "Hisobingiz yo'qmi?",
+    "register": "Ro'yxatdan o'tish",
+    "retryAfter": "Iltimos, {minutes} daqiqadan keyin qayta urining.",
+    "attemptsLeft": "Qolgan urinishlar: {remaining}/5. Tugasa 30 daqiqaga bloklanadi.",
+    "wrongCredentials": "Noto'g'ri email yoki parol",
+    "registerTitle": "Hisob yaratish",
+    "registerSubtitle": "Bugun AI saytingizni yaratishni boshlang",
+    "fullName": "To'liq ism",
+    "createAccount": "Hisob yaratish",
+    "haveAccount": "Hisobingiz bormi?",
+    "registerFailed": "Ro'yxatdan o'tish muvaffaqiyatsiz"
+  },
+  "Profile": {
+    "title": "Profil",
+    "loading": "Yuklanmoqda...",
+    "balance": "Balans",
+    "nanoCoins": "nano koin",
+    "tokens": "token",
+    "topUp": "To'ldirish",
+    "logout": "Chiqish",
+    "subscription": "Obuna",
+    "activeUntil": "Faol:",
+    "noActiveSubscription": "Faol obuna yo'q",
+    "viewPlans": "Rejalarni ko'rish",
+    "myProjects": "Mening loyihalarim",
+    "noProjects": "Hali loyihalar yo'q",
+    "openInBuilder": "Builder'da ochish",
+    "published": "Nashr qilingan",
+    "notPublished": "Nashr qilinmagan",
+    "views": "ko'rishlar",
+    "delete": "O'chirish",
+    "deleteConfirm": "Loyihani o'chirishga ishonchingiz komilmi?",
+    "chatHistory": "Suhbatlar tarixi",
+    "goToHistory": "Tarixga o'tish"
+  },
+  "History": {
+    "title": "Suhbatlar tarixi",
+    "subtitle": "AI bilan barcha yozishmalaringiz shu yerda saqlanadi",
+    "total": "Jami",
+    "empty": "Hali suhbatlar yo'q",
+    "goToBuilder": "Builder'ga o'tish",
+    "continueChat": "Davom etirish",
+    "selectConversation": "Suhbatni tanlang",
+    "back": "Orqaga",
+    "loadingList": "Tarixni yuklab bo'lmadi. Keyinroq urinib ko'ring.",
+    "loadingDetail": "Suhbatni yuklab bo'lmadi.",
+    "deleteConfirm": "Suhbatni o'chirishga ishonchingiz komilmi? Bu amalni qaytarib bo'lmaydi.",
+    "deleteError": "O'chirishda xatolik.",
+    "messages": "xabar",
+    "loginRequired": "Tarixingizni ko'rish uchun hisobingizga kiring.",
+    "justNow": "hozirgina",
+    "minutesAgo": "{count} daqiqa oldin",
+    "hoursAgo": "{count} soat oldin",
+    "daysAgo": "{count} kun oldin",
+    "untitled": "(sarlavhasiz)",
+    "intent": {
+      "CHAT": "Suhbat",
+      "ARCHITECT": "Arxitektor",
+      "REVISE": "Tahrir",
+      "GENERATE": "Generatsiya"
+    }
   }
 }

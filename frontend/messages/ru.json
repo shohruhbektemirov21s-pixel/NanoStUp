@@ -50,7 +50,8 @@
       "projects": "Проектов",
       "export": "Экспорт в ZIP",
       "support": "Приоритетная поддержка"
-    }
+    },
+    "currency": "сум"
   },
   "Checkout": {
     "backToPricing": "К тарифам",
@@ -124,5 +125,73 @@
     "guestMode": "Вы в гостевом режиме. Зарегистрируйтесь, чтобы сохранять проекты.",
     "placeholder": "Опишите свой сайт (например: 'Современная галерея в Париже')",
     "generate": "Создать"
+  },
+  "Auth": {
+    "loginTitle": "Добро пожаловать",
+    "loginSubtitle": "Войдите в свой аккаунт для продолжения",
+    "email": "Адрес эл. почты",
+    "password": "Пароль",
+    "login": "Войти",
+    "noAccount": "Нет аккаунта?",
+    "register": "Зарегистрироваться",
+    "retryAfter": "Пожалуйста, повторите через {minutes} минут.",
+    "attemptsLeft": "Осталось попыток: {remaining}/5. По истечении — блокировка на 30 минут.",
+    "wrongCredentials": "Неверный email или пароль",
+    "registerTitle": "Создать аккаунт",
+    "registerSubtitle": "Начните создавать ваш AI-сайт сегодня",
+    "fullName": "Полное имя",
+    "createAccount": "Создать аккаунт",
+    "haveAccount": "Уже есть аккаунт?",
+    "registerFailed": "Регистрация не удалась"
+  },
+  "Profile": {
+    "title": "Профиль",
+    "loading": "Загрузка...",
+    "balance": "Баланс",
+    "nanoCoins": "нано коин",
+    "tokens": "токен",
+    "topUp": "Пополнить",
+    "logout": "Выйти",
+    "subscription": "Подписка",
+    "activeUntil": "Активна:",
+    "noActiveSubscription": "Нет активной подписки",
+    "viewPlans": "Посмотреть планы",
+    "myProjects": "Мои проекты",
+    "noProjects": "Пока нет проектов",
+    "openInBuilder": "Открыть в билдере",
+    "published": "Опубликован",
+    "notPublished": "Не опубликован",
+    "views": "просмотры",
+    "delete": "Удалить",
+    "deleteConfirm": "Вы уверены, что хотите удалить проект?",
+    "chatHistory": "История чатов",
+    "goToHistory": "Перейти к истории"
+  },
+  "History": {
+    "title": "История чатов",
+    "subtitle": "Здесь сохраняется вся ваша переписка с AI",
+    "total": "Всего",
+    "empty": "Пока нет чатов",
+    "goToBuilder": "Перейти в билдер",
+    "continueChat": "Продолжить",
+    "selectConversation": "Выберите чат",
+    "back": "Назад",
+    "loadingList": "Не удалось загрузить историю. Попробуйте позже.",
+    "loadingDetail": "Не удалось загрузить чат.",
+    "deleteConfirm": "Вы уверены, что хотите удалить чат? Это действие необратимо.",
+    "deleteError": "Ошибка при удалении.",
+    "messages": "сообщений",
+    "loginRequired": "Войдите в аккаунт, чтобы просмотреть историю.",
+    "justNow": "только что",
+    "minutesAgo": "{count} мин. назад",
+    "hoursAgo": "{count} ч. назад",
+    "daysAgo": "{count} дн. назад",
+    "untitled": "(без названия)",
+    "intent": {
+      "CHAT": "Чат",
+      "ARCHITECT": "Архитектор",
+      "REVISE": "Правка",
+      "GENERATE": "Генерация"
+    }
   }
 }

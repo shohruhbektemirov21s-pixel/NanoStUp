@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [lockedMinutes, setLockedMinutes] = useState<number | null>(null);
 
   const router = useRouter();
+  const t = useTranslations('Auth');
   const setAuth = useAuthStore((state) => state.setAuth);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,13 +46,13 @@ export default function LoginPage() {
           retry_after_minutes?: number;
           locked?: boolean;
         } | undefined;
-        setError(data?.detail || err.message || "Noto'g'ri email yoki parol");
+        setError(data?.detail || err.message || t('wrongCredentials'));
         if (typeof data?.remaining_attempts === 'number') setRemaining(data.remaining_attempts);
         if (data?.locked && typeof data?.retry_after_minutes === 'number') {
           setLockedMinutes(data.retry_after_minutes);
         }
       } else {
-        setError("Noto'g'ri email yoki parol");
+        setError(t('wrongCredentials'));
       }
     } finally {
       setLoading(false);
@@ -68,13 +70,13 @@ export default function LoginPage() {
           <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold">Xush kelibsiz</h1>
-          <p className="text-gray-500 mt-2">Davom etish uchun hisobingizga kiring</p>
+          <h1 className="text-2xl font-bold">{t('loginTitle')}</h1>
+          <p className="text-gray-500 mt-2">{t('loginSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-400 mb-1.5 block">Email manzili</label>
+            <label className="text-sm font-medium text-gray-400 mb-1.5 block">{t('email')}</label>
             <input 
               type="email" 
               required
@@ -85,7 +87,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-400 mb-1.5 block">Parol</label>
+            <label className="text-sm font-medium text-gray-400 mb-1.5 block">{t('password')}</label>
             <input 
               type="password" 
               required
@@ -107,12 +109,12 @@ export default function LoginPage() {
               <p className="font-medium">{error}</p>
               {lockedMinutes !== null && (
                 <p className="mt-1 text-xs opacity-90">
-                  Iltimos, <b>{lockedMinutes} daqiqadan</b> keyin qayta urining.
+                  {t('retryAfter', { minutes: lockedMinutes })}
                 </p>
               )}
               {lockedMinutes === null && remaining !== null && remaining > 0 && (
                 <p className="mt-1 text-xs opacity-80">
-                  Qolgan urinishlar: <b>{remaining}/5</b>. Tugasa 30 daqiqaga bloklanadi.
+                  {t('attemptsLeft', { remaining })}
                 </p>
               )}
             </div>
@@ -122,13 +124,13 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Kirish'}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('login')}
           </Button>
         </form>
 
         <p className="text-center mt-6 text-sm text-gray-500">
-          Hisobingiz yo&apos;qmi? {' '}
-          <Link href="/register" className="text-purple-400 hover:text-purple-300 font-medium">Ro&apos;yxatdan o&apos;tish</Link>
+          {t('noAccount')} {' '}
+          <Link href="/register" className="text-purple-400 hover:text-purple-300 font-medium">{t('register')}</Link>
         </p>
       </motion.div>
     </div>

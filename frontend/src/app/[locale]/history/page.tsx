@@ -5,6 +5,7 @@ import {
   ArrowLeft, Bot, Calendar, Clock, Coins, Loader2,
   MessageSquare, Send, Trash2, User as UserIcon, Zap
 } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Link } from '@/i18n/routing';
@@ -45,41 +46,52 @@ interface ConversationDetail extends ConversationListItem {
 
 // ── Yordamchi ─────────────────────────────────────────────
 
-function formatDate(iso: string): string {
+const LOCALE_MAP: Record<string, string> = { uz: 'uz-UZ', ru: 'ru-RU', en: 'en-US' };
+
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso);
-  return d.toLocaleString('uz-UZ', {
+  return d.toLocaleString(LOCALE_MAP[locale] ?? 'uz-UZ', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
-function relativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return 'hozirgina';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} daqiqa oldin`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} soat oldin`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day} kun oldin`;
-  return formatDate(iso);
+function useRelativeTime(locale: string) {
+  const t = useTranslations('History');
+  return (iso: string): string => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 60) return t('justNow');
+    const min = Math.floor(sec / 60);
+    if (min < 60) return t('minutesAgo', { count: min });
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return t('hoursAgo', { count: hr });
+    const day = Math.floor(hr / 24);
+    if (day < 7) return t('daysAgo', { count: day });
+    return formatDate(iso, locale);
+  };
 }
 
-function intentBadge(intent: string): { label: string; color: string } {
-  switch (intent) {
-    case 'CHAT': return { label: 'Suhbat', color: 'bg-blue-500/10 text-blue-300 border-blue-500/30' };
-    case 'ARCHITECT': return { label: 'Arxitektor', color: 'bg-purple-500/10 text-purple-300 border-purple-500/30' };
-    case 'REVISE': return { label: 'Tahrir', color: 'bg-amber-500/10 text-amber-300 border-amber-500/30' };
-    case 'GENERATE': return { label: 'Generatsiya', color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' };
-    default: return { label: intent || 'xabar', color: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/30' };
-  }
-}
+const INTENT_COLORS: Record<string, string> = {
+  CHAT: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+  ARCHITECT: 'bg-purple-500/10 text-purple-300 border-purple-500/30',
+  REVISE: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+  GENERATE: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+};
 
 // ── Sahifa ────────────────────────────────────────────────
 
 export default function HistoryPage() {
   const { isAuthenticated } = useAuthStore();
+  const locale = useLocale();
+  const t = useTranslations('History');
+  const tAuth = useTranslations('Auth');
+  const relativeTime = useRelativeTime(locale);
+  const intentBadge = (intent: string) => ({
+    label: t(`intent.${intent}` as 'intent.CHAT') || intent || t('messages'),
+    color: INTENT_COLORS[intent] ?? 'bg-zinc-500/10 text-zinc-300 border-zinc-500/30',
+  });
+
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +110,7 @@ export default function HistoryPage() {
       setConversations(items);
     } catch (e) {
       console.error(e);
-      if (!silent) setError("Tarixni yuklab bo'lmadi. Keyinroq urinib ko'ring.");
+      if (!silent) setError(t('loadingList'));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -121,7 +133,7 @@ export default function HistoryPage() {
       setDetail(res.data);
     } catch (e) {
       console.error(e);
-      setError("Suhbatni yuklab bo'lmadi.");
+      setError(t('loadingDetail'));
     } finally {
       setDetailLoading(false);
     }
@@ -129,7 +141,7 @@ export default function HistoryPage() {
 
   // O'chirish
   const handleDelete = useCallback(async (id: string) => {
-    if (!confirm("Suhbatni o'chirishga ishonchingiz komilmi? Bu amalni qaytarib bo'lmaydi.")) return;
+    if (!confirm(t('deleteConfirm'))) return;
     setDeletingId(id);
     try {
       await api.delete(`/conversations/${id}/`);
@@ -140,7 +152,7 @@ export default function HistoryPage() {
       }
     } catch (e) {
       console.error(e);
-      alert("O'chirishda xatolik.");
+      alert(t('deleteError'));
     } finally {
       setDeletingId(null);
     }
@@ -151,13 +163,13 @@ export default function HistoryPage() {
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
         <div className="max-w-md text-center">
           <MessageSquare className="w-16 h-16 mx-auto mb-4 text-zinc-600" />
-          <h1 className="text-2xl font-black mb-2">Suhbat tarixi</h1>
-          <p className="text-zinc-400 mb-6">Tarixingizni ko&apos;rish uchun hisobingizga kiring.</p>
+          <h1 className="text-2xl font-black mb-2">{t('title')}</h1>
+          <p className="text-zinc-400 mb-6">{t('loginRequired')}</p>
           <Link
             href="/login"
             className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-500 rounded-xl font-bold transition-colors"
           >
-            Kirish
+            {tAuth('login')}
           </Link>
         </div>
       </div>
@@ -175,7 +187,7 @@ export default function HistoryPage() {
             className="md:hidden flex items-center gap-1 text-zinc-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm">Orqaga</span>
+            <span className="text-sm">{t('back')}</span>
           </button>
         ) : null}
         <Link href="/builder" className={cn(
@@ -188,12 +200,12 @@ export default function HistoryPage() {
         <div className="flex-1 min-w-0">
           <h1 className="text-base md:text-xl font-black flex items-center gap-2">
             <MessageSquare className="w-4 h-4 md:w-5 md:h-5 text-purple-400" />
-            <span className="truncate">Suhbatlar tarixi</span>
+            <span className="truncate">{t('title')}</span>
           </h1>
-          <p className="text-[10px] md:text-xs text-zinc-500 hidden sm:block">AI bilan barcha yozishmalaringiz shu yerda saqlanadi</p>
+          <p className="text-[10px] md:text-xs text-zinc-500 hidden sm:block">{t('subtitle')}</p>
         </div>
         <div className="text-xs md:text-sm text-zinc-400 shrink-0">
-          Jami: <span className="font-bold text-white">{conversations.length}</span>
+          {t('total')}: <span className="font-bold text-white">{conversations.length}</span>
         </div>
       </header>
 
@@ -212,8 +224,8 @@ export default function HistoryPage() {
           ) : conversations.length === 0 ? (
             <div className="p-6 text-center text-zinc-500">
               <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm mb-2">Hali suhbatlar yo&apos;q</p>
-              <Link href="/builder" className="text-purple-400 text-xs hover:underline">Builder&apos;ga o&apos;tish</Link>
+              <p className="text-sm mb-2">{t('empty')}</p>
+              <Link href="/builder" className="text-purple-400 text-xs hover:underline">{t('goToBuilder')}</Link>
             </div>
           ) : (
             <ul className="divide-y divide-white/5">
@@ -231,7 +243,7 @@ export default function HistoryPage() {
                 >
                   <div className="flex items-start gap-2 mb-1.5">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm text-white line-clamp-1">{conv.title || '(sarlavhasiz)'}</h3>
+                      <h3 className="font-bold text-sm text-white line-clamp-1">{conv.title || t('untitled')}</h3>
                       {conv.project_title && (
                         <p className="text-[11px] text-purple-300 mt-0.5 line-clamp-1">🌐 {conv.project_title}</p>
                       )}
@@ -276,7 +288,7 @@ export default function HistoryPage() {
             <div className="h-full flex items-center justify-center text-zinc-500">
               <div className="text-center">
                 <MessageSquare className="w-16 h-16 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Suhbatni tanlang</p>
+                <p className="text-sm">{t('selectConversation')}</p>
               </div>
             </div>
           ) : detailLoading ? (
@@ -295,15 +307,15 @@ export default function HistoryPage() {
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-xl text-sm font-bold text-white shadow-lg shadow-purple-500/20 transition-all whitespace-nowrap shrink-0"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Davom etirish
+                    {t('continueChat')}
                   </Link>
                 </div>
                 <div className="flex flex-wrap gap-3 text-xs text-zinc-400">
                   <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" /> {formatDate(detail.created_at)}
+                    <Calendar className="w-3.5 h-3.5" /> {formatDate(detail.created_at, locale)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <MessageSquare className="w-3.5 h-3.5" /> {detail.total_messages} xabar
+                    <MessageSquare className="w-3.5 h-3.5" /> {detail.total_messages} {t('messages')}
                   </span>
                   {(detail.total_tokens_input + detail.total_tokens_output) > 0 && (
                     <span className="flex items-center gap-1">
@@ -344,7 +356,7 @@ export default function HistoryPage() {
                               {badge.label}
                             </span>
                           )}
-                          <span>{formatDate(msg.created_at)}</span>
+                          <span>{formatDate(msg.created_at, locale)}</span>
                           {msg.duration_ms > 0 && (
                             <span className="flex items-center gap-0.5">
                               <Zap className="w-2.5 h-2.5" /> {(msg.duration_ms / 1000).toFixed(1)}s

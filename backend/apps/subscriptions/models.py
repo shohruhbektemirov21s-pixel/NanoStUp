@@ -6,7 +6,10 @@ from django.utils.translation import gettext_lazy as _
 class Tariff(models.Model):
     name = models.CharField("Tarif nomi", max_length=100)
     description = models.TextField("Tavsif", blank=True)
-    price = models.DecimalField("Narxi ($)", max_digits=10, decimal_places=2)
+    price = models.DecimalField(
+        "Narxi (UZS)", max_digits=12, decimal_places=2,
+        help_text="O'zbek so'mida. Masalan: 199000",
+    )
     duration_days = models.IntegerField("Muddati (kun)", default=30)
 
     # Limits

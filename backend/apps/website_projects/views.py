@@ -231,19 +231,26 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         language = request.data.get("language", "uz")
         # Frontend arxitektor suhbat tarixini yuboradi
         history: list = request.data.get("history", [])
-        # Ixtiyoriy: rasm (base64) — ArchitectService/Claude vision uchun
-        # Format: {"media_type": "image/jpeg", "data": "<base64>"}
-        image = request.data.get("image")
-        if image and not isinstance(image, dict):
-            image = None
-        # Xavfsizlik: base64 hajmi ~5.5 MB dan oshmasin (Claude limiti)
-        if image and len(image.get("data", "")) > 7_500_000:
-            return Response(
-                {"success": False, "error": "Rasm juda katta (max ~5 MB)."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Ixtiyoriy: rasmlar (base64) — ArchitectService/Claude vision uchun
+        # Format: [{"media_type": "image/jpeg", "data": "<base64>"}, ...]
+        # Orqaga moslik uchun `image` (dict) ham qabul qilinadi.
+        images_raw = request.data.get("images")
+        if not images_raw:
+            single = request.data.get("image")
+            images_raw = [single] if isinstance(single, dict) else []
+        if not isinstance(images_raw, list):
+            images_raw = []
+        images: list[dict] = []
+        for it in images_raw[:5]:  # max 5 ta rasm
+            if isinstance(it, dict) and it.get("data"):
+                if len(it.get("data", "")) > 7_500_000:
+                    return Response(
+                        {"success": False, "error": "Rasm juda katta (har biri max ~5 MB)."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                images.append(it)
 
-        if not prompt and not image:
+        if not prompt and not images:
             return Response(
                 {"success": False, "error": "Prompt yoki rasm kutilmoqda."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -370,7 +377,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             if intent in ("ARCHITECT", "CHAT"):
                 architect = ArchitectService()
                 # Gemini: (ai_text, spec_or_None, design_variants_or_None)
-                ai_text, spec, design_variants = architect.chat(prompt, history, image=image)
+                ai_text, spec, design_variants = architect.chat(prompt, history, images=images)
 
                 if spec:
                     # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi

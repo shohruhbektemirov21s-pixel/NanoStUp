@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
@@ -17,6 +18,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   
   const router = useRouter();
+  const t = useTranslations('Auth');
   const setAuth = useAuthStore((state) => state.setAuth);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,9 +45,9 @@ export default function RegisterPage() {
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const payload = err.response?.data as Record<string, unknown> | undefined;
-        setError(Object.values(payload || {}).join(' ') || err.message || 'Registration failed');
+        setError(Object.values(payload || {}).join(' ') || err.message || t('registerFailed'));
       } else {
-        setError('Registration failed');
+        setError(t('registerFailed'));
       }
     } finally {
       setLoading(false);
@@ -63,13 +65,13 @@ export default function RegisterPage() {
           <div className="w-12 h-12 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold">Create an account</h1>
-          <p className="text-gray-500 mt-2">Start building your AI website today</p>
+          <h1 className="text-2xl font-bold">{t('registerTitle')}</h1>
+          <p className="text-gray-500 mt-2">{t('registerSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-400 mb-1.5 block">Full Name</label>
+            <label className="text-sm font-medium text-gray-400 mb-1.5 block">{t('fullName')}</label>
             <input 
               required
               value={fullName}
@@ -79,7 +81,7 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-400 mb-1.5 block">Email Address</label>
+            <label className="text-sm font-medium text-gray-400 mb-1.5 block">{t('email')}</label>
             <input 
               type="email" 
               required
@@ -90,7 +92,7 @@ export default function RegisterPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-400 mb-1.5 block">Password</label>
+            <label className="text-sm font-medium text-gray-400 mb-1.5 block">{t('password')}</label>
             <input 
               type="password" 
               required
@@ -107,13 +109,13 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('createAccount')}
           </Button>
         </form>
 
         <p className="text-center mt-6 text-sm text-gray-500">
-          Already have an account? {' '}
-          <Link href="/login" className="text-purple-400 hover:text-purple-300 font-medium">Login</Link>
+          {t('haveAccount')} {' '}
+          <Link href="/login" className="text-purple-400 hover:text-purple-300 font-medium">{t('login')}</Link>
         </p>
       </motion.div>
     </div>

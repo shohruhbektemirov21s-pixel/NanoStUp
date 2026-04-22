@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from '@/i18n/routing';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/shared/api/axios';
+import { formatUzsPrice } from '@/shared/utils/currency';
 
 interface Tariff {
   id: number;
@@ -38,19 +39,13 @@ const FALLBACK_TIERS = [
     id: -1,
     name: 'Pro',
     description: 'Biznes va ijodkorlar uchun',
-    price: '19',
+    price: '199000',
     duration_days: 30,
     projects_limit: 10,
     ai_generations_limit: 100,
     features: ['10 ta loyiha', '100 ta AI generatsiya', 'ZIP eksport', 'Ustuvor qo\'llab-quvvatlash'],
   },
 ];
-
-function getPriceLabel(price: string) {
-  const n = parseFloat(price);
-  if (n === 0) return 'Bepul';
-  return `$${n % 1 === 0 ? n.toFixed(0) : n}`;
-}
 
 function isPopular(tariff: Tariff, all: Tariff[]) {
   if (all.length <= 1) return false;
@@ -121,10 +116,9 @@ export default function PricingPage() {
                   <div className="mb-8">
                     <h3 className="text-xl font-bold mb-2">{tier.name}</h3>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-bold">{getPriceLabel(tier.price)}</span>
-                      {parseFloat(tier.price) > 0 && (
-                        <span className="text-gray-500">{t('perMonth')}</span>
-                      )}
+                      <span className="text-4xl font-bold">
+                        {formatUzsPrice(tier.price, t('currency'), t('free'))}
+                      </span>
                     </div>
                     {tier.duration_days > 0 && (
                       <p className="mt-1 text-xs text-gray-500">{t('daysSubscription', { days: tier.duration_days })}</p>

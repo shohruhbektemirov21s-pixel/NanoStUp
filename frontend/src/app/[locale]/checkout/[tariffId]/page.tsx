@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { ArrowLeft, Check, CreditCard, Loader2, Phone, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { formatUzsPrice } from '@/shared/utils/currency';
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const tariffId = params.tariffId;
   const router = useRouter();
   const t = useTranslations('Checkout');
+  const tp = useTranslations('Pricing');
   const { isAuthenticated } = useAuthStore();
 
   const [tariff, setTariff] = useState<Tariff | null>(null);
@@ -125,8 +127,9 @@ export default function CheckoutPage() {
             <h3 className="text-sm text-zinc-400 mb-1">{t('selectedPlan')}</h3>
             <h2 className="text-2xl font-bold mb-4">{tariff.name}</h2>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-black">${parseFloat(tariff.price).toFixed(0)}</span>
-              <span className="text-zinc-500">{t('perMonth')}</span>
+              <span className="text-4xl font-black">
+                {formatUzsPrice(tariff.price, tp('currency'), tp('free'))}
+              </span>
             </div>
             <p className="text-zinc-400 text-sm mb-6 leading-relaxed">{tariff.description}</p>
 
@@ -190,7 +193,7 @@ export default function CheckoutPage() {
                 className="w-full py-6 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-70">
                 {isSubmitting
                   ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('submitting')}</>
-                  : `$${parseFloat(tariff.price).toFixed(0)} — ${t('submitSendCode')}`}
+                  : `${formatUzsPrice(tariff.price, tp('currency'), tp('free'))} — ${t('submitSendCode')}`}
               </Button>
 
               <div className="flex items-center gap-2 text-[11px] text-zinc-500 justify-center pt-2">

@@ -30,13 +30,14 @@ class UserRole(models.TextChoices):
 # ═════════════════════════════════════════════════════════════
 # Token / Nano Coin iqtisodiy tizimi
 # ─────────────────────────────────────────────────────────────
-# Har bir user ro'yxatdan o'tganda 10 000 token oladi.
-# Har bir sayt yaratilishi 3 000 token hisobidan yechiladi.
-# Foydalanuvchiga qulay valuta — "nano koin": 1000 token = 100 nano koin
-# (ya'ni 10 token = 1 nano koin)
+# Har bir yangi user ro'yxatdan o'tganda 5 000 token (500 nano koin) bonus oladi.
+# Har bir sayt yaratilishi/tahrirlashi 5 000 token (500 nano) hisobidan yechiladi.
+# Foydalanuvchiga qulay valuta — "nano koin": 10 token = 1 nano koin
 # ═════════════════════════════════════════════════════════════
 
-DEFAULT_USER_TOKENS = 10_000
+# Har bir yangi foydalanuvchi uchun bonus: 500 nano koin = 5 000 token
+# (ilgari 1000 nano edi, 500 ga tushirildi)
+DEFAULT_USER_TOKENS = 5_000
 # 1 chat xabar (sayt yaratish yoki tahrirlash) — 500 nano koin.
 # 10 token = 1 nano koin → 500 nano = 5 000 token
 SITE_CREATION_COST = 5_000

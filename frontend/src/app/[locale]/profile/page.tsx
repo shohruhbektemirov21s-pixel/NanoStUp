@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Link, useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
+import { useTranslations } from 'next-intl';
+import { formatUzsPrice } from '@/shared/utils/currency';
 
 // ── Types ─────────────────────────────────────────────────
 interface Tariff {
@@ -60,16 +62,17 @@ function formatDate(iso: string): string {
   });
 }
 
-function priceLabel(price: string): string {
-  const n = parseFloat(price);
-  if (n === 0) return 'Bepul';
-  return `$${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)}`;
-}
+// Narx yorlig'i UZS formatida — locale'ga bog'liq bo'lgani uchun komponent
+// ichida ishlatamiz (currency() matni "so'm"/"сум"/"UZS").
+
 
 // ── Sahifa ────────────────────────────────────────────────
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated, updateBalance } = useAuthStore();
+  const tp = useTranslations('Pricing');
+  const priceLabel = (price: string) =>
+    formatUzsPrice(price, tp('currency'), tp('free'));
 
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [currentSub, setCurrentSub] = useState<Subscription | null>(null);
@@ -310,7 +313,6 @@ export default function ProfilePage() {
                     <div className="mb-5">
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-black">{priceLabel(tariff.price)}</span>
-                        {!isFree && <span className="text-sm text-zinc-500">/oy</span>}
                       </div>
 
                       {/* Obuna tagida nano koin miqdori */}

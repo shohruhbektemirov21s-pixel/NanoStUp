@@ -50,7 +50,8 @@
       "projects": "Projects",
       "export": "Export to ZIP",
       "support": "Priority Support"
-    }
+    },
+    "currency": "UZS"
   },
   "Checkout": {
     "backToPricing": "Back to pricing",
@@ -124,5 +125,73 @@
     "guestMode": "You are in guest mode. Register to save your projects.",
     "placeholder": "Describe your site (e.g. 'A modern art gallery in Paris')",
     "generate": "Generate"
+  },
+  "Auth": {
+    "loginTitle": "Welcome back",
+    "loginSubtitle": "Sign in to your account to continue",
+    "email": "Email address",
+    "password": "Password",
+    "login": "Log in",
+    "noAccount": "Don't have an account?",
+    "register": "Sign up",
+    "retryAfter": "Please try again in {minutes} minutes.",
+    "attemptsLeft": "Attempts left: {remaining}/5. Account will be locked for 30 minutes.",
+    "wrongCredentials": "Wrong email or password",
+    "registerTitle": "Create an account",
+    "registerSubtitle": "Start building your AI website today",
+    "fullName": "Full name",
+    "createAccount": "Create account",
+    "haveAccount": "Already have an account?",
+    "registerFailed": "Registration failed"
+  },
+  "Profile": {
+    "title": "Profile",
+    "loading": "Loading...",
+    "balance": "Balance",
+    "nanoCoins": "nano coin",
+    "tokens": "tokens",
+    "topUp": "Top up",
+    "logout": "Log out",
+    "subscription": "Subscription",
+    "activeUntil": "Active until:",
+    "noActiveSubscription": "No active subscription",
+    "viewPlans": "View plans",
+    "myProjects": "My projects",
+    "noProjects": "No projects yet",
+    "openInBuilder": "Open in builder",
+    "published": "Published",
+    "notPublished": "Not published",
+    "views": "views",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete the project?",
+    "chatHistory": "Chat history",
+    "goToHistory": "Go to history"
+  },
+  "History": {
+    "title": "Chat history",
+    "subtitle": "All your conversations with AI are saved here",
+    "total": "Total",
+    "empty": "No chats yet",
+    "goToBuilder": "Go to builder",
+    "continueChat": "Continue",
+    "selectConversation": "Select a chat",
+    "back": "Back",
+    "loadingList": "Failed to load history. Try later.",
+    "loadingDetail": "Failed to load chat.",
+    "deleteConfirm": "Are you sure you want to delete the chat? This cannot be undone.",
+    "deleteError": "Delete failed.",
+    "messages": "messages",
+    "loginRequired": "Sign in to view your history.",
+    "justNow": "just now",
+    "minutesAgo": "{count} min ago",
+    "hoursAgo": "{count} h ago",
+    "daysAgo": "{count} days ago",
+    "untitled": "(untitled)",
+    "intent": {
+      "CHAT": "Chat",
+      "ARCHITECT": "Architect",
+      "REVISE": "Revise",
+      "GENERATE": "Generate"
+    }
   }
 }

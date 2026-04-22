@@ -338,13 +338,19 @@ class ArchitectService:
         self,
         user_message: str,
         history: List[Dict[str, str]],
-        image: Optional[Dict[str, str]] = None,
+        images: Optional[List[Dict[str, str]]] = None,
+        image: Optional[Dict[str, str]] = None,  # legacy (orqaga moslik)
     ) -> Tuple[str, Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Returns: (ai_text, spec_or_None, design_variants_or_None)
 
-        image: optional dict {"media_type": "image/jpeg", "data": "<base64>"}
+        images: optional list of {"media_type": "image/jpeg", "data": "<base64>"}
         """
+        # Legacy orqaga moslik
+        all_images: List[Dict[str, str]] = list(images or [])
+        if image and not all_images:
+            all_images = [image]
+
         # ── Claude (faol) ──────────────────────────────────────────
         try:
             client = _get_claude_client()
@@ -352,22 +358,25 @@ class ArchitectService:
                 {"role": m["role"], "content": m["content"]}
                 for m in history
             ]
-            # Agar rasm bor bo'lsa — content bloklari (image + text) sifatida yuboramiz
-            if image and image.get("data"):
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": image.get("media_type", "image/jpeg"),
-                                "data": image["data"],
-                            },
+            # Agar rasm(lar) bor bo'lsa — content bloklari sifatida yuboramiz
+            if all_images:
+                content_blocks: List[Dict[str, Any]] = []
+                for img in all_images:
+                    if not img or not img.get("data"):
+                        continue
+                    content_blocks.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": img.get("media_type", "image/jpeg"),
+                            "data": img["data"],
                         },
-                        {"type": "text", "text": user_message or "Rasmni tahlil qil."},
-                    ],
+                    })
+                content_blocks.append({
+                    "type": "text",
+                    "text": user_message or "Rasmlarni tahlil qil.",
                 })
+                messages.append({"role": "user", "content": content_blocks})
             else:
                 messages.append({"role": "user", "content": user_message})
             response = client.messages.create(

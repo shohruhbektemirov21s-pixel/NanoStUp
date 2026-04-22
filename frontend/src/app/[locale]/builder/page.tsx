@@ -28,7 +28,7 @@ interface ChatMessage {
   role: 'user' | 'ai';
   text: string;
   phase?: 'ARCHITECT' | 'DONE';
-  imageUrl?: string; // data URL (rasm biriktirilgan xabarlar uchun)
+  imageUrls?: string[]; // data URL'lar (rasmlar biriktirilgan xabarlar uchun)
 }
 
 interface DesignVariant {
@@ -349,13 +349,21 @@ function ChatBubble({ msg, index }: { msg: ChatMessage; index: number }) {
           : isDone ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 rounded-bl-sm'
             : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
       )}>
-        {msg.imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={msg.imageUrl}
-            alt="attachment"
-            className="mb-2 max-w-full max-h-64 rounded-xl object-cover"
-          />
+        {msg.imageUrls && msg.imageUrls.length > 0 && (
+          <div className={cn(
+            'mb-2 grid gap-1.5',
+            msg.imageUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2',
+          )}>
+            {msg.imageUrls.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={i}
+                src={src}
+                alt={`attachment-${i}`}
+                className="max-w-full max-h-48 rounded-xl object-cover"
+              />
+            ))}
+          </div>
         )}
         {msg.text}
       </div>
@@ -512,13 +520,14 @@ export default function BuilderPage() {
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Chat rasm (Claude vision)
-  const [attachedImage, setAttachedImage] = useState<{
+  // Chat rasmlar (Claude vision) — ko'p rasm qo'llab-quvvatlanadi (max 5)
+  const [attachedImages, setAttachedImages] = useState<{
     dataUrl: string; // preview uchun
     base64: string;  // serverga yuborish uchun (prefix'siz)
     mediaType: string;
     name: string;
-  } | null>(null);
+  }[]>([]);
+  const MAX_IMAGES = 5;
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<'idle' | 'architect' | 'building' | 'done'>('idle');
@@ -566,29 +575,37 @@ export default function BuilderPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Rasm tanlash: File → base64 (prefix'siz) + dataURL (preview uchun)
-  const handleImagePick = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('Faqat rasm fayllarini yuklash mumkin.');
-      return;
+  // Rasm(lar) tanlash: File[] → base64 + dataURL (preview)
+  const handleImagesPick = (files: FileList | File[]) => {
+    const arr = Array.from(files);
+    for (const file of arr) {
+      if (!file.type.startsWith('image/')) {
+        alert(`"${file.name}" rasm emas. Faqat rasm fayllari.`);
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`"${file.name}" juda katta (max 5 MB).`);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1] ?? '';
+        setAttachedImages(prev => {
+          if (prev.length >= MAX_IMAGES) {
+            alert(`Maksimum ${MAX_IMAGES} ta rasm yuborish mumkin.`);
+            return prev;
+          }
+          return [...prev, {
+            dataUrl, base64, mediaType: file.type, name: file.name,
+          }];
+        });
+      };
+      reader.readAsDataURL(file);
     }
-    // Max 5 MB (base64 qilgandan keyin ~6.7 MB bo'ladi, backend limiti ~5.5 MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Rasm juda katta (max 5 MB).');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1] ?? '';
-      setAttachedImage({
-        dataUrl,
-        base64,
-        mediaType: file.type,
-        name: file.name,
-      });
-    };
-    reader.readAsDataURL(file);
+  };
+  const removeAttachedImage = (idx: number) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== idx));
   };
 
   useEffect(() => {
@@ -733,9 +750,9 @@ export default function BuilderPage() {
     role: 'user' | 'ai',
     text: string,
     msgPhase?: ChatMessage['phase'],
-    imageUrl?: string,
+    imageUrls?: string[],
   ) =>
-    setChatMessages(prev => [...prev, { role, text, phase: msgPhase, imageUrl }]);
+    setChatMessages(prev => [...prev, { role, text, phase: msgPhase, imageUrls }]);
 
   const handleVariantSelect = (variant: DesignVariant) => {
     setDesignVariants(null);
@@ -744,14 +761,19 @@ export default function BuilderPage() {
 
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? prompt).trim();
-    // Rasm biriktirilgan bo'lsa — bo'sh matn bilan ham yuborish mumkin
-    const currentImage = attachedImage;
-    if (!text && !currentImage) return;
+    // Rasm(lar) biriktirilgan bo'lsa — bo'sh matn bilan ham yuborish mumkin
+    const currentImages = attachedImages;
+    if (!text && currentImages.length === 0) return;
     if (isGenerating) return;
     if (!overrideText) setPrompt('');
-    // Rasm tozalanishi kerak — yuborilgandan keyin yana qo'shish mumkin
-    if (currentImage) setAttachedImage(null);
-    addMsg('user', text || '(rasm yuborildi)', undefined, currentImage?.dataUrl);
+    // Rasmlar tozalanadi — yuborilgandan keyin yana qo'shish mumkin
+    if (currentImages.length > 0) setAttachedImages([]);
+    addMsg(
+      'user',
+      text || (currentImages.length > 1 ? '(rasmlar yuborildi)' : '(rasm yuborildi)'),
+      undefined,
+      currentImages.length > 0 ? currentImages.map(i => i.dataUrl) : undefined,
+    );
     setErrorMsg('');
     setIsGenerating(true);
 
@@ -776,9 +798,9 @@ export default function BuilderPage() {
     try {
       let res: { data: ApiResponse };
 
-      // Rasm body (agar biriktirilgan bo'lsa) — Claude vision uchun
-      const imagePayload = currentImage
-        ? { media_type: currentImage.mediaType, data: currentImage.base64 }
+      // Rasm(lar) body (agar biriktirilgan bo'lsa) — Claude vision uchun
+      const imagesPayload = currentImages.length > 0
+        ? currentImages.map(i => ({ media_type: i.mediaType, data: i.base64 }))
         : undefined;
 
       // Sayt tayyor bo'lsa va user dizayn o'zgartirmoqchi bo'lsa — inline revise
@@ -788,7 +810,7 @@ export default function BuilderPage() {
           res = await api.post<ApiResponse>('/projects/process_prompt/', {
             prompt: promptForApi, language: 'uz', history: newHistory, project_id: previewId,
             conversation_id: conversationId,
-            image: imagePayload,
+            images: imagesPayload,
           });
         } else {
           // Login qilinmagan — schema inline yuboramiz
@@ -801,7 +823,7 @@ export default function BuilderPage() {
         res = await api.post<ApiResponse>('/projects/process_prompt/', {
           prompt: promptForApi, language: 'uz', history: newHistory,
           conversation_id: conversationId,
-          image: imagePayload,
+          images: imagesPayload,
         });
       }
       const data = res.data;
@@ -1484,44 +1506,46 @@ export default function BuilderPage() {
 
           {/* Input */}
           <div className="p-3 border-t border-white/5 shrink-0">
-            {/* Biriktirilgan rasm preview (thumbnail + o'chirish) */}
+            {/* Biriktirilgan rasmlar preview (thumbnail row + o'chirish) */}
             <AnimatePresence>
-              {attachedImage && (
+              {attachedImages.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="mb-2">
-                  <div className="relative inline-block">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={attachedImage.dataUrl}
-                      alt={attachedImage.name}
-                      className="h-20 w-20 object-cover rounded-xl border border-white/10"
-                    />
-                    <button
-                      onClick={() => setAttachedImage(null)}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-900 border border-white/20 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
-                      title="Rasmni olib tashlash">
-                      <X className="w-3 h-3 text-white" />
-                    </button>
-                  </div>
-                  <p className="mt-1 text-[10px] text-zinc-500 truncate max-w-[200px]">
-                    {attachedImage.name}
-                  </p>
+                  className="mb-2 flex flex-wrap gap-2">
+                  {attachedImages.map((img, idx) => (
+                    <div key={idx} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.dataUrl}
+                        alt={img.name}
+                        title={img.name}
+                        className="h-16 w-16 object-cover rounded-lg border border-white/10"
+                      />
+                      <button
+                        onClick={() => removeAttachedImage(idx)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-900 border border-white/20 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                        title="Olib tashlash">
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ))}
                 </motion.div>
               )}
             </AnimatePresence>
 
             <div className="flex items-end gap-2">
-              {/* Rasm biriktirish tugmasi */}
+              {/* Rasm(lar) biriktirish tugmasi */}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImagePick(file);
+                  if (e.target.files && e.target.files.length > 0) {
+                    handleImagesPick(e.target.files);
+                  }
                   // Reset — bir xil faylni qayta tanlash ishlashi uchun
                   e.target.value = '';
                 }}
@@ -1529,8 +1553,10 @@ export default function BuilderPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isGenerating || !!attachedImage}
-                title={attachedImage ? "Rasm allaqachon biriktirilgan" : "Rasm biriktirish"}
+                disabled={isGenerating || attachedImages.length >= MAX_IMAGES}
+                title={attachedImages.length >= MAX_IMAGES
+                  ? `Maksimum ${MAX_IMAGES} ta rasm`
+                  : 'Rasm biriktirish (bir nechta tanlash mumkin)'}
                 className="h-10 w-10 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 rounded-xl shrink-0 flex items-center justify-center transition-all border border-white/10">
                 <Paperclip className="w-4 h-4 text-zinc-300" />
               </motion.button>
@@ -1539,20 +1565,20 @@ export default function BuilderPage() {
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); } }}
-                placeholder={attachedImage
-                  ? 'Rasm haqida nima so\'rayapsiz? (ixtiyoriy)'
+                placeholder={attachedImages.length > 0
+                  ? 'Rasm(lar) haqida nima so\'rayapsiz? (ixtiyoriy)'
                   : phase === 'done' ? 'Nimani o\'zgartiray? Masalan: "hero rangini ko\'k qil"…' : 'Biznesingizni tasvirlab bering…'}
                 rows={2}
                 className="flex-1 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none leading-relaxed"
               />
               <motion.button whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
                 onClick={() => void handleSend()}
-                disabled={isGenerating || (!prompt.trim() && !attachedImage)}
+                disabled={isGenerating || (!prompt.trim() && attachedImages.length === 0)}
                 className="h-10 w-10 bg-gradient-to-tr from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:bg-zinc-800 disabled:shadow-none rounded-xl shrink-0 flex items-center justify-center transition-all shadow-lg shadow-blue-500/20">
                 {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </motion.button>
             </div>
-            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter = yuborish · Shift+Enter = yangi qator · 📎 Rasm biriktirish</p>
+            <p className="text-[10px] text-zinc-700 mt-1.5 text-center">Enter = yuborish · Shift+Enter = yangi qator · 📎 Ko'p rasm qo'shish mumkin</p>
           </div>
         </div>
       </main>

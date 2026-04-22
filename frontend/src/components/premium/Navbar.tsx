@@ -12,6 +12,9 @@ import { useAuthStore } from '@/store/authStore';
 
 export function PremiumNavbar() {
   const t = useTranslations('Navbar');
+  const tProfile = useTranslations('Profile');
+  const tHistory = useTranslations('History');
+  const tPricing = useTranslations('Pricing');
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -160,10 +163,10 @@ export function PremiumNavbar() {
                     className="absolute right-0 top-12 w-64 bg-zinc-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
                   >
                     <div className="p-4 border-b border-white/10">
-                      <p className="font-bold text-white truncate">{user.full_name || 'Foydalanuvchi'}</p>
+                      <p className="font-bold text-white truncate">{user.full_name || user.email}</p>
                       <p className="text-xs text-zinc-400 truncate">{user.email}</p>
                       <div className="mt-3 flex items-center justify-between px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                        <span className="text-xs text-amber-200/80">Nano koin</span>
+                        <span className="text-xs text-amber-200/80">{tProfile('nanoCoins')}</span>
                         <span className="text-sm font-black text-amber-300">{nanoCoins.toLocaleString('en')}</span>
                       </div>
                     </div>
@@ -173,21 +176,21 @@ export function PremiumNavbar() {
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
                       >
-                        <User className="w-4 h-4" /> Profil & obuna
+                        <User className="w-4 h-4" /> {tProfile('title')}
                       </Link>
                       <Link
                         href="/history"
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
                       >
-                        <History className="w-4 h-4" /> Tarix va suhbatlar
+                        <History className="w-4 h-4" /> {tHistory('title')}
                       </Link>
                       <Link
                         href="/pricing"
                         onClick={() => setMenuOpen(false)}
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
                       >
-                        <Settings className="w-4 h-4" /> Tariflar
+                        <Settings className="w-4 h-4" /> {tPricing('choose')}
                       </Link>
                     </div>
                     <div className="py-2 border-t border-white/10">
@@ -195,7 +198,7 @@ export function PremiumNavbar() {
                         onClick={handleLogout}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
                       >
-                        <LogOut className="w-4 h-4" /> Chiqish
+                        <LogOut className="w-4 h-4" /> {tProfile('logout')}
                       </button>
                     </div>
                   </motion.div>
