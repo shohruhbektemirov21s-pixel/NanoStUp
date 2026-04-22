@@ -49,25 +49,26 @@ LOGGING = {
     },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
-        "file": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "filename": "/var/log/aibuilder/django.log",
-            "maxBytes": 10 * 1024 * 1024,
-            "backupCount": 5,
-            "formatter": "verbose",
-        },
     },
-    "root": {"handlers": ["console", "file"], "level": "WARNING"},
+    "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
-        "django": {"handlers": ["console", "file"], "level": "WARNING", "propagate": False},
-        "apps": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "django": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        "apps": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 
-# ── Channels — Redis ───────────────────────────────────────────────
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [env("REDIS_URL")]},
+# ── Channels — Redis (ixtiyoriy) ───────────────────────────────────
+# Agar REDIS_URL berilgan bo'lsa — Redis ishlatiladi,
+# aks holda in-memory fallback (dev/kichik prod uchun)
+_redis_url = env("REDIS_URL", default="")
+if _redis_url:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [_redis_url]},
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+    }
