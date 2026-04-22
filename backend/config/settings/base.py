@@ -229,7 +229,7 @@ DEEPSEEK_MODEL = env("DEEPSEEK_MODEL", default="deepseek-chat")
 DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY", default="")
 
 # Anthropic (Claude)
-ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-3-5-sonnet-20241022")
+ANTHROPIC_MODEL = env("ANTHROPIC_MODEL", default="claude-sonnet-4-5")
 ANTHROPIC_API_KEY = env("ANTHROPIC_API_KEY", default="")
 
 # SPECTACULAR SETTINGS
