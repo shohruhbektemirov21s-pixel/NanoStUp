@@ -568,19 +568,19 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             logger.warning("AI JSON xatosi: %s", exc)
             return Response(
-                {"success": False, "error": str(exc)},
+                {"success": False, "error": "AI javobi to'liq emas. Iltimos, qayta urinib ko'ring."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except RuntimeError as exc:
             logger.error("AI runtime xatosi: %s", exc)
             return Response(
-                {"success": False, "error": str(exc)},
+                {"success": False, "error": "AI xizmati hozircha ishlamayapti. Iltimos, birozdan keyin urinib ko'ring."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        except Exception as exc:
+        except Exception:
             logger.exception("AI router xatosi")
             return Response(
-                {"success": False, "error": f"AI xizmatida xatolik: {exc}"},
+                {"success": False, "error": "Server xatoligi. Iltimos, keyinroq urinib ko'ring."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -666,7 +666,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         except RuntimeError as exc:
             logger.error("generate_files xatosi project=%s: %s", project.id, exc)
             return Response(
-                {"success": False, "error": str(exc)},
+                {"success": False, "error": "Fayl generatsiyasi hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except Exception:
@@ -722,7 +722,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         except RuntimeError as exc:
             logger.error("generate_files_inline xatosi: %s", exc)
             return Response(
-                {"success": False, "error": str(exc)},
+                {"success": False, "error": "Fayl generatsiyasi hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except Exception:
@@ -822,7 +822,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             })
         except RuntimeError as exc:
             logger.error("revise_inline xatosi: %s", exc)
-            return Response({"success": False, "error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"success": False, "error": "AI xizmati hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
         except Exception:
             logger.exception("revise_inline kutilmagan xato")
             return Response({"success": False, "error": "AI xizmatida xatolik"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

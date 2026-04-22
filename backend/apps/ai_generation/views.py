@@ -20,7 +20,16 @@ class ChatView(APIView):
             message = ClaudeService().chat(prompt, history=request.data.get("history"))
         except RuntimeError as e:
             logger.warning("AI chat failed: %s", e)
-            return Response({"error": str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"error": "AI xizmati hozircha ishlamayapti. Iltimos, birozdan keyin qayta urinib ko'ring."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception:
+            logger.exception("AI chat kutilmagan xato")
+            return Response(
+                {"error": "Server xatoligi. Iltimos, keyinroq urinib ko'ring."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         return Response({"message": message})
 
 
