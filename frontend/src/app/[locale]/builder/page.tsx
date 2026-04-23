@@ -1016,27 +1016,60 @@ export default function BuilderPage() {
         setIsGenerating(false);
         return;
       }
-      let msg = 'Server bilan ulanishda xato.';
-      // Axios 4xx/5xx'ni throw qiladi — response data ni tekshiramiz
-      const axiosErr = err as { response?: { data?: ApiResponse } };
+      // Axios xatosini batafsil tahlil qilish
+      const axiosErr = err as {
+        response?: { status?: number; data?: ApiResponse };
+        code?: string;
+        message?: string;
+      };
+
+      // Token yetarli emas (402)
       if (axiosErr.response?.data?.insufficient_tokens) {
         const d = axiosErr.response.data;
         const needTokens = d.required_tokens ?? 3000;
         const haveTokens = d.current_tokens ?? 0;
-        const chatMsg = `� Token yetarli emas!\n\nKerak: ${needTokens.toLocaleString()} token\nSizda: ${haveTokens.toLocaleString()} token\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
+        const chatMsg = `💎 Token yetarli emas!\n\nKerak: ${needTokens.toLocaleString()} token\nSizda: ${haveTokens.toLocaleString()} token\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
         setErrorMsg('Token yetarli emas');
         addMsg('ai', chatMsg);
         setBuildStartTime(null);
         setIsGenerating(false);
         return;
       }
-      if (axiosErr.response?.data?.error) {
-        msg = axiosErr.response.data.error;
+
+      // Xato turini aniqlash
+      let msg = '';
+      let hint = '';
+      const status = axiosErr.response?.status;
+      const serverError = axiosErr.response?.data?.error;
+      const code = axiosErr.code;
+
+      if (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || !axiosErr.response) {
+        // Network / CORS / timeout
+        msg = '🌐 Server bilan aloqa yo\'q';
+        hint = 'Internetingizni tekshiring yoki bir daqiqadan keyin qayta urinib ko\'ring. Server uyg\'onishi 30 soniya vaqt olishi mumkin.';
+      } else if (status === 401) {
+        msg = '🔒 Sessiya tugadi';
+        hint = 'Qayta kiring (login).';
+      } else if (status === 429) {
+        msg = '⏱️ Juda tez-tez so\'rov yubordingiz';
+        hint = 'Bir daqiqadan keyin urinib ko\'ring.';
+      } else if (status === 502 || status === 503) {
+        msg = '🤖 AI xizmati hozir javob bermayapti';
+        hint = serverError || 'Claude yoki Gemini serveri vaqtincha mavjud emas. 1-2 daqiqadan keyin qayta urinib ko\'ring.';
+      } else if (status === 500) {
+        msg = '⚠️ Server xatoligi';
+        hint = serverError || 'Ichki xato yuz berdi. Qayta urinib ko\'ring — agar takrorlansa, adminga yozing.';
+      } else if (serverError) {
+        msg = `❌ ${serverError}`;
       } else if (err instanceof Error) {
         msg = err.message;
+      } else {
+        msg = '❌ Noma\'lum xatolik';
       }
-      setErrorMsg(msg);
-      addMsg('ai', `❌ ${msg}`);
+
+      const fullMsg = hint ? `${msg}\n\n${hint}` : msg;
+      setErrorMsg(msg.replace(/[🌐🔒⏱️🤖⚠️❌]/g, '').trim());
+      addMsg('ai', fullMsg);
       setBuildStartTime(null);
       setIsGenerating(false);
     } finally {
