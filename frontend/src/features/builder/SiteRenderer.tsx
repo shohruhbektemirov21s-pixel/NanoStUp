@@ -34,13 +34,49 @@ interface SiteSchema {
   [key: string]: unknown;
 }
 
+// ── Predefined palettes ─────────────────────────────────────────
+const PALETTES = [
+  { keys: ['restoran','cafe','kafe','food','taom','oshxona','pizza','burger','sushi'], primary:'#e85d04', accent:'#f48c06', bg:'#fff8f0', text:'#1a0a00', font:'Poppins' },
+  { keys: ['salon','spa','beauty','go\'zallik','gozallik','kosmetik','nail','barber','soch'], primary:'#c9184a', accent:'#ff4d6d', bg:'#fff0f3', text:'#1a0005', font:'Playfair Display' },
+  { keys: ['gym','fitness','sport','trener','bodybuilding','crossfit','yoga'], primary:'#e63946', accent:'#f4a261', bg:'#0d0d0d', text:'#ffffff', font:'Montserrat' },
+  { keys: ['klinika','clinic','tibbiy','doktor','shifokor','hospital','health'], primary:'#0077b6', accent:'#00b4d8', bg:'#f0f8ff', text:'#023e8a', font:'Inter' },
+  { keys: ['tech','saas','startup','software','it','dastur','ilovа','app','digital'], primary:'#6366f1', accent:'#8b5cf6', bg:'#0f0f1a', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['real','estate','uy','kvartira','property','ko\'chmas'], primary:'#1d4e89', accent:'#f4a261', bg:'#f8f9fa', text:'#1a1a2e', font:'Raleway' },
+  { keys: ['ta\'lim','talim','kurs','maktab','akademiya','school','academy','edu'], primary:'#2d6a4f', accent:'#52b788', bg:'#f0fff4', text:'#081c15', font:'Poppins' },
+  { keys: ['agentlik','agency','kreativ','creative','dizayn','design','studio'], primary:'#7209b7', accent:'#f72585', bg:'#10002b', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['shop','do\'kon','dokon','market','mahsulot','store','ecommerce'], primary:'#e63946', accent:'#457b9d', bg:'#ffffff', text:'#1d3557', font:'Inter' },
+  { keys: ['hotel','mehmonxona','turizm','travel','tourism','resort'], primary:'#b5838d', accent:'#e5989b', bg:'#fff4e6', text:'#2d1b1e', font:'Playfair Display' },
+  { keys: ['avto','auto','mashina','car','transport','taxi'], primary:'#212529', accent:'#ffd60a', bg:'#0a0a0a', text:'#ffffff', font:'Montserrat' },
+  { keys: ['portfolio','freelancer','portfolio','shaxsiy','personal'], primary:'#4361ee', accent:'#4cc9f0', bg:'#0d1b2a', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['qurilish','construction','arxitektura','architect','building'], primary:'#3a405a', accent:'#f4a261', bg:'#f5f5f0', text:'#1a1a2a', font:'Raleway' },
+  { keys: ['yuridik','lawyer','advokat','legal','huquq'], primary:'#1b2a4a', accent:'#c9a84c', bg:'#f5f0e8', text:'#1b2a4a', font:'Playfair Display' },
+];
+
+function smartPalette(siteName: string, sections: string[]) {
+  const hay = (siteName + ' ' + sections.join(' ')).toLowerCase();
+  for (const p of PALETTES) {
+    if (p.keys.some(k => hay.includes(k))) return p;
+  }
+  return { primary:'#2563eb', accent:'#7c3aed', bg:'#ffffff', text:'#111827', font:'Inter' };
+}
+
+function isPlain(color?: string) {
+  if (!color) return true;
+  const c = color.toLowerCase().replace('#','');
+  return ['000000','111111','0d0d0d','1a1a1a','ffffff','fefefe','f8f8f8','f5f5f5','eeeeee','e5e5e5'].includes(c);
+}
+
 // ── Design token helper ─────────────────────────────────────────
-function useColors(settings?: SiteSettings) {
-  const primary = settings?.primaryColor || '#18181b';
-  const accent  = settings?.accentColor  || '#6366f1';
-  const bg      = settings?.bgColor      || '#ffffff';
-  const text    = settings?.textColor    || '#18181b';
-  const font    = settings?.font         || 'Inter';
+function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: string[]) {
+  const palette = (isPlain(settings?.primaryColor) || !settings?.primaryColor)
+    ? smartPalette(siteName ?? '', sectionTypes ?? [])
+    : null;
+
+  const primary = (!isPlain(settings?.primaryColor) && settings?.primaryColor) ? settings.primaryColor : palette!.primary;
+  const accent  = (!isPlain(settings?.accentColor)  && settings?.accentColor)  ? settings.accentColor  : (palette?.accent  ?? '#6366f1');
+  const bg      = settings?.bgColor   ?? palette?.bg   ?? '#ffffff';
+  const text    = settings?.textColor ?? palette?.text  ?? '#111827';
+  const font    = settings?.font      ?? palette?.font  ?? 'Inter';
   // Light/dark detection for contrasting text on primary bg
   const isDarkPrimary = (() => {
     const hex = primary.replace('#', '');
@@ -574,7 +610,13 @@ export const SiteRenderer = React.memo(function SiteRenderer({
   const firstSlug = pages[0]?.slug ?? 'home';
   const [activeSlug, setActiveSlug] = useState<string>(initialPageSlug ?? firstSlug);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const colors = useColors(schema?.settings as SiteSettings | undefined);
+  const siteName = String(schema?.siteName ?? schema?.name ?? '');
+  const allSectionTypes = pages.flatMap(p => (p.sections ?? []).map(s => s.type ?? ''));
+  const colors = useColors(
+    schema?.settings as SiteSettings | undefined,
+    siteName,
+    allSectionTypes,
+  );
 
   if (!schema) return null;
 
@@ -590,7 +632,6 @@ export const SiteRenderer = React.memo(function SiteRenderer({
 
   const activePage = pages.find((p) => p.slug === activeSlug) ?? pages[0];
   const sections = activePage.sections ?? [];
-  const siteName = String(schema.siteName ?? schema.name ?? '');
   const isMultiPage = pages.length > 1;
   const pageLabel = (p: Page, idx: number) =>
     p.title || (p.slug ? p.slug.replace(/-/g, ' ') : `Sahifa ${idx + 1}`);
@@ -686,8 +727,13 @@ export const SiteRenderer = React.memo(function SiteRenderer({
       })}
 
       {/* ── Footer ──────────────────────────────────────────── */}
-      <footer style={{ background: colors.primary, color: colors.onPrimary }} className="py-6 px-4 text-center text-xs opacity-80">
-        © {new Date().getFullYear()} {siteName || 'NanoStUp'}
+      <footer style={{ background: colors.primary, color: colors.onPrimary, fontFamily: colors.font }} className="py-8 px-4 text-center text-sm opacity-90">
+        © {new Date().getFullYear()} {siteName || ''}
+        {siteName && (
+          <div style={{ opacity: 0.55 }} className="mt-1 text-xs">
+            Barcha huquqlar himoyalangan
+          </div>
+        )}
       </footer>
     </div>
   );

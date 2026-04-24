@@ -999,11 +999,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         try:
             gen_start = time.monotonic()
             claude = ClaudeService()
-            new_schema = claude.revise_site(prompt, schema_data, language)
+            new_schema, usage = claude.revise_site(prompt, schema_data, language)
             gen_ms = int((time.monotonic() - gen_start) * 1000)
             complexity = _estimate_complexity(new_schema)
 
-            # revise_site usage ma'lumot qaytarmaydi — oddiy dict
             return Response({
                 "success": True,
                 "phase": "DONE",
@@ -1015,8 +1014,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 },
                 "stats": {
                     "generation_time_ms": gen_ms,
-                    "input_tokens": 0,
-                    "output_tokens": 0,
+                    "input_tokens": usage.get("input_tokens", 0),
+                    "output_tokens": usage.get("output_tokens", 0),
                     "complexity": complexity,
                 },
                 "message": "✅ Sayt yangilandi.",

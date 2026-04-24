@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 
-import { PublicSiteGuard } from '@/features/builder/PublicSiteGuard';
+import { PublicSiteView } from '@/features/builder/PublicSiteView';
 
 // ── Backend API (server-side fetch) ────────────────────────────
 // Brauzer uchun NEXT_PUBLIC_API_URL mavjud; server uchun esa xohlasa
@@ -75,8 +75,8 @@ export default async function PublicSitePage(
   const t = await getTranslations({ locale, namespace: 'PublicSite' });
 
   return (
-    <PublicSiteGuard
-      schema={site.schema_data as Parameters<typeof PublicSiteGuard>[0]['schema']}
+    <PublicSiteView
+      schema={site.schema_data as Parameters<typeof PublicSiteView>[0]['schema']}
       siteTitle={site.title || 'AI Sayt'}
       updatedAt={site.updated_at}
       locale={locale}

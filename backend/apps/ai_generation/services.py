@@ -217,10 +217,32 @@ Each section:
 - **Service business** (agency, clinic, studio) → 3-4 pages: ["home","services","about","contact"]
 - **Rich business** (SaaS, institution, chain) → 4-5 pages: ["home","about","services","pricing","contact"]
 
+## COLOR RULES (CRITICAL — NEVER use plain black/white as primaryColor):
+Pick a VIVID, professional color palette that matches the industry:
+- 🍽️ Restaurant/cafe/food   → primaryColor:#e85d04  accentColor:#f48c06  bgColor:#fff8f0  textColor:#1a0a00
+- 💆 Salon/spa/beauty       → primaryColor:#c9184a  accentColor:#ff4d6d  bgColor:#fff0f3  textColor:#1a0005
+- 🏋️ Gym/fitness/sport      → primaryColor:#e63946  accentColor:#f4a261  bgColor:#0d0d0d  textColor:#ffffff
+- 💊 Clinic/medical/health  → primaryColor:#0077b6  accentColor:#00b4d8  bgColor:#f0f8ff  textColor:#023e8a
+- 💡 SaaS/tech/startup      → primaryColor:#6366f1  accentColor:#8b5cf6  bgColor:#0f0f1a  textColor:#ffffff
+- 🏠 Real estate            → primaryColor:#1d4e89  accentColor:#f4a261  bgColor:#f8f9fa  textColor:#1a1a2e
+- 📚 Education/academy      → primaryColor:#2d6a4f  accentColor:#52b788  bgColor:#f0fff4  textColor:#081c15
+- 🎨 Agency/creative        → primaryColor:#7209b7  accentColor:#f72585  bgColor:#10002b  textColor:#ffffff
+- 🛒 E-commerce/shop        → primaryColor:#e63946  accentColor:#457b9d  bgColor:#ffffff  textColor:#1d3557
+- 🏨 Hotel/tourism          → primaryColor:#b5838d  accentColor:#e5989b  bgColor:#fff4e6  textColor:#2d1b1e
+- 🌿 NGO/eco/charity        → primaryColor:#2d6a4f  accentColor:#95d5b2  bgColor:#f0fff4  textColor:#1b4332
+- 🚗 Auto/transport         → primaryColor:#212529  accentColor:#ffd60a  bgColor:#0a0a0a  textColor:#ffffff
+- 📸 Portfolio/freelancer   → primaryColor:#4361ee  accentColor:#4cc9f0  bgColor:#0d1b2a  textColor:#ffffff
+- ⚖️ Legal/law              → primaryColor:#1b2a4a  accentColor:#c9a84c  bgColor:#f5f0e8  textColor:#1b2a4a
+- Default (other)          → primaryColor:#2563eb  accentColor:#7c3aed  bgColor:#ffffff  textColor:#111827
+
+Font choices: "Inter", "Poppins", "Montserrat", "Raleway", "Playfair Display", "Space Grotesk"
+- Dark bgColor (starts dark) → always set textColor to #ffffff or near-white
+- bgColor and primaryColor MUST be visually distinct (never same value)
+
 ## Rules:
 - First page MUST have slug="home"
 - Each page: 3-6 sections (start with hero, end with contact or cta)
-- settings.primaryColor MUST match the design style from spec (e.g. dark for tech, warm for restaurant)
+- ALWAYS include a settings block with vivid, industry-appropriate colors (see COLOR RULES above)
 - Write rich, realistic content (NOT lorem ipsum) matching the business type
 - ALL text in the requested language
 - Unique section ids (e.g. "hero-1", "features-home", "contact-final")
