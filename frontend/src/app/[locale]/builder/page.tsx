@@ -30,6 +30,10 @@ interface ChatMessage {
   text: string;
   phase?: 'ARCHITECT' | 'DONE';
   imageUrls?: string[]; // data URL'lar (rasmlar biriktirilgan xabarlar uchun)
+  insufficient?: boolean; // nano koin yetmagan holat
+  pricingUrl?: string;   // sotib olish sahifasi URL
+  requiredNano?: number;
+  currentNano?: number;
 }
 
 interface DesignVariant {
@@ -388,6 +392,20 @@ function ChatBubble({
           </div>
         )}
         {msg.text}
+        {msg.insufficient && (
+          <div className="mt-3 pt-3 border-t border-zinc-600/50 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span>Kerak: <span className="text-red-400 font-semibold">{msg.requiredNano?.toLocaleString()} nano</span></span>
+              <span>Balans: <span className="text-zinc-300 font-semibold">{msg.currentNano?.toLocaleString()} nano</span></span>
+            </div>
+            <Link
+              href={msg.pricingUrl ?? '/pricing'}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold transition-all shadow-lg shadow-purple-900/30"
+            >
+              💳 Nano koin sotib olish
+            </Link>
+          </div>
+        )}
       </div>
       {isUser && (
         <div className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center shrink-0 ml-2 mt-0.5 text-xs font-bold text-zinc-300">S</div>
@@ -911,17 +929,22 @@ export default function BuilderPage() {
           const needNano  = data.required_nano  ?? (data.required_tokens ? Math.ceil(data.required_tokens / 10) : 3000);
           const haveNano  = data.current_nano   ?? (data.current_tokens  ? Math.floor(data.current_tokens  / 10) : 0);
           const short     = needNano - haveNano;
-          const msg = [
+          const msgText = [
             `⚠️ Nano koin yetarli emas!`,
             ``,
-            `📌 Kerak: ${needNano.toLocaleString()} nano koin`,
-            `💰 Sizda: ${haveNano.toLocaleString()} nano koin`,
             `❌ Yetishmaydi: ${short.toLocaleString()} nano koin`,
             ``,
-            `👉 Nano koin sotib olish uchun /pricing sahifasiga o'ting.`,
+            `Quyidagi tugma orqali nano koin sotib oling:`,
           ].join('\n');
           setErrorMsg('Nano koin yetarli emas');
-          addMsg('ai', msg);
+          setChatMessages(prev => [...prev, {
+            role: 'ai',
+            text: msgText,
+            insufficient: true,
+            pricingUrl: data.pricing_url ?? '/pricing',
+            requiredNano: needNano,
+            currentNano: haveNano,
+          }]);
         } else {
           setErrorMsg(data.error ?? 'Xatolik yuz berdi.');
           addMsg('ai', `❌ ${data.error ?? 'Xatolik yuz berdi.'}`);

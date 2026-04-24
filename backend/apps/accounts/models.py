@@ -30,7 +30,7 @@ class UserRole(models.TextChoices):
 # ═════════════════════════════════════════════════════════════
 # Token / Nano Coin iqtisodiy tizimi
 # ─────────────────────────────────────────────────────────────
-# Yangi foydalanuvchi: 10 000 nano koin (onboarding bonus)
+# Yangi foydalanuvchi: 3 000 nano koin (ro'yxatdan o'tish bonusi)
 # Har bir token = 1/10 nano koin (1 nano = 10 token)
 # Narxlar:
 #   Oddiy sayt (1–3 sektsiya)  → 3 000 nano koin = 30 000 token
@@ -40,9 +40,9 @@ class UserRole(models.TextChoices):
 #   Keyingi sahifa/o'zgarish  → 300 nano koin = 3 000 token
 # ═════════════════════════════════════════════════════════════
 
-# Yangi foydalanuvchiga beriladigan boshlang'ich bonus (nano)
-DEFAULT_NANO_COINS = 10_000
-DEFAULT_USER_TOKENS = DEFAULT_NANO_COINS * 10  # 100 000 token
+# Yangi foydalanuvchiga beriladigan ro'yxatdan o'tish bonusi (nano)
+DEFAULT_NANO_COINS = 3_000
+DEFAULT_USER_TOKENS = DEFAULT_NANO_COINS * 10  # 30 000 token
 
 # 1 nano koin = 10 token
 TOKENS_PER_NANO_COIN = 10

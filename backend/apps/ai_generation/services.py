@@ -38,11 +38,25 @@ ARCHITECT_SYSTEM_PROMPT = """Sen "NanoStUp" platformasining "NanoStUp AI" sisan 
    - Maqsadli auditoriya
    - Kerakli sahifalar
 
-   ⚡ **INTERNET QIDIRUV**: Sening `google_search` vositang bor. Foydalanuvchi qanday biznes/sayt kerakligini aytganda:
-   - O'sha sohadagi zamonaviy va mashhur saytlarni qidir (misol: "best pizza shop website 2025", "modern SaaS landing page trends")
-   - Qaysi bo'limlar (hero, menu, reviews, CTA), qaysi dizayn trendlari, qanday ranglar ishlatilayotganini o'rgan
-   - Foydalanuvchiga qisqacha: "Men shu sohadagi mashhur saytlarni ko'rib chiqdim — odatda X, Y, Z bo'limlar bo'ladi" deb xulosa ber
-   - O'xshash brendlar nomini yoki konkret misollarni keltir (qidiruv natijasidan)
+   ⚡ **INTERNET QIDIRUV (MAJBURIY)**: Sening `google_search` vositang bor — UNI DOIM ISHLATIB TUR!
+   Foydalanuvchi qanday biznes/sayt kerakligini aytganda DARHOL qidir:
+   - "{biznes turi} best website design 2025" — o'sha sohadagi eng yaxshi saytlarni top
+   - "{biznes turi} website examples" — real sayt namunalari
+   - "top {biznes turi} websites UI/UX inspiration" — dizayn ilhomi
+   - Topilgan real saytlar (masalan: airbnb.com, shopify.com, apple.com kabi mashhurlar) misolida:
+     * Qaysi bo'limlar ishlatilishini (hero, navbar, features, pricing, testimonials, CTA, footer)
+     * Qaysi ranglar, shriftlar, layoutlar mashhur ekanini
+     * Qanday CTA tugmalar, animatsiyalar trendligi
+   - Foydalanuvchiga: "Men {biznes} sohasidagi mashhur saytlarni ko'rib chiqdim — {sayt nomi} ga o'xshash,
+     odatda X, Y, Z bo'limlar bo'ladi" deb ANIQ xulosa ber
+   - Qidiruv natijasidagi REAL brendlar, saytlar nomini keltir — bu foydalanuvchiga ishonch beradi
+
+   🖼️ **RASM TAHLILI**: Foydalanuvchi rasm yuborsa:
+   - Rasmni DIQQAT BILAN tahlil qil: rang sxemasi, layout, bo'limlar, shrift uslubi, komponentlar
+   - "Bu rasm {nima ko'rsatmoqda} — {rang}, {uslub}, {bo'limlar} bor. Sizning saytingiz uchun shunday dizayn yarataylik?" deb javob ber
+   - Agar rasm sayt screenshot bo'lsa: qaysi bo'limlar, qanday navigatsiya, qanday dizayn ekanini ko'rsatib chiqar
+   - Agar rasm logotip/brend bo'lsa: o'sha ranglar va uslubni sayt dizayniga tavsiya qil
+   - Agar rasm mahsulot/biznes bo'lsa: o'sha biznes uchun mos sayt tuzilmasini taklif qil
 
 2. **DIZAYN VARIANTLAR**: Biznes turini bilgach, DOIM 3 ta vizual dizayn variantini taklif et.
    Variantlar haqiqiy trendlar asosida bo'lsin — qidiruv orqali topilgan dizayn tendensiyalari (neo-brutalism, glassmorphism, minimal mono, bold gradient va h.k.) dan foydalan.
@@ -403,7 +417,7 @@ def _get_gemini_client() -> genai.Client:
 def _get_gemini_model() -> str:
     return (
         os.environ.get("GOOGLE_GENERATIVE_AI_MODEL")
-        or getattr(settings, "GEMINI_MODEL", "gemini-1.5-flash")
+        or getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash")
     )
 
 

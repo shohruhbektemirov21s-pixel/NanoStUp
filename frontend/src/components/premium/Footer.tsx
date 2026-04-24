@@ -10,7 +10,7 @@ export function PremiumFooter() {
   const t = useTranslations('Footer');
 
   const links = {
-    product: [t('product'), 'Features', 'Pricing', 'Showcase', 'API'],
+    product: [t('product'), 'Features', 'API'],
     company: [t('company'), 'About', 'Blog', 'Careers', 'Contact'],
     legal: [t('legal'), 'Privacy', 'Terms', 'Cookie Policy', 'Licenses']
   };

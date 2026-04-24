@@ -75,8 +75,6 @@ export function PremiumNavbar() {
 
   const navLinks = [
     { name: t('features'), id: 'features' },
-    { name: t('pricing'), id: 'pricing' },
-    { name: t('showcase'), id: 'showcase' },
   ];
 
   return (
