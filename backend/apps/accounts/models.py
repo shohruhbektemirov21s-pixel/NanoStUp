@@ -30,19 +30,37 @@ class UserRole(models.TextChoices):
 # ═════════════════════════════════════════════════════════════
 # Token / Nano Coin iqtisodiy tizimi
 # ─────────────────────────────────────────────────────────────
-# Har bir yangi user ro'yxatdan o'tganda 5 000 token (500 nano koin) bonus oladi.
-# Har bir sayt yaratilishi/tahrirlashi 5 000 token (500 nano) hisobidan yechiladi.
-# Foydalanuvchiga qulay valuta — "nano koin": 10 token = 1 nano koin
+# Yangi foydalanuvchi: 10 000 nano koin (onboarding bonus)
+# Har bir token = 1/10 nano koin (1 nano = 10 token)
+# Narxlar:
+#   Oddiy sayt (1–3 sektsiya)  → 3 000 nano koin = 30 000 token
+#   O'rta sayt  (4–6 sektsiya) → 4 000 nano koin = 40 000 token
+#   Murakkab    (7+ sektsiya)  → 5 000 nano koin = 50 000 token
+#   1-chi sayt yaratish       → BEPUL (0 nano)
+#   Keyingi sahifa/o'zgarish  → 300 nano koin = 3 000 token
 # ═════════════════════════════════════════════════════════════
 
-# Har bir yangi foydalanuvchi uchun bonus: 500 nano koin = 5 000 token
-# (ilgari 1000 nano edi, 500 ga tushirildi)
-DEFAULT_USER_TOKENS = 5_000
-# 1 chat xabar (sayt yaratish yoki tahrirlash) — 500 nano koin.
-# 10 token = 1 nano koin → 500 nano = 5 000 token
-SITE_CREATION_COST = 5_000
-TOKENS_PER_NANO_COIN = 10  # 1000 tokens = 100 nano coins
-CHAT_COST_NANO = 500  # 1 chat = 500 nano (frontend uchun ham)
+# Yangi foydalanuvchiga beriladigan boshlang'ich bonus (nano)
+DEFAULT_NANO_COINS = 10_000
+DEFAULT_USER_TOKENS = DEFAULT_NANO_COINS * 10  # 100 000 token
+
+# 1 nano koin = 10 token
+TOKENS_PER_NANO_COIN = 10
+
+# Sayt narxlari (nano koin)
+COST_SIMPLE_NANO   = 3_000   # Oddiy (1–3 sektsiya)
+COST_MEDIUM_NANO   = 4_000   # O'rta (4–6 sektsiya)
+COST_COMPLEX_NANO  = 5_000   # Murakkab (7+ sektsiya)
+COST_REVISION_NANO = 300     # 1 ta tahrir/qo'shimcha sahifa
+COST_FIRST_SITE_NANO = 0     # Birinchi sayt bepul!
+
+# Token ekvivalentlari
+SITE_CREATION_COST   = COST_MEDIUM_NANO * TOKENS_PER_NANO_COIN  # default = 40 000 token
+CHAT_COST_NANO = COST_REVISION_NANO  # orqaga moslik uchun
+
+# Yangi foydalanuvchiga beriladigan bonus token (DB default)
+def _nano_to_tokens(nano: int) -> int:
+    return nano * TOKENS_PER_NANO_COIN
 
 
 def tokens_to_nano_coins(tokens: int) -> int:

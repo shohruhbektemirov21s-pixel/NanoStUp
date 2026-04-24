@@ -17,6 +17,11 @@ from apps.accounts.models import (
     CHAT_COST_NANO,
     SITE_CREATION_COST,
     TOKENS_PER_NANO_COIN,
+    COST_SIMPLE_NANO,
+    COST_MEDIUM_NANO,
+    COST_COMPLEX_NANO,
+    COST_REVISION_NANO,
+    COST_FIRST_SITE_NANO,
     tokens_to_nano_coins,
 )
 from apps.ai_generation.services import AIRouterService, ArchitectService, ClaudeService
@@ -74,23 +79,26 @@ def _auto_publish(project) -> None:
 
 
 def _estimate_complexity(schema: Dict) -> Dict:
-    """Sayt murakkabligini hisoblaydi."""
+    """Sayt murakkabligini hisoblaydi va nano koin narxini qaytaradi."""
     pages = schema.get("pages", [])
     section_count = sum(len(p.get("sections", [])) for p in pages)
     page_count = len(pages)
 
     if section_count <= 3 and page_count <= 1:
-        level = "oddiy"
+        level = "simple"
         label_uz = "Oddiy"
         color = "green"
+        cost_nano = COST_SIMPLE_NANO   # 3 000 nano
     elif section_count <= 6 and page_count <= 2:
-        level = "o'rta"
+        level = "medium"
         label_uz = "O'rta"
         color = "yellow"
+        cost_nano = COST_MEDIUM_NANO   # 4 000 nano
     else:
-        level = "murakkab"
+        level = "complex"
         label_uz = "Murakkab"
         color = "red"
+        cost_nano = COST_COMPLEX_NANO  # 5 000 nano
 
     return {
         "level": level,
@@ -98,6 +106,8 @@ def _estimate_complexity(schema: Dict) -> Dict:
         "color": color,
         "sections": section_count,
         "pages": page_count,
+        "cost_nano": cost_nano,
+        "cost_tokens": cost_nano * TOKENS_PER_NANO_COIN,
     }
 
 from .models import ChatMessage, ChatRole, Conversation, ProjectStatus, ProjectVersion, WebsiteProject
@@ -143,12 +153,52 @@ def _deduct_for_generation(
     }
 
 
-def _can_afford_generation(user, conversation: Optional[Conversation], cost_tokens: int) -> bool:
-    """Chat bonus + obuna birga yetadimi?"""
-    cost_nano = cost_tokens // TOKENS_PER_NANO_COIN
+def _get_site_generation_cost_tokens(schema: Dict) -> int:
+    """Schema murakkabligiga qarab nano koin narxini token sifatida qaytaradi."""
+    complexity = _estimate_complexity(schema)
+    return complexity["cost_tokens"]
+
+
+def _is_first_site(user) -> bool:
+    """Foydalanuvchining birinchi saytimi? (bepul)."""
+    from .models import WebsiteProject
+    return not WebsiteProject.objects.filter(user=user).exists()
+
+
+def _can_afford_nano(user, conversation, cost_nano: int) -> bool:
+    """Chat bonus + obuna birga yetadimi? (nano koin)."""
+    if cost_nano == 0:
+        return True
     bonus = conversation.chat_budget_nano if conversation else 0
     sub_nano = (user.tokens_balance or 0) // TOKENS_PER_NANO_COIN
     return (bonus + sub_nano) >= cost_nano
+
+
+def _insufficient_balance_response(user, conversation, cost_nano: int, action: str = "sayt yaratish"):
+    """Balans yetmasa — aniq xabar bilan 402 Response qaytaradi."""
+    bonus = conversation.chat_budget_nano if conversation else 0
+    total_nano = (user.tokens_balance or 0) // TOKENS_PER_NANO_COIN + bonus
+    return Response({
+        "success": False,
+        "insufficient_tokens": True,
+        "error": (
+            f"⚠️ Nano koin yetarli emas!\n\n"
+            f"📌 {action} uchun: {cost_nano:,} nano koin\n"
+            f"💰 Sizning balansingiz: {total_nano:,} nano koin\n\n"
+            f"Yangi nano koin sotib olish uchun: /pricing"
+        ),
+        "required_nano": cost_nano,
+        "current_nano": total_nano,
+        "chat_bonus_nano": bonus,
+        "subscription_nano": (user.tokens_balance or 0) // TOKENS_PER_NANO_COIN,
+        "pricing_url": "/pricing",
+    }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+
+def _can_afford_generation(user, conversation: Optional[Conversation], cost_tokens: int) -> bool:
+    """Chat bonus + obuna birga yetadimi? (token)."""
+    cost_nano = cost_tokens // TOKENS_PER_NANO_COIN
+    return _can_afford_nano(user, conversation, cost_nano)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -336,19 +386,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         # ARCHITECT keyinchalik FINAL_SITE_SPEC yig'ib Claude generatsiyaga o'tganda
         # ichkarida yana tekshiriladi (quyidagi blokda).
         if is_auth and intent == "REVISE" and not TOKEN_LIMITS_DISABLED:
-            if not _can_afford_generation(request.user, conversation, SITE_CREATION_COST):
-                bonus = conversation.chat_budget_nano if conversation else 0
-                return Response({
-                    "success": False,
-                    "error": (
-                        f"Nano koin yetarli emas. Bu amal {CHAT_COST_NANO} nano koin. "
-                        f"Chat bonusi: {bonus} nano, obunada: {request.user.nano_coins} nano."
-                    ),
-                    "insufficient_tokens": True,
-                    "required_nano": CHAT_COST_NANO,
-                    "chat_bonus_nano": bonus,
-                    "subscription_nano": request.user.nano_coins,
-                }, status=status.HTTP_402_PAYMENT_REQUIRED)
+            revision_cost = COST_REVISION_NANO  # 300 nano
+            if not _can_afford_nano(request.user, conversation, revision_cost):
+                return _insufficient_balance_response(
+                    request.user, conversation, revision_cost,
+                    action="saytni tahrirlash (300 nano)"
+                )
 
         try:
             # ── 1. MAVJUD LOYIHANI TAHRIRLASH ───────────────────────────
@@ -406,13 +449,13 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     project_version=version,
                     metadata={"project_id": str(project.id), "title": project.title},
                 )
-                # Nano koin yechamiz — HAQIQIY Claude xarajatiga asoslangan
-                # (10 token sarflansa = 1 nano koin). Avval chat bonusi, keyin obuna.
+                # Nano koin yechamiz — REVISE uchun 300 nano
                 deduction = None
                 if not TOKEN_LIMITS_DISABLED:
+                    revision_cost_tokens = COST_REVISION_NANO * TOKENS_PER_NANO_COIN  # 3000 token
                     try:
                         deduction = _deduct_for_generation(
-                            request.user, conversation, actual_cost_tokens,
+                            request.user, conversation, revision_cost_tokens,
                         )
                     except ValueError:
                         return Response({
@@ -446,22 +489,6 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 if spec:
                     # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi
                     # Generatsiyadan oldin balansni tekshiramiz (auth user uchun)
-                    if is_auth and not TOKEN_LIMITS_DISABLED and not _can_afford_generation(
-                        request.user, conversation, SITE_CREATION_COST,
-                    ):
-                        bonus = conversation.chat_budget_nano if conversation else 0
-                        return Response({
-                            "success": False,
-                            "error": (
-                                f"Nano koin yetarli emas. Sayt yaratish uchun {CHAT_COST_NANO} nano kerak. "
-                                f"Chat bonusi: {bonus}, obunada: {request.user.nano_coins}."
-                            ),
-                            "insufficient_tokens": True,
-                            "required_nano": CHAT_COST_NANO,
-                            "chat_bonus_nano": bonus,
-                            "subscription_nano": request.user.nano_coins,
-                        }, status=status.HTTP_402_PAYMENT_REQUIRED)
-
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     gen_start = time.monotonic()
                     claude = ClaudeService()
@@ -470,11 +497,20 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     )
                     gen_ms = int((time.monotonic() - gen_start) * 1000)
                     complexity = _estimate_complexity(new_schema)
-                    # HAQIQIY Claude xarajati (input + output token)
-                    actual_cost_tokens = max(
-                        (usage.get("input_tokens", 0) + usage.get("output_tokens", 0)),
-                        CHAT_COST_NANO * TOKENS_PER_NANO_COIN,  # minimum = 5000 tokens
-                    )
+
+                    # Murakkablikka qarab narx aniqlanadi
+                    # Birinchi sayt — BEPUL (0 nano)
+                    site_cost_nano = COST_FIRST_SITE_NANO if (is_auth and _is_first_site(request.user)) else complexity["cost_nano"]
+                    site_cost_tokens = site_cost_nano * TOKENS_PER_NANO_COIN
+
+                    # Balans tekshirish (spec topilgandan keyin)
+                    if is_auth and site_cost_nano > 0 and not TOKEN_LIMITS_DISABLED and not _can_afford_nano(
+                        request.user, conversation, site_cost_nano,
+                    ):
+                        action_label = f"{complexity['label']} sayt yaratish ({site_cost_nano:,} nano)"
+                        return _insufficient_balance_response(
+                            request.user, conversation, site_cost_nano, action=action_label
+                        )
                     logger.info(
                         "Claude schema: type=%s keys=%s siteName=%s pages=%s sections_in_first_page=%s",
                         type(new_schema).__name__,
@@ -519,22 +555,32 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                                     "architect_message": ai_text,
                                 },
                             )
-                        # Nano koin yechamiz — HAQIQIY Claude xarajatiga asoslangan
-                        # (10 token sarflansa = 1 nano koin). Avval chat bonusi, keyin obuna.
-                        if not TOKEN_LIMITS_DISABLED:
+                        # Nano koin yechamiz (complexity ga qarab: 3000/4000/5000 nano)
+                        if not TOKEN_LIMITS_DISABLED and site_cost_nano > 0:
                             try:
                                 deduction = _deduct_for_generation(
-                                    request.user, conversation, actual_cost_tokens,
+                                    request.user, conversation, site_cost_tokens,
                                 )
                                 balance_data = {
                                     "tokens": request.user.tokens_balance,
                                     "nano_coins": request.user.nano_coins,
-                                    "cost": actual_cost_tokens,
+                                    "cost_nano": site_cost_nano,
+                                    "cost": site_cost_tokens,
+                                    "is_first_site": site_cost_nano == 0,
                                     "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                                     "deduction": deduction,
                                 }
                             except ValueError:
                                 logger.warning("Token yechishda muammo user=%s", request.user.id)
+                        elif site_cost_nano == 0:
+                            balance_data = {
+                                "tokens": request.user.tokens_balance,
+                                "nano_coins": request.user.nano_coins,
+                                "cost_nano": 0,
+                                "cost": 0,
+                                "is_first_site": True,
+                                "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
+                            }
                         project_data = WebsiteProjectSerializer(project).data
                     else:
                         project_data = {
@@ -584,22 +630,19 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 return Response(resp_data)
 
             # ── 3. TO'G'RIDAN-TO'G'RI GENERATSIYA (qisqa yo'l) ───────────
+            # Birinchi sayt bepul, qolganlar complexity ga qarab narxlanadi
+            is_first = is_auth and _is_first_site(request.user)
+            site_cost_nano = COST_FIRST_SITE_NANO if is_first else COST_MEDIUM_NANO  # schema yo'q — o'rta narx
+            site_cost_tokens = site_cost_nano * TOKENS_PER_NANO_COIN
+
             # Balans tekshirish (auth user uchun)
-            if is_auth and not TOKEN_LIMITS_DISABLED and not _can_afford_generation(
-                request.user, conversation, SITE_CREATION_COST,
+            if is_auth and site_cost_nano > 0 and not TOKEN_LIMITS_DISABLED and not _can_afford_nano(
+                request.user, conversation, site_cost_nano,
             ):
-                bonus = conversation.chat_budget_nano if conversation else 0
-                return Response({
-                    "success": False,
-                    "error": (
-                        f"Nano koin yetarli emas. Sayt yaratish uchun {CHAT_COST_NANO} nano kerak. "
-                        f"Chat bonusi: {bonus}, obunada: {request.user.nano_coins}."
-                    ),
-                    "insufficient_tokens": True,
-                    "required_nano": CHAT_COST_NANO,
-                    "chat_bonus_nano": bonus,
-                    "subscription_nano": request.user.nano_coins,
-                }, status=status.HTTP_402_PAYMENT_REQUIRED)
+                return _insufficient_balance_response(
+                    request.user, conversation, site_cost_nano,
+                    action=f"sayt yaratish ({site_cost_nano:,} nano)"
+                )
 
             gen_start = time.monotonic()
             claude = ClaudeService()
@@ -646,20 +689,29 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             "complexity": complexity,
                         },
                     )
-                if not TOKEN_LIMITS_DISABLED:
+                if not TOKEN_LIMITS_DISABLED and site_cost_nano > 0:
                     try:
                         deduction2 = _deduct_for_generation(
-                            request.user, conversation, actual_cost_tokens2,
+                            request.user, conversation, site_cost_tokens,
                         )
                         balance_data2 = {
                             "tokens": request.user.tokens_balance,
                             "nano_coins": request.user.nano_coins,
-                            "cost": actual_cost_tokens2,
+                            "cost_nano": site_cost_nano,
+                            "cost": site_cost_tokens,
+                            "is_first_site": is_first,
                             "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                             "deduction": deduction2,
                         }
                     except ValueError:
                         logger.warning("Token yechishda muammo user=%s", request.user.id)
+                elif is_first:
+                    balance_data2 = {
+                        "tokens": request.user.tokens_balance,
+                        "nano_coins": request.user.nano_coins,
+                        "cost_nano": 0, "cost": 0, "is_first_site": True,
+                        "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
+                    }
                 project_data = WebsiteProjectSerializer(project).data
             else:
                 project_data = {

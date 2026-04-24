@@ -76,7 +76,12 @@ interface ApiResponse {
     is_published?: boolean;
   };
   balance?: Balance;
+  // Yangi balans yetmasa maydonlari
   insufficient_tokens?: boolean;
+  required_nano?: number;      // nano koin kerak
+  current_nano?: number;       // joriy nano koin balansi
+  pricing_url?: string;        // /pricing ga yo'naltirish
+  // Eski maydonlar (orqaga moslik)
   required_tokens?: number;
   current_tokens?: number;
   error?: string;
@@ -901,12 +906,21 @@ export default function BuilderPage() {
       }
 
       if (!data.success) {
-        // Token yetmaganda maxsus xabar
+        // Nano koin yetmaganda chiroyli xabar
         if (data.insufficient_tokens) {
-          const needTokens = data.required_tokens ?? 3000;
-          const haveTokens = data.current_tokens ?? 0;
-          const msg = `� Token yetarli emas!\n\nKerak: ${needTokens.toLocaleString()} token\nSizda: ${haveTokens.toLocaleString()} token\n\nBalansingizni to'ldiring yoki obuna xarid qiling.`;
-          setErrorMsg('Token yetarli emas');
+          const needNano  = data.required_nano  ?? (data.required_tokens ? Math.ceil(data.required_tokens / 10) : 3000);
+          const haveNano  = data.current_nano   ?? (data.current_tokens  ? Math.floor(data.current_tokens  / 10) : 0);
+          const short     = needNano - haveNano;
+          const msg = [
+            `⚠️ Nano koin yetarli emas!`,
+            ``,
+            `📌 Kerak: ${needNano.toLocaleString()} nano koin`,
+            `💰 Sizda: ${haveNano.toLocaleString()} nano koin`,
+            `❌ Yetishmaydi: ${short.toLocaleString()} nano koin`,
+            ``,
+            `👉 Nano koin sotib olish uchun /pricing sahifasiga o'ting.`,
+          ].join('\n');
+          setErrorMsg('Nano koin yetarli emas');
           addMsg('ai', msg);
         } else {
           setErrorMsg(data.error ?? 'Xatolik yuz berdi.');
