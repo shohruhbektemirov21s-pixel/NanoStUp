@@ -417,7 +417,7 @@ def _get_gemini_client() -> genai.Client:
 def _get_gemini_model() -> str:
     return (
         os.environ.get("GOOGLE_GENERATIVE_AI_MODEL")
-        or getattr(settings, "GEMINI_MODEL", "gemini-2.0-flash")
+        or getattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")
     )
 
 

@@ -257,7 +257,7 @@ CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
 CORS_ALLOW_CREDENTIALS = True
 
 # Gemini
-GEMINI_MODEL = env("GOOGLE_GENERATIVE_AI_MODEL", default="gemini-1.5-flash")
+GEMINI_MODEL = env("GOOGLE_GENERATIVE_AI_MODEL", default="gemini-2.5-flash")
 GEMINI_API_KEY = env("GOOGLE_GENERATIVE_AI_API_KEY", default="")
 
 # DeepSeek

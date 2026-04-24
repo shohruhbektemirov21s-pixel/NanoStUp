@@ -33,7 +33,7 @@ services:
       - key: ANTHROPIC_MODEL
         value: "claude-sonnet-4-6"
       - key: GOOGLE_GENERATIVE_AI_MODEL
-        value: "gemini-2.0-flash"
+        value: "gemini-2.5-flash"
       # AI API kalitlari — dashboard orqali qo'lda kiritiladi (sync:false)
       - key: ANTHROPIC_API_KEY
         sync: false
