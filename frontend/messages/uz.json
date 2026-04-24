@@ -34,6 +34,18 @@
     "multiLanguage": {
       "title": "Ko'p tilli",
       "desc": "Ingliz, rus va o'zbek tillarini to'liq qo'llab-quvvatlash imkoniyati mavjud."
+    },
+    "aiCore": {
+      "title": "AI Yadrosi",
+      "desc": "Marketing niyati va biznes ehtiyojlarini chuqur tushunadigan ilg'or sun'iy intellekt."
+    },
+    "bankSecurity": {
+      "title": "Bank darajasidagi xavfsizlik",
+      "desc": "Sizning ma'lumotlaringiz zamonaviy protokollar bilan shifrlangan va himoyalangan."
+    },
+    "optimizedSpeed": {
+      "title": "Optimallashtirilgan tezlik",
+      "desc": "Yengil kod yetkazib berish 100/100 Lighthouse performance bahosini ta'minlaydi."
     }
   },
   "Pricing": {
@@ -142,7 +154,8 @@
     "fullName": "To'liq ism",
     "createAccount": "Hisob yaratish",
     "haveAccount": "Hisobingiz bormi?",
-    "registerFailed": "Ro'yxatdan o'tish muvaffaqiyatsiz"
+    "registerFailed": "Ro'yxatdan o'tish muvaffaqiyatsiz",
+    "backHome": "Bosh sahifa"
   },
   "Profile": {
     "title": "Profil",

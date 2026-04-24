@@ -29,20 +29,20 @@ export function PremiumFeatures() {
     },
     {
       icon: <Cpu className="w-8 h-8" />,
-      title: "AI Core Engine",
-      desc: "Advanced AI with deep understanding of marketing intent and business needs.",
+      title: t('aiCore.title'),
+      desc: t('aiCore.desc'),
       color: "from-orange-500 to-orange-700"
     },
     {
       icon: <Shield className="w-8 h-8" />,
-      title: "Bank-level Security",
-      desc: "Your data is encrypted and protected with state-of-the-art security protocols.",
+      title: t('bankSecurity.title'),
+      desc: t('bankSecurity.desc'),
       color: "from-blue-400 to-indigo-600"
     },
     {
       icon: <Rocket className="w-8 h-8" />,
-      title: "Optimized Speed",
-      desc: "Lightweight code delivery ensures 100/100 Lighthouse performance scores.",
+      title: t('optimizedSpeed.title'),
+      desc: t('optimizedSpeed.desc'),
       color: "from-rose-500 to-rose-700"
     }
   ];

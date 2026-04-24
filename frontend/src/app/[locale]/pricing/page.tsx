@@ -60,6 +60,7 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const t = useTranslations('Pricing');
+  const tAuth = useTranslations('Auth');
   const { isAuthenticated } = useAuthStore();
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function PricingPage() {
         className="fixed top-6 left-6 z-50 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-sm backdrop-blur-sm"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="hidden sm:inline">Bosh sahifa</span>
+        <span className="hidden sm:inline">{tAuth('backHome')}</span>
       </Link>
       <div className="max-w-7xl mx-auto">
         {loading ? (

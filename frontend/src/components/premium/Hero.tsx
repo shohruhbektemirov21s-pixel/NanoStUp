@@ -10,6 +10,11 @@ import { ArrowRight, Play } from 'lucide-react';
 export function PremiumHero() {
   const t = useTranslations('Hero');
 
+  const handleViewDemo = () => {
+    const el = document.getElementById('showcase');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <section className="relative pt-28 md:pt-40 pb-20 md:pb-32 px-4 md:px-6 overflow-hidden min-h-[90vh] flex items-center">
       {/* Background Effects */}
@@ -54,7 +59,12 @@ export function PremiumHero() {
                 <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1.5 transition-transform" />
               </Button>
             </Link>
-            <Button variant="outline" size="lg" className="h-14 md:h-16 px-6 md:px-10 border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-2xl md:rounded-3xl text-base md:text-xl font-bold backdrop-blur-md active:scale-95 transition-all w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleViewDemo}
+              className="h-14 md:h-16 px-6 md:px-10 border-white/10 bg-white/5 hover:bg-white/10 text-white rounded-2xl md:rounded-3xl text-base md:text-xl font-bold backdrop-blur-md active:scale-95 transition-all w-full sm:w-auto cursor-pointer"
+            >
               <Play className="mr-3 w-5 h-5 fill-current" />
               {t('viewDemo')}
             </Button>

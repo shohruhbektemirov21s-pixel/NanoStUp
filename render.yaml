@@ -8,7 +8,7 @@ services:
     runtime: python
     rootDir: backend
     region: frankfurt
-    plan: standard  # $25/oy, 2GB RAM
+    plan: standard  # $25/oy, 2GB RAM — free plan uyquga ketadi!
     branch: main
     buildCommand: "./build.sh"
     # --timeout 180: Claude/Gemini AI so'rovlari 30-120s olishi mumkin
@@ -30,6 +30,10 @@ services:
         value: "config.settings.production"
       - key: PYTHON_VERSION
         value: "3.12.0"
+      - key: ANTHROPIC_MODEL
+        value: "claude-sonnet-4-5"
+      - key: GOOGLE_GENERATIVE_AI_MODEL
+        value: "gemini-2.0-flash"
 
   # Frontend (Next.js)
   - type: web

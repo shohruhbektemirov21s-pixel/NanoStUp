@@ -34,6 +34,18 @@
     "multiLanguage": {
       "title": "Multi-language",
       "desc": "Full support for English, Russian, and Uzbek out of the box."
+    },
+    "aiCore": {
+      "title": "AI Core Engine",
+      "desc": "Advanced AI with deep understanding of marketing intent and business needs."
+    },
+    "bankSecurity": {
+      "title": "Bank-level Security",
+      "desc": "Your data is encrypted and protected with state-of-the-art security protocols."
+    },
+    "optimizedSpeed": {
+      "title": "Optimized Speed",
+      "desc": "Lightweight code delivery ensures 100/100 Lighthouse performance scores."
     }
   },
   "Pricing": {
@@ -142,7 +154,8 @@
     "fullName": "Full name",
     "createAccount": "Create account",
     "haveAccount": "Already have an account?",
-    "registerFailed": "Registration failed"
+    "registerFailed": "Registration failed",
+    "backHome": "Back to home"
   },
   "Profile": {
     "title": "Profile",

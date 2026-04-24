@@ -71,7 +71,7 @@ export default function LoginPage() {
         className="fixed top-6 left-6 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all text-sm"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="hidden sm:inline">Bosh sahifa</span>
+        <span className="hidden sm:inline">{t('backHome')}</span>
       </Link>
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
