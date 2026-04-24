@@ -1378,11 +1378,11 @@ export default function BuilderPage() {
                     ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     : 'bg-red-500/10 border-red-500/30 text-red-300'
               )}
-              title={`${user.tokens_balance.toLocaleString()} token balans`}
+              title={`${(user.nano_coins ?? 0).toLocaleString()} nano koin (${user.tokens_balance.toLocaleString()} token)`}
             >
               <Coins className="w-3.5 h-3.5" />
-              <span>{user.tokens_balance.toLocaleString()}</span>
-              <span className="text-[10px] opacity-70 font-normal">token</span>
+              <span>{(user.nano_coins ?? 0).toLocaleString()}</span>
+              <span className="text-[10px] opacity-70 font-normal">nano</span>
             </motion.div>
           )}
           {isAuthenticated && (

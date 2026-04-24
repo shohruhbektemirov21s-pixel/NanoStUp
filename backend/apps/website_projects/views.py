@@ -21,6 +21,36 @@ from apps.accounts.models import (
 )
 from apps.ai_generation.services import AIRouterService, ArchitectService, ClaudeService
 from apps.exports.services import ExportService
+from apps.subscriptions.models import Subscription, SubscriptionStatus
+
+
+# ── Tarif bo'yicha limitlar ───────────────────────────────────
+# Free (obunasi yo'q) foydalanuvchi uchun default:
+FREE_MAX_PAGES = 1
+FREE_CAN_PUBLISH = False  # publik URL bermaymiz — faqat preview
+
+
+def _get_user_limits(user) -> Dict[str, int]:
+    """
+    Foydalanuvchining faol obunasiga qarab limitlarini qaytaradi.
+    Faol obuna bo'lmasa — FREE default.
+    """
+    if not user or not user.is_authenticated:
+        return {"max_pages": FREE_MAX_PAGES, "can_publish": False}
+    sub = (
+        Subscription.objects
+        .filter(user=user, status=SubscriptionStatus.ACTIVE)
+        .select_related("tariff")
+        .order_by("-end_date")
+        .first()
+    )
+    if sub and sub.is_valid():
+        tariff = sub.tariff
+        return {
+            "max_pages": int(tariff.pages_per_project_limit or 1),
+            "can_publish": True,  # obuna bor — publik URL ishlaydi
+        }
+    return {"max_pages": FREE_MAX_PAGES, "can_publish": FREE_CAN_PUBLISH}
 
 # ── TEST REJIMI ───────────────────────────────────────────────
 # True bo'lsa — token balans tekshirilmaydi (cheklovsiz test).
@@ -288,8 +318,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         # (rasm odatda "shunga o'xshash qil" yoki "shu yerga qo'sh" degan ma'noda).
         if project_id and images and intent == "CHAT":
             intent = "REVISE"
-        logger.info("AI request user=%s intent=%s project=%s images=%d",
-                    getattr(request.user, "id", "guest"), intent, project_id, len(images))
+
+        # Foydalanuvchi tarif limitlari (max_pages, can_publish)
+        user_limits = _get_user_limits(request.user)
+        logger.info("AI request user=%s intent=%s project=%s images=%d limits=%s",
+                    getattr(request.user, "id", "guest"), intent, project_id,
+                    len(images), user_limits)
 
         # ── Suhbatni topamiz yoki yaratamiz, user xabarini saqlaymiz ──
         conversation = _get_or_create_conversation(
@@ -353,7 +387,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 project.schema_data = new_schema
                 project.status = ProjectStatus.COMPLETED
                 project.save(update_fields=["schema_data", "status", "updated_at"])
-                _auto_publish(project)  # REVISE — agar birinchi marta bo'lsa, slug + publish
+                if user_limits["can_publish"]:
+                    _auto_publish(project)  # REVISE — obuna bor, publik URL beramiz
                 version = ProjectVersion.objects.create(
                     project=project, prompt=prompt, schema_data=new_schema,
                     intent="revise", version_number=project.versions.count() + 1,
@@ -430,7 +465,9 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     gen_start = time.monotonic()
                     claude = ClaudeService()
-                    new_schema, usage = claude.generate_from_spec(spec)
+                    new_schema, usage = claude.generate_from_spec(
+                        spec, max_pages=user_limits["max_pages"],
+                    )
                     gen_ms = int((time.monotonic() - gen_start) * 1000)
                     complexity = _estimate_complexity(new_schema)
                     # HAQIQIY Claude xarajati (input + output token)
@@ -458,7 +495,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             schema_data=new_schema,
                             status=ProjectStatus.COMPLETED,
                         )
-                        _auto_publish(project)  # Yangi sayt — avtomatik publik URL
+                        if user_limits["can_publish"]:
+                            _auto_publish(project)  # Yangi sayt — obunada publik URL
                         version = ProjectVersion.objects.create(
                             project=project, prompt=spec, schema_data=new_schema,
                             intent="generate", version_number=1,
@@ -565,7 +603,9 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
 
             gen_start = time.monotonic()
             claude = ClaudeService()
-            new_schema, usage = claude.generate_full_site(prompt, language)
+            new_schema, usage = claude.generate_full_site(
+                prompt, language, max_pages=user_limits["max_pages"],
+            )
             gen_ms = int((time.monotonic() - gen_start) * 1000)
             complexity = _estimate_complexity(new_schema)
             # HAQIQIY Claude xarajati (input + output token, min = 5 000 token)
@@ -584,7 +624,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     schema_data=new_schema,
                     status=ProjectStatus.COMPLETED,
                 )
-                _auto_publish(project)  # Yangi sayt — avtomatik publik URL
+                if user_limits["can_publish"]:
+                    _auto_publish(project)  # Yangi sayt — obunada publik URL
                 version = ProjectVersion.objects.create(
                     project=project, prompt=prompt, schema_data=new_schema,
                     intent="generate", version_number=1,

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface SectionContent {
   [key: string]: unknown;
@@ -180,23 +180,24 @@ const SECTION_MAP: Record<string, React.FC<{ content: SectionContent }>> = {
   services: Services,
 };
 
-// ── Schema normalizer — istalgan formatni standartga keltiradi ──
+// ── Schema normalizer — istalgan formatni {pages: Page[]} ga keltiradi ──
 
-function normalizeSections(schema: SiteSchema): Section[] {
-  // Format 1: {pages: [{sections: [...]}]}
+function normalizePages(schema: SiteSchema): Page[] {
+  // Format 1: to'liq pages array (backend'ning standart formati)
   if (Array.isArray(schema.pages) && schema.pages.length > 0) {
-    const page = schema.pages.find((p) => p.slug === 'home') ?? schema.pages[0];
-    if (Array.isArray(page?.sections) && page.sections.length > 0) {
-      return page.sections;
-    }
+    const valid = schema.pages.filter(
+      (p) => Array.isArray(p?.sections) && p.sections.length > 0,
+    );
+    if (valid.length > 0) return valid;
   }
 
-  // Format 2: {sections: [...]} — pages yo'q, to'g'ridan-to'g'ri
-  if (Array.isArray((schema as Record<string, unknown>).sections)) {
-    return (schema as Record<string, unknown>).sections as Section[];
+  // Format 2: {sections: [...]} — to'g'ridan-to'g'ri, bitta "home"
+  const directSections = (schema as Record<string, unknown>).sections;
+  if (Array.isArray(directSections) && directSections.length > 0) {
+    return [{ slug: 'home', title: 'Home', sections: directSections as Section[] }];
   }
 
-  // Format 3: Sxemaning o'zi section-like kalitlarga ega (hero, features, ...)
+  // Format 3: sxemaning o'zi section-like kalitlarga ega
   const knownKeys = ['hero', 'features', 'services', 'about', 'stats', 'pricing', 'contact'];
   const inlineSections: Section[] = [];
   for (const key of knownKeys) {
@@ -205,32 +206,50 @@ function normalizeSections(schema: SiteSchema): Section[] {
       inlineSections.push({ id: key, type: key, content: val as SectionContent });
     }
   }
-  if (inlineSections.length > 0) return inlineSections;
-
-  // Format 4: pages mavjud lekin sections yo'q — pages ni section sifatida ko'rsatamiz
-  if (Array.isArray(schema.pages) && schema.pages.length > 0) {
-    return schema.pages.map((p, i) => ({
-      id: `page-${i}`,
-      type: 'hero',
-      content: { title: p.title ?? p.slug ?? `Sahifa ${i + 1}`, description: '' },
-    }));
+  if (inlineSections.length > 0) {
+    return [{ slug: 'home', title: 'Home', sections: inlineSections }];
   }
 
   return [];
+}
+
+function renderSection(section: Section, i: number) {
+  const Component = SECTION_MAP[section.type?.toLowerCase() ?? ''];
+  const content: SectionContent = (section.content as SectionContent) ?? {};
+  const key = section.id ?? `${section.type}-${i}`;
+  if (!Component) {
+    return (
+      <div
+        key={key}
+        className="py-10 px-6 border border-dashed border-zinc-300 text-center text-zinc-400 m-6 rounded-3xl"
+      >
+        Bo&apos;lim: {section.type}
+      </div>
+    );
+  }
+  return (
+    <div key={key} id={section.id}>
+      <Component content={content} />
+    </div>
+  );
 }
 
 // ── Main renderer ──────────────────────────────────────────────
 
 export const SiteRenderer = React.memo(function SiteRenderer({
   schema,
+  initialPageSlug,
 }: {
   schema: SiteSchema | null | undefined;
+  initialPageSlug?: string;
 }) {
+  const pages = schema ? normalizePages(schema) : [];
+  const firstSlug = pages[0]?.slug ?? 'home';
+  const [activeSlug, setActiveSlug] = useState<string>(initialPageSlug ?? firstSlug);
+
   if (!schema) return null;
 
-  const sections = normalizeSections(schema);
-
-  if (sections.length === 0) {
+  if (pages.length === 0) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center p-16 text-center">
         <div className="text-5xl mb-4">🏗️</div>
@@ -240,43 +259,61 @@ export const SiteRenderer = React.memo(function SiteRenderer({
     );
   }
 
+  const activePage =
+    pages.find((p) => p.slug === activeSlug) ?? pages[0];
+  const sections = activePage.sections ?? [];
   const siteName = String(schema.siteName ?? schema.name ?? '');
+  const isMultiPage = pages.length > 1;
+
+  const pageLabel = (p: Page, idx: number) =>
+    p.title || (p.slug ? p.slug.replace(/-/g, ' ') : `Sahifa ${idx + 1}`);
 
   return (
     <div className="w-full">
-      {/* Navbar */}
-      {siteName && (
-        <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-100 px-6 py-4 flex items-center justify-between">
-          <span className="font-black text-lg text-zinc-900">{siteName}</span>
-          <div className="flex gap-4 text-sm text-zinc-500">
-            {sections.map((s) => (
-              <a key={s.id} href={`#${s.id}`} className="hover:text-zinc-900 transition-colors capitalize">
-                {s.type}
-              </a>
-            ))}
-          </div>
+      {/* Navbar — sayt nomi + sahifalar yoki bo'limlar */}
+      {(siteName || isMultiPage) && (
+        <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-100 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+          {siteName && (
+            <span className="font-black text-lg text-zinc-900">{siteName}</span>
+          )}
+          {isMultiPage ? (
+            <div className="flex gap-1 text-sm">
+              {pages.map((p, idx) => {
+                const isActive = p.slug === activePage.slug;
+                return (
+                  <button
+                    key={p.slug ?? idx}
+                    type="button"
+                    onClick={() => setActiveSlug(p.slug ?? `page-${idx}`)}
+                    className={
+                      'px-3 py-1.5 rounded-lg font-semibold transition-colors capitalize ' +
+                      (isActive
+                        ? 'bg-zinc-900 text-white'
+                        : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100')
+                    }
+                  >
+                    {pageLabel(p, idx)}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex gap-4 text-sm text-zinc-500">
+              {sections.map((s, idx) => (
+                <a
+                  key={s.id ?? idx}
+                  href={`#${s.id}`}
+                  className="hover:text-zinc-900 transition-colors capitalize"
+                >
+                  {s.type}
+                </a>
+              ))}
+            </div>
+          )}
         </nav>
       )}
 
-      {sections.map((section, i) => {
-        const Component = SECTION_MAP[section.type?.toLowerCase() ?? ''];
-        const content: SectionContent = (section.content as SectionContent) ?? {};
-        if (!Component) {
-          return (
-            <div
-              key={section.id ?? i}
-              className="py-10 px-6 border border-dashed border-zinc-300 text-center text-zinc-400 m-6 rounded-3xl"
-            >
-              Bo&apos;lim: {section.type}
-            </div>
-          );
-        }
-        return (
-          <div key={section.id ?? i} id={section.id}>
-            <Component content={content} />
-          </div>
-        );
-      })}
+      {sections.map(renderSection)}
     </div>
   );
 });
