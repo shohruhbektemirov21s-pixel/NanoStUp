@@ -284,8 +284,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         history = safe_history
 
         intent = AIRouterService.detect_intent(prompt, has_project=bool(project_id))
-        logger.info("AI request user=%s intent=%s project=%s",
-                    getattr(request.user, "id", "guest"), intent, project_id)
+        # Agar loyiha mavjud va foydalanuvchi rasm yuborgan bo'lsa — bu REVISE
+        # (rasm odatda "shunga o'xshash qil" yoki "shu yerga qo'sh" degan ma'noda).
+        if project_id and images and intent == "CHAT":
+            intent = "REVISE"
+        logger.info("AI request user=%s intent=%s project=%s images=%d",
+                    getattr(request.user, "id", "guest"), intent, project_id, len(images))
 
         # ── Suhbatni topamiz yoki yaratamiz, user xabarini saqlaymiz ──
         conversation = _get_or_create_conversation(
@@ -322,9 +326,24 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                         {"success": False, "error": "Loyiha topilmadi."},
                         status=status.HTTP_404_NOT_FOUND,
                     )
+                # 1-bosqich: Gemini rasm+matnni tahlil qilib Claude uchun aniq
+                # ingliz ko'rsatma (instruction) tayyorlaydi.
+                try:
+                    architect = ArchitectService()
+                    claude_instruction = architect.plan_revision(
+                        prompt, project.schema_data or {}, images=images,
+                    )
+                    logger.info("Gemini → Claude instruction: %s", claude_instruction[:300])
+                except Exception:
+                    logger.exception("plan_revision xatosi — foydalanuvchi matni to'g'ridan yuboriladi")
+                    claude_instruction = prompt
+
+                # 2-bosqich: Claude tayyor ko'rsatma bo'yicha schema'ni yangilaydi
                 gen_start = time.monotonic()
                 claude = ClaudeService()
-                new_schema, usage = claude.revise_site(prompt, project.schema_data or {}, language)
+                new_schema, usage = claude.revise_site(
+                    claude_instruction, project.schema_data or {}, language,
+                )
                 gen_ms = int((time.monotonic() - gen_start) * 1000)
                 # Haqiqiy Claude xarajati = input + output token (10 tok = 1 nano)
                 actual_cost_tokens = max(

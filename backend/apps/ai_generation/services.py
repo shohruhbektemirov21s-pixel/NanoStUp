@@ -11,8 +11,8 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import anthropic
-# from google import genai                        # Gemini — vaqtincha o'chirildi
-# from google.genai import types as genai_types  # Gemini — vaqtincha o'chirildi
+from google import genai
+from google.genai import types as genai_types
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,14 @@ ARCHITECT_SYSTEM_PROMPT = """Sen "Antigravity" platformasining "Arxitektor AI" s
    - Maqsadli auditoriya
    - Kerakli sahifalar
 
+   ⚡ **INTERNET QIDIRUV**: Sening `google_search` vositang bor. Foydalanuvchi qanday biznes/sayt kerakligini aytganda:
+   - O'sha sohadagi zamonaviy va mashhur saytlarni qidir (misol: "best pizza shop website 2025", "modern SaaS landing page trends")
+   - Qaysi bo'limlar (hero, menu, reviews, CTA), qaysi dizayn trendlari, qanday ranglar ishlatilayotganini o'rgan
+   - Foydalanuvchiga qisqacha: "Men shu sohadagi mashhur saytlarni ko'rib chiqdim — odatda X, Y, Z bo'limlar bo'ladi" deb xulosa ber
+   - O'xshash brendlar nomini yoki konkret misollarni keltir (qidiruv natijasidan)
+
 2. **DIZAYN VARIANTLAR**: Biznes turini bilgach, DOIM 3 ta vizual dizayn variantini taklif et.
+   Variantlar haqiqiy trendlar asosida bo'lsin — qidiruv orqali topilgan dizayn tendensiyalari (neo-brutalism, glassmorphism, minimal mono, bold gradient va h.k.) dan foydalan.
 
    ⚠️ MUHIM QOIDALAR (variantlar xilma-xil bo'lishi kerak):
    - 3 ta variant **KO'RINISHI BO'YICHA FARQLI** bo'lsin — hammasi oq fonli bo'lmasin!
@@ -208,6 +215,32 @@ Return ONLY a single valid JSON object with this exact structure (no markdown, n
 - The JSON values must be properly escaped strings (\\n for newlines, \\" for quotes inside strings)
 - Return ONLY the JSON object, nothing else"""
 
+# ─────────────────────────────────────────────────────────────────
+# Gemini → Claude "ko'rsatma tarjimoni" (revise uchun)
+# ─────────────────────────────────────────────────────────────────
+REVISION_PLANNER_PROMPT = """You are a planner that translates a user's website-change request (in Uzbek/Russian/English, possibly with images) into a CLEAR, SPECIFIC ENGLISH INSTRUCTION for Claude, who will apply it to the provided JSON schema.
+
+You will receive:
+- The CURRENT site schema (JSON)
+- The user's message (natural language)
+- Optional images the user uploaded (use your vision to describe them)
+
+Output rules (STRICT):
+- Output ONE plain English paragraph only — no JSON, no markdown, no code fences, no preamble.
+- Be concrete and actionable. Reference section types/ids from the schema when possible.
+- If user says "add page/section" — specify the type (hero, features, services, stats, pricing, contact, about) and content.
+- If user says "remove X" — specify which section id or type.
+- If user says "change color/style/text" — give exact hex colors or new text.
+- If the user uploads an image and says "make it like this" — describe the image's layout, colors, typography, mood, and tell Claude to adapt the schema accordingly (mention specific hex colors you detect, section arrangement, visual style like "glassmorphism", "neobrutalism", "minimal mono", etc.).
+- If the user uploads an image and points to a section — say which section to update and how.
+- Keep the instruction under 250 words.
+- ALL text content that should appear on the site must be in the site's language (match existing schema language).
+
+Example:
+"In the schema, change section 'hero-1' background to #0f172a and the CTA text to 'Buyurtma berish'. Add a new 'testimonials-1' section with 3 customer reviews. Use a soft-card shadow style similar to the uploaded image (pastel #fef3c7 background, rounded-2xl cards, serif headings). Keep all text in Uzbek."
+"""
+
+
 CHAT_SYSTEM_PROMPT = """Sen "Antigravity — NanoStUp" platformasining ichki yordamchisisan (muallif: Shohruhbek).
 
 ## SHAXSIY MA'LUMOT (buzilmas qoida):
@@ -305,7 +338,11 @@ def _get_claude_client() -> anthropic.Anthropic:
     )
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY .env da topilmadi.")
-    return anthropic.Anthropic(api_key=api_key)
+    # timeout=150s: gunicorn --timeout 180 dan kichik,
+    # shunda Claude sekin javob bersa ham worker SIGKILL olmaydi,
+    # o'rniga toza APIError chiqadi va 502 qaytariladi (CORS header bilan).
+    # max_retries=1: bir marta qayta urinish (network flap uchun)
+    return anthropic.Anthropic(api_key=api_key, timeout=150.0, max_retries=1)
 
 
 def _get_claude_model() -> str:
@@ -316,22 +353,33 @@ def _get_claude_model() -> str:
 
 
 # ─────────────────────────────────────────────────────────────────
-# Gemini client — vaqtincha o'chirildi, Claude ishlatilmoqda
+# Gemini client (chat va Arxitektor uchun)
 # ─────────────────────────────────────────────────────────────────
-# Yoqish uchun: yuqoridagi import comment larini oching va
-# ArchitectService.chat() ichidagi Claude blokini comment qiling
+def _get_gemini_client() -> genai.Client:
+    api_key = (
+        os.environ.get("GOOGLE_GENERATIVE_AI_API_KEY")
+        or getattr(settings, "GEMINI_API_KEY", "")
+    )
+    if not api_key:
+        raise RuntimeError("GOOGLE_GENERATIVE_AI_API_KEY .env da topilmadi.")
+    return genai.Client(api_key=api_key)
+
+
+def _get_gemini_model() -> str:
+    return (
+        os.environ.get("GOOGLE_GENERATIVE_AI_MODEL")
+        or getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
+    )
 
 
 
 # ─────────────────────────────────────────────────────────────────
-# ArchitectService  (hozircha Claude bilan — Gemini yoqilganda almashtirish mumkin)
+# ArchitectService  (Gemini — muloqot va dizayn variantlar)
 # ─────────────────────────────────────────────────────────────────
 class ArchitectService:
     """
     Foydalanuvchi bilan muloqot qilib, sayt spetsini va dizayn variantlarini yig'adi.
-    Hozir: Claude ishlatilmoqda (Gemini API muammo bo'lganda).
-    Gemini yoqish uchun: chat() ichidagi Claude bloklarini comment qilib,
-    Gemini bloklarini yoching.
+    Gemini ishlatadi (tez va arzon). Sayt kodi/JSON generatsiyasi — Claude (ClaudeService).
     """
 
     def chat(
@@ -346,78 +394,122 @@ class ArchitectService:
 
         images: optional list of {"media_type": "image/jpeg", "data": "<base64>"}
         """
+        import base64 as _b64
+
         # Legacy orqaga moslik
         all_images: List[Dict[str, str]] = list(images or [])
         if image and not all_images:
             all_images = [image]
 
-        # ── Claude (faol) ──────────────────────────────────────────
         try:
-            client = _get_claude_client()
-            messages: List[Dict[str, Any]] = [
-                {"role": m["role"], "content": m["content"]}
-                for m in history
-            ]
-            # Agar rasm(lar) bor bo'lsa — content bloklari sifatida yuboramiz
-            if all_images:
-                content_blocks: List[Dict[str, Any]] = []
-                for img in all_images:
-                    if not img or not img.get("data"):
-                        continue
-                    content_blocks.append({
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": img.get("media_type", "image/jpeg"),
-                            "data": img["data"],
-                        },
-                    })
-                content_blocks.append({
-                    "type": "text",
-                    "text": user_message or "Rasmlarni tahlil qil.",
-                })
-                messages.append({"role": "user", "content": content_blocks})
-            else:
-                messages.append({"role": "user", "content": user_message})
-            response = client.messages.create(
-                model=_get_claude_model(),
-                max_tokens=2048,
-                system=ARCHITECT_SYSTEM_PROMPT,
-                messages=messages,
-            )
-            text: str = response.content[0].text
-        except anthropic.APIError as exc:
-            logger.exception("ArchitectService (Claude) chat xatosi")
-            raise RuntimeError(f"Arxitektor AI da xatolik: {exc}") from exc
+            client = _get_gemini_client()
 
-        # ── Gemini (o'chirilgan) ───────────────────────────────────
-        # Gemini yoqish uchun yuqoridagi Claude blokini comment qilib,
-        # quyidagini oching:
-        #
-        # from google import genai
-        # from google.genai import types as genai_types
-        # client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        # gemini_history = [
-        #     genai_types.Content(
-        #         role="user" if m.get("role") == "user" else "model",
-        #         parts=[genai_types.Part(text=m.get("content", ""))],
-        #     ) for m in history
-        # ]
-        # chat_session = client.chats.create(
-        #     model=settings.GEMINI_MODEL or "gemini-1.5-flash",
-        #     config=genai_types.GenerateContentConfig(
-        #         system_instruction=ARCHITECT_SYSTEM_PROMPT,
-        #         max_output_tokens=2048,
-        #     ),
-        #     history=gemini_history,
-        # )
-        # response = chat_session.send_message(user_message)
-        # text: str = response.text
+            # Tarixni Gemini formatiga o'giramiz (user → user, assistant → model)
+            gemini_history: List[genai_types.Content] = []
+            for m in history:
+                role = "user" if m.get("role") == "user" else "model"
+                content = str(m.get("content", ""))
+                if not content:
+                    continue
+                gemini_history.append(
+                    genai_types.Content(
+                        role=role,
+                        parts=[genai_types.Part(text=content)],
+                    )
+                )
+
+            # Joriy user xabari — matn + (bo'lsa) rasmlar
+            parts: List[genai_types.Part] = []
+            for img in all_images:
+                if not img or not img.get("data"):
+                    continue
+                try:
+                    raw = _b64.b64decode(img["data"])
+                except Exception:
+                    continue
+                parts.append(
+                    genai_types.Part.from_bytes(
+                        data=raw,
+                        mime_type=img.get("media_type", "image/jpeg"),
+                    )
+                )
+            parts.append(genai_types.Part(text=user_message or "Rasmlarni tahlil qil."))
+
+            chat_session = client.chats.create(
+                model=_get_gemini_model(),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=ARCHITECT_SYSTEM_PROMPT,
+                    max_output_tokens=2048,
+                    # Google Search grounding — internetdan o'xshash saytlar,
+                    # dizayn trendlar, UX misollar haqida real ma'lumot olish uchun.
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                ),
+                history=gemini_history,
+            )
+            response = chat_session.send_message(parts)
+            text: str = response.text or ""
+        except Exception as exc:
+            logger.exception("ArchitectService (Gemini) chat xatosi")
+            raise RuntimeError(f"Arxitektor AI da xatolik: {exc}") from exc
 
         spec = _extract_spec(text)
         design_variants = _extract_design_variants(text)
         clean_text = DESIGN_VARIANTS_PATTERN.sub("", text).strip()
         return clean_text, spec, design_variants
+
+    def plan_revision(
+        self,
+        user_message: str,
+        current_schema: Dict[str, Any],
+        images: Optional[List[Dict[str, str]]] = None,
+    ) -> str:
+        """
+        Gemini foydalanuvchining tahrir so'rovini (matn + rasm) tahlil qiladi va
+        Claude uchun aniq ingliz tilidagi ko'rsatma (instruction) qaytaradi.
+        """
+        import base64 as _b64
+
+        try:
+            client = _get_gemini_client()
+            parts: List[genai_types.Part] = []
+
+            for img in (images or []):
+                if not img or not img.get("data"):
+                    continue
+                try:
+                    raw = _b64.b64decode(img["data"])
+                except Exception:
+                    continue
+                parts.append(
+                    genai_types.Part.from_bytes(
+                        data=raw,
+                        mime_type=img.get("media_type", "image/jpeg"),
+                    )
+                )
+
+            schema_json = json.dumps(current_schema, ensure_ascii=False)[:12000]
+            parts.append(genai_types.Part(text=(
+                f"CURRENT SCHEMA (truncated):\n{schema_json}\n\n"
+                f"USER REQUEST:\n{user_message or '(no text, only images)'}\n\n"
+                "Write the English instruction for Claude now."
+            )))
+
+            response = client.models.generate_content(
+                model=_get_gemini_model(),
+                contents=parts,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=REVISION_PLANNER_PROMPT,
+                    max_output_tokens=600,
+                ),
+            )
+            instruction = (response.text or "").strip()
+            if not instruction:
+                # Fallback — oddiy foydalanuvchi matnini qaytaramiz
+                return user_message or "Apply the user's change to the schema."
+            return instruction
+        except Exception as exc:
+            logger.warning("Gemini plan_revision xatosi, foydalanuvchi matni Claude'ga to'g'ridan yuboriladi: %s", exc)
+            return user_message or "Apply the user's change to the schema."
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -427,19 +519,35 @@ class ClaudeService:
     """Claude orqali JSON sxema generatsiyasi va tahrirlash."""
 
     def chat(self, prompt: str, history: Optional[List[Dict]] = None) -> str:
-        client = _get_claude_client()
-        messages: List[Dict[str, Any]] = list(history or [])
-        messages.append({"role": "user", "content": prompt})
+        """Oddiy suhbat — Gemini orqali (arzon va tez)."""
         try:
-            response = client.messages.create(
-                model=_get_claude_model(),
-                max_tokens=1024,
-                system=CHAT_SYSTEM_PROMPT,
-                messages=messages,
+            client = _get_gemini_client()
+            gemini_history: List[genai_types.Content] = []
+            for m in (history or []):
+                role = "user" if m.get("role") == "user" else "model"
+                content = str(m.get("content", ""))
+                if not content:
+                    continue
+                gemini_history.append(
+                    genai_types.Content(
+                        role=role,
+                        parts=[genai_types.Part(text=content)],
+                    )
+                )
+            chat_session = client.chats.create(
+                model=_get_gemini_model(),
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=CHAT_SYSTEM_PROMPT,
+                    max_output_tokens=1024,
+                    # Internetdan foydalanuvchi savollariga dolzarb javob olish uchun
+                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                ),
+                history=gemini_history,
             )
-            return response.content[0].text
-        except anthropic.APIError as exc:
-            logger.exception("Claude chat xatosi")
+            response = chat_session.send_message(prompt)
+            return response.text or ""
+        except Exception as exc:
+            logger.exception("Gemini chat xatosi")
             raise RuntimeError(f"AI suhbat xizmatida xatolik: {exc}") from exc
 
     def generate_from_spec(self, spec: str) -> Tuple[Dict[str, Any], Dict[str, int]]:

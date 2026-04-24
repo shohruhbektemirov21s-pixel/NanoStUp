@@ -11,7 +11,10 @@ services:
     plan: standard  # $25/oy, 2GB RAM
     branch: main
     buildCommand: "./build.sh"
-    startCommand: "gunicorn config.wsgi:application"
+    # --timeout 180: Claude/Gemini AI so'rovlari 30-120s olishi mumkin
+    # --workers 3: standard plan 2GB RAM uchun (2*CPU+1 formulasi)
+    # --graceful-timeout 30: worker restart paytida so'rovlarni yakunlash
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 180 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
     envVars:
       - key: DATABASE_URL
         sync: false  # Qo'lda kiritamiz (dashboard orqali)
