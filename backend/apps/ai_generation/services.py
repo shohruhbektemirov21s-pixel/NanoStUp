@@ -360,7 +360,7 @@ def _get_claude_client() -> anthropic.Anthropic:
 def _get_claude_model() -> str:
     return (
         os.environ.get("ANTHROPIC_MODEL")
-        or getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-4-6")
+        or getattr(settings, "ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
     )
 
 
@@ -380,7 +380,7 @@ def _get_gemini_client() -> genai.Client:
 def _get_gemini_model() -> str:
     return (
         os.environ.get("GOOGLE_GENERATIVE_AI_MODEL")
-        or getattr(settings, "GEMINI_MODEL", "gemini-flash-latest")
+        or getattr(settings, "GEMINI_MODEL", "gemini-1.5-flash")
     )
 
 
