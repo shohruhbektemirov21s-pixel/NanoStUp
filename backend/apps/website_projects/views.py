@@ -21,6 +21,9 @@ from apps.accounts.models import (
     COST_MEDIUM_NANO,
     COST_COMPLEX_NANO,
     COST_REVISION_NANO,
+    COST_REVISION_SIMPLE_NANO,
+    COST_REVISION_MEDIUM_NANO,
+    COST_REVISION_COMPLEX_NANO,
     COST_FIRST_SITE_NANO,
     tokens_to_nano_coins,
 )
@@ -100,6 +103,14 @@ def _estimate_complexity(schema: Dict) -> Dict:
         color = "red"
         cost_nano = COST_COMPLEX_NANO  # 5 000 nano
 
+    # Tahrir narxi: sayt murakkabligiga mos (300/400/500 nano)
+    if level == "simple":
+        revision_cost_nano = COST_REVISION_SIMPLE_NANO   # 300
+    elif level == "medium":
+        revision_cost_nano = COST_REVISION_MEDIUM_NANO   # 400
+    else:
+        revision_cost_nano = COST_REVISION_COMPLEX_NANO  # 500
+
     return {
         "level": level,
         "label": label_uz,
@@ -108,6 +119,8 @@ def _estimate_complexity(schema: Dict) -> Dict:
         "pages": page_count,
         "cost_nano": cost_nano,
         "cost_tokens": cost_nano * TOKENS_PER_NANO_COIN,
+        "revision_cost_nano": revision_cost_nano,
+        "revision_cost_tokens": revision_cost_nano * TOKENS_PER_NANO_COIN,
     }
 
 from .models import ChatMessage, ChatRole, Conversation, ProjectStatus, ProjectVersion, WebsiteProject
@@ -386,11 +399,20 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         # ARCHITECT keyinchalik FINAL_SITE_SPEC yig'ib Claude generatsiyaga o'tganda
         # ichkarida yana tekshiriladi (quyidagi blokda).
         if is_auth and intent == "REVISE" and not TOKEN_LIMITS_DISABLED:
-            revision_cost = COST_REVISION_NANO  # 300 nano
+            # Joriy schema murakkabligiga qarab narx: 300/400/500 nano
+            _rev_schema = {}
+            if project_id:
+                try:
+                    _rev_proj = WebsiteProject.objects.get(id=project_id, user=request.user)
+                    _rev_schema = _rev_proj.schema_data or {}
+                except Exception:
+                    pass
+            _rev_complexity = _estimate_complexity(_rev_schema) if _rev_schema else {"revision_cost_nano": COST_REVISION_SIMPLE_NANO}
+            revision_cost = _rev_complexity.get("revision_cost_nano", COST_REVISION_SIMPLE_NANO)
             if not _can_afford_nano(request.user, conversation, revision_cost):
                 return _insufficient_balance_response(
                     request.user, conversation, revision_cost,
-                    action="saytni tahrirlash (300 nano)"
+                    action=f"saytni tahrirlash ({revision_cost} nano)"
                 )
 
         try:
@@ -449,10 +471,11 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     project_version=version,
                     metadata={"project_id": str(project.id), "title": project.title},
                 )
-                # Nano koin yechamiz — REVISE uchun 300 nano
+                # Nano koin yechamiz — REVISE uchun 300/400/500 nano (murakkablikka qarab)
                 deduction = None
                 if not TOKEN_LIMITS_DISABLED:
-                    revision_cost_tokens = COST_REVISION_NANO * TOKENS_PER_NANO_COIN  # 3000 token
+                    rev_complexity_data = _estimate_complexity(new_schema)
+                    revision_cost_tokens = rev_complexity_data["revision_cost_tokens"]
                     try:
                         deduction = _deduct_for_generation(
                             request.user, conversation, revision_cost_tokens,
@@ -464,6 +487,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             "insufficient_tokens": True,
                         }, status=status.HTTP_402_PAYMENT_REQUIRED)
 
+                _final_complexity = _estimate_complexity(new_schema)
                 return Response({
                     "success": True,
                     "phase": "DONE",
@@ -471,10 +495,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     "project": WebsiteProjectSerializer(project).data,
                     "message": f"✅ Sayt yangilandi: «{project.title}»",
                     "conversation_id": str(conversation.id) if conversation else None,
+                    "revision_cost_nano": _final_complexity["revision_cost_nano"],
                     "balance": {
                         "tokens": request.user.tokens_balance,
                         "nano_coins": request.user.nano_coins,
                         "cost": actual_cost_tokens,
+                        "cost_nano": _final_complexity["revision_cost_nano"],
                         "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
                         "deduction": deduction,
                     },

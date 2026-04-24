@@ -162,7 +162,7 @@
     "loading": "Loading...",
     "balance": "Balance",
     "nanoCoins": "nano coin",
-    "tokens": "tokens",
+    "tokens": "nano coin",
     "topUp": "Top up",
     "logout": "Log out",
     "subscription": "Subscription",
@@ -179,8 +179,8 @@
     "deleteConfirm": "Are you sure you want to delete the project?",
     "chatHistory": "Chat history",
     "goToHistory": "Go to history",
-    "tokensLabel": "Tokens",
-    "perChat": "1 chat = {count} tokens"
+    "tokensLabel": "Nano coin",
+    "perChat": "1 chat = {count} nano coin"
   },
   "History": {
     "title": "Chat history",

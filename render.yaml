@@ -11,10 +11,10 @@ services:
     plan: standard  # $25/oy, 2GB RAM — free plan uyquga ketadi!
     branch: main
     buildCommand: "./build.sh"
-    # --timeout 180: Claude/Gemini AI so'rovlari 30-120s olishi mumkin
-    # --workers 3: standard plan 2GB RAM uchun (2*CPU+1 formulasi)
-    # --graceful-timeout 30: worker restart paytida so'rovlarni yakunlash
-    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 180 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
+    # gthread: async I/O — Claude/Gemini uzoq javob bersa worker o'lmaydi (SIGABRT yo'q)
+    # --timeout 300: ZIP generatsiya (Claude) 150s olishi mumkin + buffer
+    # --threads 4: har worker 4 ta parallel so'rovni handle qiladi
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 300 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
     envVars:
       - key: DATABASE_URL
         sync: false  # Qo'lda kiritamiz (dashboard orqali)
@@ -53,5 +53,7 @@ services:
     envVars:
       - key: NEXT_PUBLIC_API_URL
         value: "https://nanostup-api.onrender.com"
+      - key: BACKEND_INTERNAL_URL
+        value: "https://nanostup-api.onrender.com/api"
       - key: NODE_VERSION
         value: "20.10.0"

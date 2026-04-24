@@ -204,6 +204,13 @@ export default function HistoryPage() {
           </h1>
           <p className="text-[10px] md:text-xs text-zinc-500 hidden sm:block">{t('subtitle')}</p>
         </div>
+        <Link
+          href="/builder"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 rounded-xl text-xs font-semibold transition-all shrink-0"
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Yangi chat</span>
+        </Link>
         <div className="text-xs md:text-sm text-zinc-400 shrink-0">
           {t('total')}: <span className="font-bold text-white">{conversations.length}</span>
         </div>
@@ -266,7 +273,7 @@ export default function HistoryPage() {
                     </span>
                     {(conv.total_tokens_input + conv.total_tokens_output) > 0 && (
                       <span className="flex items-center gap-1">
-                        <Coins className="w-3 h-3" /> {(conv.total_tokens_input + conv.total_tokens_output).toLocaleString()}
+                        <Coins className="w-3 h-3" /> {Math.round((conv.total_tokens_input + conv.total_tokens_output) / 10).toLocaleString()} NC
                       </span>
                     )}
                     <span className="flex items-center gap-1 ml-auto">
@@ -319,7 +326,7 @@ export default function HistoryPage() {
                   </span>
                   {(detail.total_tokens_input + detail.total_tokens_output) > 0 && (
                     <span className="flex items-center gap-1">
-                      <Coins className="w-3.5 h-3.5" /> {(detail.total_tokens_input + detail.total_tokens_output).toLocaleString()} token
+                      <Coins className="w-3.5 h-3.5" /> {Math.round((detail.total_tokens_input + detail.total_tokens_output) / 10).toLocaleString()} nano koin
                     </span>
                   )}
                   {detail.project_title && detail.project && (
@@ -364,7 +371,7 @@ export default function HistoryPage() {
                           )}
                           {(msg.tokens_input + msg.tokens_output) > 0 && (
                             <span className="flex items-center gap-0.5">
-                              <Coins className="w-2.5 h-2.5" /> {msg.tokens_input + msg.tokens_output}
+                              <Coins className="w-2.5 h-2.5" /> {Math.round((msg.tokens_input + msg.tokens_output) / 10)} NC
                             </span>
                           )}
                         </div>

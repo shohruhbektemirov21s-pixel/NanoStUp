@@ -51,7 +51,10 @@ TOKENS_PER_NANO_COIN = 10
 COST_SIMPLE_NANO   = 3_000   # Oddiy (1–3 sektsiya)
 COST_MEDIUM_NANO   = 4_000   # O'rta (4–6 sektsiya)
 COST_COMPLEX_NANO  = 5_000   # Murakkab (7+ sektsiya)
-COST_REVISION_NANO = 300     # 1 ta tahrir/qo'shimcha sahifa
+COST_REVISION_NANO = 300     # orqaga moslik uchun (eng kam narx)
+COST_REVISION_SIMPLE_NANO  = 300   # Oddiy o'zgarish  (rang, matn)
+COST_REVISION_MEDIUM_NANO  = 400   # O'rta o'zgarish  (sektsiya qo'shish/o'chirish)
+COST_REVISION_COMPLEX_NANO = 500   # Murakkab o'zgarish (sahifa qo'shish, to'liq qayta tuzish)
 COST_FIRST_SITE_NANO = 0     # Birinchi sayt bepul!
 
 # Token ekvivalentlari

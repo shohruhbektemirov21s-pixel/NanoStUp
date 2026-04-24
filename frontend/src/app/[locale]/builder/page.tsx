@@ -2,8 +2,8 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Bot, CheckCircle2, Clock, Code2, Copy, Cpu, Download, Eye, Globe, Layers, Loader2,
-  MessageSquare, Monitor, MousePointer2, Paperclip, RefreshCw, Send,
+  ArrowLeft, Bot, CheckCircle2, Clock, Code2, Copy, Cpu, Download, Eye, Globe, Layers, Loader2,
+  MessageSquare, Monitor, MousePointer2, Paperclip, PlusCircle, RefreshCw, Send,
   Settings, Share2, Smartphone, Sparkles, Wand2, Palette, Zap,
   BarChart2, Coins, X, StopCircle, Pencil,
 } from 'lucide-react';
@@ -510,8 +510,8 @@ function GenerationStatsPanel({ stats }: { stats: GenerationStats }) {
         </div>
         <div className="flex flex-col items-center p-2 rounded-xl bg-zinc-800/60">
           <Coins className="w-3.5 h-3.5 text-amber-400 mb-0.5" />
-          <span className="text-xs font-bold text-white">{totalTokens.toLocaleString()}</span>
-          <span className="text-[9px] text-zinc-500">Token</span>
+          <span className="text-xs font-bold text-white">{Math.round(totalTokens / 10).toLocaleString()}</span>
+          <span className="text-[9px] text-zinc-500">Nano koin</span>
         </div>
         <div className="flex flex-col items-center p-2 rounded-xl bg-zinc-800/60">
           <BarChart2 className="w-3.5 h-3.5 text-purple-400 mb-0.5" />
@@ -521,7 +521,7 @@ function GenerationStatsPanel({ stats }: { stats: GenerationStats }) {
       </div>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] text-zinc-500">
-          ↑ {stats.input_tokens.toLocaleString()} + ↓ {stats.output_tokens.toLocaleString()} token
+          ↑ {Math.round(stats.input_tokens/10)} + ↓ {Math.round(stats.output_tokens/10)} nano koin
         </span>
         <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full border', colorClass)}>
           {stats.complexity.label}
@@ -801,6 +801,14 @@ export default function BuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryConversationId, queryProjectId, isAuthenticated]);
 
+  // Conversation ID o'zgarsa — URL ni yangilaymiz (tarixdan qaytganda xabarlar saqlansin)
+  useEffect(() => {
+    if (conversationId && !queryConversationId) {
+      router.replace(`/builder?conversation=${conversationId}` as Parameters<typeof router.replace>[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
   const addMsg = (
     role: 'user' | 'ai',
     text: string,
@@ -878,7 +886,8 @@ export default function BuilderPage() {
     // ham balansim kamayib ketdi" degan noto'g'ri taassurot olmasin.
     const willLikelyCost = isAuthenticated && phase === 'done' && !!previewId;
     if (willLikelyCost) {
-      optimisticDeductNano(500); // CHAT_COST_NANO (backend konstanta bilan mos)
+      // Optimistik: eng kam narx 300 (simple revision). Server aniq qiymatni qaytaradi.
+      optimisticDeductNano(300);
     }
 
     // Yangi AbortController — har bir request uchun alohida
@@ -1022,12 +1031,12 @@ export default function BuilderPage() {
             addMsg('ai', `� Qoldi: ${(subNano * 10).toLocaleString()} token obuna · ${(bonusLeft * 10).toLocaleString()} chat bonus`);
           }
 
-          // Balans kam qolsa ogohlantirish (token'da)
-          const totalLeftTokens = (bonusLeft + subNano) * 10;
-          if (totalLeftTokens < 5000) {
-            addMsg('ai', `⚠️ **Token tugadi!** Umumiy ${totalLeftTokens.toLocaleString()} token qoldi. Yangi chat oching (+5000 token bonus) yoki [obuna sotib oling](/profile).`);
-          } else if (totalLeftTokens < 20000) {
-            addMsg('ai', `⚡ **Diqqat:** umumiy **${totalLeftTokens.toLocaleString()} token** qoldi (~${Math.floor(totalLeftTokens / 5000)} ta amal uchun). Yangi chat oching yoki obunani yangilang.`);
+          // Balans kam qolsa ogohlantirish (nano koin'da)
+          const totalLeftNano = bonusLeft + subNano;
+          if (totalLeftNano < 500) {
+            addMsg('ai', `⚠️ **Nano koin tugadi!** ${totalLeftNano.toLocaleString()} nano koin qoldi. Yangi chat oching yoki [nano koin sotib oling](/pricing).`);
+          } else if (totalLeftNano < 2000) {
+            addMsg('ai', `⚡ **Diqqat:** **${totalLeftNano.toLocaleString()} nano koin** qoldi. Yangi chat oching yoki [nano koin sotib oling](/pricing).`);
           }
         }
 
@@ -1138,7 +1147,7 @@ export default function BuilderPage() {
     setCurrentProject(null as unknown as Parameters<typeof setCurrentProject>[0]);
     setChatMessages([{
       role: 'ai',
-      text: '🔄 **Yangi chat ochildi!** 💬 Sizga 5000 token chat bonus berildi.\n\nQanday biznes uchun sayt kerak?',
+      text: '🔄 **Yangi chat ochildi!**\n\nQanday turdagi veb-sayt kerak? (do\'kon, portfolio, restoran, klinika, blog, landing, SaaS, ta\'lim, agentlik va boshqalar)',
     }]);
     setHistory([]);
     setPhase('idle');
@@ -1287,7 +1296,15 @@ export default function BuilderPage() {
 
       {/* Header */}
       <header className="h-14 border-b border-white/5 px-2 md:px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0 gap-1.5 md:gap-2 overflow-x-auto">
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {/* Orqaga qaytish */}
+          <button
+            onClick={() => router.back()}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
+            title="Orqaga"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
           <Link href="/">
             <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Sparkles className="w-4 h-4 text-white" />
@@ -1417,7 +1434,7 @@ export default function BuilderPage() {
                     ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                     : 'bg-red-500/10 border-red-500/30 text-red-300'
               )}
-              title={`${(user.nano_coins ?? 0).toLocaleString()} nano koin (${user.tokens_balance.toLocaleString()} token)`}
+              title={`Balans: ${(user.nano_coins ?? 0).toLocaleString()} nano koin`}
             >
               <Coins className="w-3.5 h-3.5" />
               <span>{(user.nano_coins ?? 0).toLocaleString()}</span>
@@ -1425,17 +1442,29 @@ export default function BuilderPage() {
             </motion.div>
           )}
           {isAuthenticated && (
-            <Link href="/history" className="hidden md:inline-block">
+            <>
+              <Link href="/history" className="hidden md:inline-block">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 rounded-xl gap-1.5"
+                  title="Suhbatlar tarixi"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Tarix
+                </Button>
+              </Link>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 text-xs bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10 rounded-xl gap-1.5"
-                title="Suhbatlar tarixi"
+                onClick={handleReset}
+                className="h-8 text-xs bg-emerald-500/10 border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 rounded-xl gap-1.5 shrink-0"
+                title="Yangi chat"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                Tarix
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Yangi chat</span>
               </Button>
-            </Link>
+            </>
           )}
           {!isAuthenticated && (
             <Link href="/login">

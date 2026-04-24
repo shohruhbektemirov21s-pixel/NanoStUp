@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { cn } from '@/lib/utils';
+import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
 
 export function PremiumNavbar() {
@@ -16,7 +17,7 @@ export function PremiumNavbar() {
   const tHistory = useTranslations('History');
   const tPricing = useTranslations('Pricing');
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, updateBalance } = useAuthStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -24,6 +25,23 @@ export function PremiumNavbar() {
   const { scrollY } = useScroll();
 
   useEffect(() => { setMounted(true); }, []);
+
+  // Real-time balans yangilanishi — har 30 soniyada polling
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const poll = () => {
+      api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
+        .then(r => {
+          if (typeof r.data.tokens_balance === 'number') {
+            updateBalance(r.data.tokens_balance, r.data.nano_coins ?? 0);
+          }
+        })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30000);
+    return () => clearInterval(id);
+  }, [isAuthenticated, updateBalance]);
 
   // Tashqi bosilganda dropdown yopilsin
   useEffect(() => {
@@ -60,6 +78,7 @@ export function PremiumNavbar() {
 
   const tokens = user?.tokens_balance ?? 0;
   const nano = user?.nano_coins ?? Math.floor(tokens / 10);
+  const nanoDisplay = nano;
   const initials = (user?.full_name || user?.email || '?').slice(0, 1).toUpperCase();
 
   const backgroundColor = useTransform(
@@ -170,7 +189,7 @@ export function PremiumNavbar() {
                         <p className="text-xs text-zinc-400 truncate">{user.email}</p>
                         <div className="mt-3 flex items-center justify-between px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                           <span className="text-xs text-amber-200/80">{tProfile('tokens')}</span>
-                          <span className="text-sm font-black text-amber-300">{tokens.toLocaleString('en')}</span>
+                          <span className="text-sm font-black text-amber-300">{nanoDisplay.toLocaleString('en')} <span className="text-xs font-normal opacity-70">NC</span></span>
                         </div>
                       </div>
                       <div className="py-2">

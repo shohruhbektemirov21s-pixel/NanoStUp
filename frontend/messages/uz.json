@@ -162,7 +162,7 @@
     "loading": "Yuklanmoqda...",
     "balance": "Balans",
     "nanoCoins": "nano koin",
-    "tokens": "token",
+    "tokens": "nano koin",
     "topUp": "To'ldirish",
     "logout": "Chiqish",
     "subscription": "Obuna",
@@ -179,8 +179,8 @@
     "deleteConfirm": "Loyihani o'chirishga ishonchingiz komilmi?",
     "chatHistory": "Suhbatlar tarixi",
     "goToHistory": "Tarixga o'tish",
-    "tokensLabel": "Tokenlar",
-    "perChat": "1 chat = {count} token"
+    "tokensLabel": "Nano koin",
+    "perChat": "1 chat = {count} nano koin"
   },
   "History": {
     "title": "Suhbatlar tarixi",

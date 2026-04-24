@@ -2,15 +2,20 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getTranslations } from 'next-intl/server';
 
-import { SiteRenderer } from '@/features/builder/SiteRenderer';
+import { PublicSiteGuard } from '@/features/builder/PublicSiteGuard';
 
 // ── Backend API (server-side fetch) ────────────────────────────
 // Brauzer uchun NEXT_PUBLIC_API_URL mavjud; server uchun esa xohlasa
 // BACKEND_INTERNAL_URL bilan override qilish mumkin (docker/prod uchun).
-const API_BASE =
+// BACKEND_INTERNAL_URL: "https://nanostup-api.onrender.com/api" (render.yaml)
+// NEXT_PUBLIC_API_URL:   "https://nanostup-api.onrender.com"     (no /api suffix)
+// fallback:              "http://127.0.0.1:8000/api"
+const _rawBase =
   process.env.BACKEND_INTERNAL_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   'http://127.0.0.1:8000/api';
+// Normalize: ensure exactly one /api suffix
+const API_BASE = _rawBase.replace(/\/api\/?$/, '') + '/api';
 
 interface PublicSiteResponse {
   success: boolean;
@@ -68,16 +73,14 @@ export default async function PublicSitePage(
   if (!site || !site.schema_data) notFound();
 
   const t = await getTranslations({ locale, namespace: 'PublicSite' });
-  const localeMap: Record<string, string> = { en: 'en-US', ru: 'ru-RU', uz: 'uz-UZ' };
-  const dateLocale = localeMap[locale] ?? 'uz-UZ';
 
-  // SiteRenderer client-agnostic (oddiy JSX) — server'da ham ishlaydi
   return (
-    <main className="w-full">
-      <SiteRenderer schema={site.schema_data as Parameters<typeof SiteRenderer>[0]['schema']} />
-      <footer className="py-6 px-6 text-center text-xs text-zinc-400 border-t border-zinc-100">
-        {t('generatedBy')} · {new Date(site.updated_at).toLocaleDateString(dateLocale)}
-      </footer>
-    </main>
+    <PublicSiteGuard
+      schema={site.schema_data as Parameters<typeof PublicSiteGuard>[0]['schema']}
+      siteTitle={site.title || 'AI Sayt'}
+      updatedAt={site.updated_at}
+      locale={locale}
+      generatedByLabel={t('generatedBy')}
+    />
   );
 }

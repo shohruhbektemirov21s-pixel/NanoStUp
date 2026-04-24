@@ -162,7 +162,7 @@
     "loading": "Загрузка...",
     "balance": "Баланс",
     "nanoCoins": "нано коин",
-    "tokens": "токен",
+    "tokens": "нано коин",
     "topUp": "Пополнить",
     "logout": "Выйти",
     "subscription": "Подписка",
@@ -179,8 +179,8 @@
     "deleteConfirm": "Вы уверены, что хотите удалить проект?",
     "chatHistory": "История чатов",
     "goToHistory": "Перейти к истории",
-    "tokensLabel": "Токены",
-    "perChat": "1 чат = {count} токенов"
+    "tokensLabel": "Нано коин",
+    "perChat": "1 чат = {count} нано коин"
   },
   "History": {
     "title": "История чатов",
