@@ -8,7 +8,7 @@ services:
     runtime: python
     rootDir: backend
     region: frankfurt
-    plan: standard  # $25/oy, 2GB RAM — free plan uyquga ketadi!
+    plan: starter  # $7/oy, 512MB RAM — uxlamaydi!
     branch: main
     buildCommand: "./build.sh"
     # gthread: async I/O — Claude/Gemini uzoq javob bersa worker o'lmaydi (SIGABRT yo'q)
@@ -46,7 +46,7 @@ services:
     runtime: node
     rootDir: frontend
     region: frankfurt
-    plan: free
+    plan: starter  # $7/oy — uxlamaydi!
     branch: main
     buildCommand: "npm install && npm run build"
     startCommand: "npm run start"
