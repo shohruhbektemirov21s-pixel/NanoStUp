@@ -1249,8 +1249,8 @@ export default function BuilderPage() {
     <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
 
       {/* Header */}
-      <header className="h-14 border-b border-white/5 px-3 md:px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0 gap-2">
-        <div className="flex items-center gap-3">
+      <header className="h-14 border-b border-white/5 px-2 md:px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0 gap-1.5 md:gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <Link href="/">
             <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Sparkles className="w-4 h-4 text-white" />
@@ -1285,9 +1285,9 @@ export default function BuilderPage() {
             </div>
           )}
 
-          {/* Desktop/Mobile toggle — faqat Preview rejimida */}
+          {/* Desktop/Mobile toggle — faqat Preview rejimida, mobilda yashirin (o'zi mobilda) */}
           {buildView === 'preview' && (
-            <div className="flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/5">
+            <div className="hidden md:flex items-center gap-1.5 bg-white/5 p-1 rounded-xl border border-white/5">
               <button onClick={() => setViewMode('desktop')}
                 className={cn('p-2 rounded-lg transition-all', viewMode === 'desktop' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300')}>
                 <Monitor className="w-3.5 h-3.5" />
@@ -1305,8 +1305,9 @@ export default function BuilderPage() {
             <>
               <motion.button whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                 onClick={handleReset}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors">
-                <RefreshCw className="w-3.5 h-3.5" /> Yangidan
+                title="Yangidan boshlash"
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300 transition-colors shrink-0">
+                <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden md:inline">Yangidan</span>
               </motion.button>
               {/* Publish / Share — faqat saqlangan loyiha uchun (login'dan keyin) */}
               {previewId && (
@@ -1320,13 +1321,13 @@ export default function BuilderPage() {
                     }
                   }}
                   disabled={isPublishing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-70 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-emerald-500/20 min-w-[110px] justify-center"
+                  className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-70 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-emerald-500/20 md:min-w-[110px] justify-center shrink-0"
                   title="Saytni publik URL orqali ulashish">
                   {isPublishing
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Chiqarilmoqda…</>
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="hidden md:inline">Chiqarilmoqda…</span></>
                     : publishedSlug
-                      ? <><Globe className="w-3.5 h-3.5" /> Linkni ko&apos;rish</>
-                      : <><Share2 className="w-3.5 h-3.5" /> Ulashish</>}
+                      ? <><Globe className="w-3.5 h-3.5" /> <span className="hidden md:inline">Linkni ko&apos;rish</span></>
+                      : <><Share2 className="w-3.5 h-3.5" /> <span className="hidden md:inline">Ulashish</span></>}
                 </motion.button>
               )}
               <motion.button
@@ -1356,10 +1357,11 @@ export default function BuilderPage() {
                   finally { setIsDownloading(false); }
                 }}
                 disabled={isDownloading}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-70 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-purple-500/20 min-w-[110px] justify-center">
+                title="ZIP yuklab olish"
+                className="flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-70 rounded-xl text-xs font-semibold text-white transition-all shadow-lg shadow-purple-500/20 md:min-w-[110px] justify-center shrink-0">
                 {isDownloading
-                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Tayyorlanmoqda…</>
-                  : <><Download className="w-3.5 h-3.5" /> ZIP yuklab ol</>}
+                  ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="hidden md:inline">Tayyorlanmoqda…</span></>
+                  : <><Download className="w-3.5 h-3.5" /> <span className="hidden md:inline">ZIP yuklab ol</span></>}
               </motion.button>
             </>
           )}
@@ -1386,7 +1388,7 @@ export default function BuilderPage() {
             </motion.div>
           )}
           {isAuthenticated && (
-            <Link href="/history">
+            <Link href="/history" className="hidden md:inline-block">
               <Button
                 size="sm"
                 variant="outline"

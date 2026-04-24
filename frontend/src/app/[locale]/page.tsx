@@ -1,12 +1,10 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
 import { PremiumNavbar } from '@/components/premium/Navbar';
 import { PremiumHero } from '@/components/premium/Hero';
 import { PremiumStats } from '@/components/premium/Stats';
 import { PremiumFeatures } from '@/components/premium/Features';
-import { PremiumPricing } from '@/components/premium/Pricing';
 
 export default function LandingPage() {
   return (
@@ -19,8 +17,6 @@ export default function LandingPage() {
         <PremiumStats />
         
         <PremiumFeatures />
-        
-        <PremiumPricing />
       </main>
     </div>
   );

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 
 interface SectionContent {
@@ -30,19 +32,19 @@ function Hero({ content }: { content: SectionContent }) {
   const desc = String(content.description ?? content.subtitle ?? '');
   const cta = String(content.ctaText ?? content.cta ?? content.button ?? '');
   return (
-    <section className="py-24 px-6 text-center bg-gradient-to-b from-zinc-50 to-white">
-      <h1 className="text-5xl md:text-7xl font-black tracking-tight text-zinc-900 max-w-4xl mx-auto leading-tight">
+    <section className="py-16 md:py-24 px-4 md:px-6 text-center bg-gradient-to-b from-zinc-50 to-white">
+      <h1 className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-zinc-900 max-w-4xl mx-auto leading-tight break-words">
         {title}
       </h1>
       {desc && (
-        <p className="mt-6 text-lg md:text-xl text-zinc-600 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-5 md:mt-6 text-base sm:text-lg md:text-xl text-zinc-600 max-w-2xl mx-auto leading-relaxed">
           {desc}
         </p>
       )}
       {cta && (
         <a
           href="#"
-          className="inline-block mt-10 px-8 py-4 bg-zinc-900 text-white font-bold rounded-2xl shadow-lg hover:bg-zinc-800 transition-colors"
+          className="inline-block mt-7 md:mt-10 px-6 md:px-8 py-3 md:py-4 bg-zinc-900 text-white font-bold rounded-2xl shadow-lg hover:bg-zinc-800 transition-colors text-sm md:text-base"
         >
           {cta}
         </a>
@@ -63,14 +65,14 @@ function Features({ content }: { content: SectionContent }) {
   const title = String(content.title ?? 'Xizmatlarimiz');
   const items: ListItem[] = (content.items as ListItem[]) ?? (content.features as ListItem[]) ?? [];
   return (
-    <section className="py-20 px-6 bg-zinc-50">
+    <section className="py-14 md:py-20 px-4 md:px-6 bg-zinc-50">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-4xl font-black text-center text-zinc-900 mb-12">{title}</h2>
-        <div className="grid md:grid-cols-3 gap-6">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center text-zinc-900 mb-8 md:mb-12">{title}</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {items.map((item, i) => (
-            <div key={i} className="p-8 bg-white rounded-3xl border border-zinc-100 shadow-sm">
-              <h3 className="text-xl font-bold text-zinc-900">{item.title ?? item.name ?? ''}</h3>
-              <p className="mt-3 text-zinc-600">{item.desc ?? item.description ?? item.text ?? ''}</p>
+            <div key={i} className="p-5 md:p-8 bg-white rounded-2xl md:rounded-3xl border border-zinc-100 shadow-sm">
+              <h3 className="text-lg md:text-xl font-bold text-zinc-900">{item.title ?? item.name ?? ''}</h3>
+              <p className="mt-2 md:mt-3 text-sm md:text-base text-zinc-600">{item.desc ?? item.description ?? item.text ?? ''}</p>
             </div>
           ))}
         </div>
@@ -89,12 +91,12 @@ interface StatItem {
 function Stats({ content }: { content: SectionContent }) {
   const items: StatItem[] = (content.items as StatItem[]) ?? (content.stats as StatItem[]) ?? [];
   return (
-    <section className="py-20 px-6 bg-white">
-      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section className="py-14 md:py-20 px-4 md:px-6 bg-white">
+      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
         {items.map((item, i) => (
           <div key={i} className="text-center">
-            <div className="text-5xl font-black text-zinc-900">{item.value ?? item.number ?? ''}</div>
-            <div className="mt-2 text-sm font-semibold text-zinc-500 uppercase tracking-widest">
+            <div className="text-3xl md:text-5xl font-black text-zinc-900">{item.value ?? item.number ?? ''}</div>
+            <div className="mt-1.5 md:mt-2 text-xs md:text-sm font-semibold text-zinc-500 uppercase tracking-wider md:tracking-widest">
               {item.label ?? item.title ?? ''}
             </div>
           </div>
@@ -116,16 +118,16 @@ function Pricing({ content }: { content: SectionContent }) {
   const title = String(content.title ?? 'Tariflar');
   const items: PricingItem[] = (content.items as PricingItem[]) ?? (content.plans as PricingItem[]) ?? [];
   return (
-    <section className="py-20 px-6 bg-zinc-50">
+    <section className="py-14 md:py-20 px-4 md:px-6 bg-zinc-50">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-4xl font-black text-center text-zinc-900 mb-12">{title}</h2>
-        <div className="grid md:grid-cols-3 gap-6">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-center text-zinc-900 mb-8 md:mb-12">{title}</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {items.map((item, i) => (
-            <div key={i} className="p-8 bg-white rounded-3xl border border-zinc-200 flex flex-col">
-              <h3 className="text-xl font-bold text-zinc-900">{item.name ?? item.title ?? ''}</h3>
-              <div className="mt-4 text-4xl font-black">{item.price ?? ''}</div>
-              <p className="mt-3 text-zinc-600 flex-1">{item.description ?? ''}</p>
-              <a href="#" className="mt-6 text-center px-6 py-3 bg-zinc-900 text-white font-bold rounded-xl">
+            <div key={i} className="p-5 md:p-8 bg-white rounded-2xl md:rounded-3xl border border-zinc-200 flex flex-col">
+              <h3 className="text-lg md:text-xl font-bold text-zinc-900">{item.name ?? item.title ?? ''}</h3>
+              <div className="mt-3 md:mt-4 text-3xl md:text-4xl font-black">{item.price ?? ''}</div>
+              <p className="mt-2 md:mt-3 text-sm md:text-base text-zinc-600 flex-1">{item.description ?? ''}</p>
+              <a href="#" className="mt-5 md:mt-6 text-center px-6 py-3 bg-zinc-900 text-white font-bold rounded-xl text-sm md:text-base">
                 {item.cta ?? 'Tanlash'}
               </a>
             </div>
@@ -142,9 +144,9 @@ function Contact({ content }: { content: SectionContent }) {
   const phone = content.phone ? String(content.phone) : '';
   const address = content.address ? String(content.address) : '';
   return (
-    <section className="py-20 px-6 bg-white text-center">
-      <h2 className="text-4xl font-black text-zinc-900">{title}</h2>
-      <div className="mt-6 space-y-2 text-zinc-600">
+    <section className="py-14 md:py-20 px-4 md:px-6 bg-white text-center">
+      <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-zinc-900">{title}</h2>
+      <div className="mt-5 md:mt-6 space-y-2 text-sm md:text-base text-zinc-600 break-words">
         {email && (
           <div>
             Email:{' '}
@@ -272,12 +274,12 @@ export const SiteRenderer = React.memo(function SiteRenderer({
     <div className="w-full">
       {/* Navbar — sayt nomi + sahifalar yoki bo'limlar */}
       {(siteName || isMultiPage) && (
-        <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-100 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+        <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-zinc-100 px-4 md:px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-2 md:gap-3">
           {siteName && (
-            <span className="font-black text-lg text-zinc-900">{siteName}</span>
+            <span className="font-black text-base md:text-lg text-zinc-900">{siteName}</span>
           )}
           {isMultiPage ? (
-            <div className="flex gap-1 text-sm">
+            <div className="flex gap-1 text-xs md:text-sm overflow-x-auto max-w-full">
               {pages.map((p, idx) => {
                 const isActive = p.slug === activePage.slug;
                 return (
@@ -286,7 +288,7 @@ export const SiteRenderer = React.memo(function SiteRenderer({
                     type="button"
                     onClick={() => setActiveSlug(p.slug ?? `page-${idx}`)}
                     className={
-                      'px-3 py-1.5 rounded-lg font-semibold transition-colors capitalize ' +
+                      'px-2.5 md:px-3 py-1.5 rounded-lg font-semibold transition-colors capitalize whitespace-nowrap ' +
                       (isActive
                         ? 'bg-zinc-900 text-white'
                         : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100')
@@ -298,12 +300,12 @@ export const SiteRenderer = React.memo(function SiteRenderer({
               })}
             </div>
           ) : (
-            <div className="flex gap-4 text-sm text-zinc-500">
+            <div className="flex gap-3 md:gap-4 text-xs md:text-sm text-zinc-500 overflow-x-auto max-w-full">
               {sections.map((s, idx) => (
                 <a
                   key={s.id ?? idx}
                   href={`#${s.id}`}
-                  className="hover:text-zinc-900 transition-colors capitalize"
+                  className="hover:text-zinc-900 transition-colors capitalize whitespace-nowrap"
                 >
                   {s.type}
                 </a>
