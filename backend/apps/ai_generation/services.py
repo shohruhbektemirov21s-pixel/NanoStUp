@@ -111,6 +111,11 @@ ARCHITECT_SYSTEM_PROMPT = """Sen "NanoStUp" platformasining "NanoStUp AI" sisan 
 - [DESIGN_VARIANTS] bloki faqat BIRINCHI marta variantlar taklif etilganda yozilsin.
 - Emoji ishlatishingiz mumkin (ortiqchasiz).
 
+## MUHIM ZANJIR:
+Sen (Gemini) foydalanuvchidan barcha kerakli ma'lumotlarni yig'ib FINAL_SITE_SPEC tayyorlaysan.
+U ma'lumotlar Claude Sonnet 4.6 ga yuboriladi — Claude JavaScript, HTML, CSS kodlarini yozadi.
+Shu sababli FINAL_SITE_SPEC da texnik tafsilotlarni aniq yoz: ranglar, sahifalar, bo'limlar, funksiyalar.
+
 ## FINAL_SITE_SPEC formati (FAQAT foydalanuvchi rozi bo'lganda):
 Javobingning OXIRIDA quyidagi blokni yoz:
 
@@ -126,7 +131,11 @@ Til: {uz/ru/en}
 # ─────────────────────────────────────────────────────────────────
 # Generatsiya tizim yo'riqnomasi
 # ─────────────────────────────────────────────────────────────────
-GENERATE_SYSTEM_PROMPT = """You are a web developer. Generate a website JSON schema. RETURN ONLY valid JSON.
+GENERATE_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript/web developer.
+You receive a site specification from Gemini AI (which gathered requirements from the user).
+Your job: generate a structured JSON schema that will be used to produce JavaScript, HTML, CSS code.
+
+Return ONLY valid JSON (no markdown, no explanation).
 
 Format:
 {"siteName":"...","pages":[
@@ -148,7 +157,8 @@ Each section:
 - First page MUST have slug="home"
 - Each page: 2-5 sections (hero, features, services, stats, pricing, contact, about)
 - Section types allowed: hero, features, services, stats, pricing, contact, about
-- Keep text SHORT (title max 8 words, description max 20 words)
+- Write rich, realistic content (not lorem ipsum) — this will become real JavaScript/HTML code
+- Keep titles SHORT (max 8 words), descriptions CLEAR (max 20 words)
 - ALL text in the requested language
 - Unique section ids (e.g. "hero-1", "features-home", "contact-final")
 - Return ONLY JSON, no explanation"""
@@ -161,65 +171,78 @@ REVISE_SYSTEM_PROMPT = (
 # ─────────────────────────────────────────────────────────────────
 # To'liq kod generatsiyasi tizim yo'riqnomasi (Claude)
 # ─────────────────────────────────────────────────────────────────
-SITE_FILES_SYSTEM_PROMPT = """You are a senior full-stack web developer. Generate a complete, production-ready website package from the provided JSON schema.
+SITE_FILES_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript full-stack developer.
+You receive a website JSON schema (gathered by Gemini AI from the user) and generate complete, production-ready website files.
 
-Return ONLY a single valid JSON object with this exact structure (no markdown, no explanation):
+Write CLEAN, MODERN JavaScript (ES6+, async/await, modules where applicable). NO jQuery. NO old-style var.
+
+Return ONLY a single valid JSON object (no markdown, no explanation):
 {
-  "index.html": "...full HTML content...",
+  "index.html": "...full HTML5 content...",
   "css/styles.css": "...full CSS content...",
-  "js/app.js": "...full JavaScript content...",
-  "backend/server.js": "...full Node.js Express server content...",
+  "js/app.js": "...full modern JavaScript (ES6+) content...",
+  "backend/server.js": "...full Node.js + Express server in modern JS (ES6+)...",
   "backend/package.json": "...package.json content...",
-  "backend/.env.example": "...env example content..."
+  "backend/.env.example": "...env example..."
 }
 
 ## index.html requirements:
-- Complete HTML5 document, SEO meta tags, Open Graph
+- Complete HTML5 document, semantic tags, SEO meta tags, Open Graph
 - Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
 - Google Fonts via CDN (Inter or Outfit)
 - AOS (Animate On Scroll) library via CDN
-- Link to css/styles.css and js/app.js
-- Full responsive layout: hero, navigation (with hamburger), all sections from schema
+- <link rel="stylesheet" href="css/styles.css"> and <script type="module" src="js/app.js"></script>
+- Full responsive layout: navbar (hamburger on mobile), hero, all sections from schema
 - Mobile-first design, professional and modern
 
 ## css/styles.css requirements:
-- Custom CSS variables for colors/fonts from schema style
-- Smooth scroll behavior
-- Custom animations (fade-in, slide-up, scale)
-- Navbar scroll effect (shrink + shadow on scroll)
-- Button hover effects, card shadows
-- Loading spinner, mobile menu transitions
+- CSS custom properties (--color-primary, --color-bg, --font-main)
+- Smooth scroll, modern transitions
+- Custom animations: @keyframes fadeIn, slideUp, scaleIn
+- Navbar scroll effect (backdrop-blur + shadow on scroll)
+- Button hover/active states, card shadows
+- Mobile menu slide animation
 - Custom scrollbar styling
 
-## js/app.js requirements:
-- Vanilla JS (no jQuery)
-- Mobile hamburger menu toggle
-- Smooth scroll for anchor links
-- AOS initialization
-- Navbar shrink on scroll
-- Contact form validation and AJAX submit to backend API
-- Typing animation for hero title (optional)
-- Scroll-to-top button
+## js/app.js requirements (MODERN JAVASCRIPT ES6+):
+- `'use strict'` or type="module"
+- const/let only (no var)
+- Arrow functions throughout
+- Mobile hamburger menu: addEventListener, classList.toggle
+- Smooth scroll: scrollIntoView({ behavior: 'smooth' })
+- AOS.init() with custom config
+- Navbar shrink on scroll: IntersectionObserver or window.addEventListener('scroll')
+- Contact form: fetch() API (async/await) to POST /api/contact
+- Form validation with real-time feedback
+- Scroll-to-top button with smooth animation
+- Optional: IntersectionObserver for section animations
 
-## backend/server.js requirements:
-- Node.js + Express.js REST API
-- CORS enabled
-- POST /api/contact — receives {name, email, phone, message}, validates, logs
-- GET /api/health — health check
-- Serve static files from parent directory (for production)
-- Environment variables via dotenv
-- Error handling middleware
-- Port from PORT env var, default 3000
+## backend/server.js requirements (Node.js + Express, ES6+):
+- import/export syntax ("type": "module" in package.json) OR CommonJS with const
+- Express.js REST API
+- CORS enabled (cors package)
+- dotenv config
+- POST /api/contact — receives {name, email, phone, message}, validates fields, sends email via nodemailer
+- GET /api/health — returns {status: 'ok', timestamp}
+- Serve static files from parent directory (express.static)
+- Error handling middleware (err, req, res, next)
+- Graceful startup: app.listen with console.log
+- Port from process.env.PORT, default 3000
 
 ## backend/package.json requirements:
-- name, version, description from schema
+- name (slug), version: "1.0.0", description from schema
+- "type": "module" for ES6 import syntax
 - dependencies: express, cors, dotenv, nodemailer
-- scripts: start, dev (nodemon)
+- devDependencies: nodemon
+- scripts: { "start": "node server.js", "dev": "nodemon server.js" }
 
 ## backend/.env.example:
 - PORT=3000
-- SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
-- CONTACT_EMAIL
+- SMTP_HOST=smtp.gmail.com
+- SMTP_PORT=587
+- SMTP_USER=your@email.com
+- SMTP_PASS=your_app_password
+- CONTACT_EMAIL=contact@yourdomain.com
 
 ## CRITICAL RULES:
 - ALL text content (headings, descriptions, buttons) must be in the language specified in the schema
@@ -360,7 +383,7 @@ def _get_claude_client() -> anthropic.Anthropic:
 def _get_claude_model() -> str:
     return (
         os.environ.get("ANTHROPIC_MODEL")
-        or getattr(settings, "ANTHROPIC_MODEL", "claude-3-5-sonnet-latest")
+        or getattr(settings, "ANTHROPIC_MODEL", "claude-sonnet-4-6")
     )
 
 
