@@ -55,7 +55,7 @@ COST_REVISION_NANO = 300     # orqaga moslik uchun (eng kam narx)
 COST_REVISION_SIMPLE_NANO  = 300   # Oddiy o'zgarish  (rang, matn)
 COST_REVISION_MEDIUM_NANO  = 400   # O'rta o'zgarish  (sektsiya qo'shish/o'chirish)
 COST_REVISION_COMPLEX_NANO = 500   # Murakkab o'zgarish (sahifa qo'shish, to'liq qayta tuzish)
-COST_FIRST_SITE_NANO = 0     # Birinchi sayt bepul!
+COST_FIRST_SITE_NANO = 0     # Ishlatilmaydi (legacy)
 
 # Token ekvivalentlari
 SITE_CREATION_COST   = COST_MEDIUM_NANO * TOKENS_PER_NANO_COIN  # default = 40 000 token

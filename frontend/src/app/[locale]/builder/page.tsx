@@ -21,6 +21,46 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 import { useProjectStore } from '@/store/projectStore';
 
+// ── Streaming POST helper (timeout muammosini hal qiladi) ────────────
+async function streamPost<T>(
+  url: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<T> {
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+  const apiUrl = baseUrl.endsWith('/api') ? `${baseUrl}${url}` : `${baseUrl}/api${url}`;
+  const token = useAuthStore.getState().token;
+
+  const fetchResp = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  const reader = fetchResp.body?.getReader();
+  if (!reader) throw new Error('Streaming not supported');
+
+  const decoder = new TextDecoder();
+  let accumulated = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    // Keep-alive bytes (space/newline) ni o'tkazib yuboramiz
+    accumulated += chunk;
+  }
+
+  // Bo'sh joy heartbeat'larni trim qilib JSON parse qilamiz
+  const jsonStr = accumulated.trim();
+  if (!jsonStr) throw new Error('Empty response from server');
+  return JSON.parse(jsonStr) as T;
+}
+
 // ── Types ──────────────────────────────────────────────────────────
 
 interface HistoryItem { role: 'user' | 'assistant'; content: string; }
@@ -445,7 +485,9 @@ function GenerationProgress({ startTime }: { startTime: number }) {
       </motion.div>
 
       <h2 className="text-xl font-black text-zinc-900 mb-1">Sayt yaratilmoqda…</h2>
-      <p className="text-zinc-400 text-sm mb-6">AI kodni yozmoqda, biroz kuting</p>
+      <p className="text-zinc-400 text-sm mb-6">
+        {elapsed < 30 ? 'AI kodni yozmoqda, biroz kuting' : elapsed < 90 ? '⏳ Murakkab sayt — 1-2 daqiqa ketishi mumkin' : '🔄 Deyarli tayyor, iltimos kuting...'}
+      </p>
 
       {/* Progress bar */}
       <div className="w-full max-w-sm bg-zinc-100 rounded-full h-2 mb-5 overflow-hidden">
@@ -877,17 +919,19 @@ export default function BuilderPage() {
     const newHistory: HistoryItem[] = [...history, { role: 'user', content: promptForApi }];
 
     // ── Optimistik balans kamaytirish (real-time UX) ──────────────
-    // Chat (arxitekt suhbat) — CHEKSIZ, BEPUL. Gemini ishlatiladi, Claude chaqirilmaydi,
-    // shuning uchun token ham yechilmaydi. Faqat Claude (haqiqiy sayt generatsiya) paytida
-    // balans tushadi — u yerda ham tushurishni server `data.balance` dan sinxron oladi.
-    //
-    // Pulli bo'ladigan YAGONA holat bu yerda: REVISE (tayyor saytni tahrirlash).
-    // Boshqa barcha holatlarda optimistik yechish yo'q — chunki user "bir og'iz yozsam
-    // ham balansim kamayib ketdi" degan noto'g'ri taassurot olmasin.
-    const willLikelyCost = isAuthenticated && phase === 'done' && !!previewId;
-    if (willLikelyCost) {
-      // Optimistik: eng kam narx 300 (simple revision). Server aniq qiymatni qaytaradi.
-      optimisticDeductNano(300);
+    // Optimistik deduction — foydalanuvchi yuborishi bilanoq balansi kamayadigan ko'rinadi.
+    // Sayt yaratish: ARCHITECT/IDLE → optimistik 3000 (eng kam narx) chegiramiz.
+    // REVISE: tayyor sayt tahrirlash → 300 nano.
+    // Server javobidan keyin aniq qiymat bilan sinxronlanadi.
+    const isRevise = isAuthenticated && phase === 'done' && !!previewId;
+    const isNewSite = isAuthenticated && !isRevise && phase !== 'architect';
+    const willLikelyCost = isRevise || isNewSite;
+    if (isAuthenticated) {
+      if (isRevise) {
+        optimisticDeductNano(300);
+      } else if (isNewSite) {
+        optimisticDeductNano(3000);
+      }
     }
 
     // Yangi AbortController — har bir request uchun alohida
@@ -895,7 +939,7 @@ export default function BuilderPage() {
     abortControllerRef.current = controller;
 
     try {
-      let res: { data: ApiResponse };
+      let data: ApiResponse;
 
       // Rasm(lar) body (agar biriktirilgan bo'lsa) — Claude vision uchun
       const imagesPayload = currentImages.length > 0
@@ -905,27 +949,27 @@ export default function BuilderPage() {
       // Sayt tayyor bo'lsa va user dizayn o'zgartirmoqchi bo'lsa — inline revise
       if (phase === 'done' && previewSchema) {
         if (previewId) {
-          // Login qilingan — DB orqali revise
-          res = await api.post<ApiResponse>('/projects/process_prompt/', {
+          // Login qilingan — DB orqali revise (streaming — timeout yo'q)
+          data = await streamPost<ApiResponse>('/projects/process_prompt/', {
             prompt: promptForApi, language: 'uz', history: newHistory, project_id: previewId,
             conversation_id: conversationId,
             images: imagesPayload,
-          }, { signal: controller.signal });
+          }, controller.signal);
         } else {
           // Login qilinmagan — schema inline yuboramiz
-          res = await api.post<ApiResponse>('/projects/revise_inline/', {
+          const res = await api.post<ApiResponse>('/projects/revise_inline/', {
             prompt: promptForApi, language: 'uz', schema_data: previewSchema,
           }, { signal: controller.signal });
+          data = res.data;
         }
       } else {
-        // Oddiy suhbat / yangi generatsiya
-        res = await api.post<ApiResponse>('/projects/process_prompt/', {
+        // Yangi generatsiya (streaming — timeout yo'q)
+        data = await streamPost<ApiResponse>('/projects/process_prompt/', {
           prompt: promptForApi, language: 'uz', history: newHistory,
           conversation_id: conversationId,
           images: imagesPayload,
-        }, { signal: controller.signal });
+        }, controller.signal);
       }
-      const data = res.data;
 
       // Suhbat ID ni saqlaymiz — tarix uchun keyingi requestlarda yuborish kerak
       if (data.conversation_id) {
@@ -1055,8 +1099,11 @@ export default function BuilderPage() {
       setIsGenerating(false);
 
     } catch (err: unknown) {
-      // Foydalanuvchi "To'xtatish" bosdi — quiet cancel
-      if (axios.isCancel(err) || (err as { code?: string })?.code === 'ERR_CANCELED') {
+      // Foydalanuvchi "To'xtatish" bosdi — quiet cancel (axios yoki fetch abort)
+      const isAbort = axios.isCancel(err)
+        || (err as { code?: string })?.code === 'ERR_CANCELED'
+        || (err instanceof Error && err.name === 'AbortError');
+      if (isAbort) {
         addMsg('ai', '⏹️ **Javob to\'xtatildi.** Qayta yuborishingiz mumkin.');
         setBuildStartTime(null);
         setIsGenerating(false);
@@ -1090,9 +1137,9 @@ export default function BuilderPage() {
       const code = axiosErr.code;
 
       if (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || !axiosErr.response) {
-        // Network / CORS / timeout
-        msg = '🌐 Server bilan aloqa yo\'q';
-        hint = 'Internetingizni tekshiring yoki bir daqiqadan keyin qayta urinib ko\'ring. Server uyg\'onishi 30 soniya vaqt olishi mumkin.';
+        // AI generatsiya uzoq vaqt ketdi — timeout
+        msg = '⏳ AI sayt yaratyapti...';
+        hint = 'Server javob berishga urinmoqda. Iltimos, "Yuborish" tugmasini yana bir marta bosing — so\'rovingiz qayta yuboriladi.';
       } else if (status === 401) {
         msg = '🔒 Sessiya tugadi';
         hint = 'Qayta kiring (login).';

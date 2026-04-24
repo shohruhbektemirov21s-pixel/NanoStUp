@@ -686,7 +686,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=8096,
+                max_tokens=15000,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -717,7 +717,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=8096,
+                max_tokens=15000,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -745,7 +745,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=8096,
+                max_tokens=15000,
                 system=REVISE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )

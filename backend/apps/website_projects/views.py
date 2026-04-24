@@ -1,12 +1,15 @@
+import json
 import logging
+import queue as _queue_module
 import secrets
+import threading
 import time
 from collections import deque
 from threading import Lock
 from typing import Dict, Optional
 
 from django.db.models import F
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import permissions, status, viewsets
@@ -172,11 +175,6 @@ def _get_site_generation_cost_tokens(schema: Dict) -> int:
     return complexity["cost_tokens"]
 
 
-def _is_first_site(user) -> bool:
-    """Foydalanuvchining birinchi saytimi? (bepul)."""
-    from .models import WebsiteProject
-    return not WebsiteProject.objects.filter(user=user).exists()
-
 
 def _can_afford_nano(user, conversation, cost_nano: int) -> bool:
     """Chat bonus + obuna birga yetadimi? (nano koin)."""
@@ -312,6 +310,42 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def process_prompt(self, request):
+        """
+        Streaming wrapper: agar Claude generatsiya uzoq davom etsa,
+        har 4 soniyada keep-alive bytes yuborib Render proxy timeout'ini oldini oladi.
+        """
+        result_q = _queue_module.Queue()
+
+        def _run():
+            try:
+                resp = self._process_prompt_impl(request)
+                result_q.put(("ok", resp.status_code, resp.data))
+            except Exception as exc:
+                logger.exception("process_prompt thread xatosi")
+                result_q.put(("err", 500, {"success": False, "error": str(exc)}))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+        def _stream():
+            while True:
+                try:
+                    kind, status_code, data = result_q.get(timeout=4)
+                    payload = json.dumps(data, ensure_ascii=False)
+                    # Status code ni response headeriga o'tkazib bo'lmaymiz —
+                    # uni data ichida yuboramiz, frontend chiqarib oladi.
+                    yield payload.encode("utf-8")
+                    return
+                except _queue_module.Empty:
+                    yield b" "   # keep-alive: Render proxy ulanishni uzmaydi
+
+        streaming_resp = StreamingHttpResponse(
+            _stream(), content_type="application/json; charset=utf-8",
+        )
+        streaming_resp["X-Accel-Buffering"] = "no"   # Nginx/Render buferingni o'chiradi
+        streaming_resp["Cache-Control"] = "no-cache"
+        return streaming_resp
+
+    def _process_prompt_impl(self, request):
         """
         Arxitektor oqimi (FAQAT ro'yxatdan o'tgan foydalanuvchilar):
           1. Foydalanuvchi bilan muloqot (ArchitectService)
@@ -525,8 +559,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     complexity = _estimate_complexity(new_schema)
 
                     # Murakkablikka qarab narx aniqlanadi
-                    # Birinchi sayt — BEPUL (0 nano)
-                    site_cost_nano = COST_FIRST_SITE_NANO if (is_auth and _is_first_site(request.user)) else complexity["cost_nano"]
+                    site_cost_nano = complexity["cost_nano"]
                     site_cost_tokens = site_cost_nano * TOKENS_PER_NANO_COIN
 
                     # Balans tekshirish (spec topilgandan keyin)
@@ -656,9 +689,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 return Response(resp_data)
 
             # ── 3. TO'G'RIDAN-TO'G'RI GENERATSIYA (qisqa yo'l) ───────────
-            # Birinchi sayt bepul, qolganlar complexity ga qarab narxlanadi
-            is_first = is_auth and _is_first_site(request.user)
-            site_cost_nano = COST_FIRST_SITE_NANO if is_first else COST_MEDIUM_NANO  # schema yo'q — o'rta narx
+            site_cost_nano = COST_MEDIUM_NANO  # schema yo'q — o'rta narx (4000 nano)
             site_cost_tokens = site_cost_nano * TOKENS_PER_NANO_COIN
 
             # Balans tekshirish (auth user uchun)

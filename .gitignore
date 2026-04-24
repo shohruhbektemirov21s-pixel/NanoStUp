@@ -57,3 +57,7 @@ htmlcov/
 *.key
 *.p12
 secrets.*
+
+# ─── Loyiha hujjatlari (AI uchun, GitHub'ga yuklanmaydi) ──────
+PROJECT_CONTEXT.md
+README.md
