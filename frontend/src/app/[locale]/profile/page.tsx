@@ -174,7 +174,7 @@ export default function ProfilePage() {
               <span className="text-xs uppercase tracking-wider font-bold">{tProfile('tokensLabel')}</span>
             </div>
             <div className="text-4xl font-black text-amber-200">
-              {tokens.toLocaleString('en')}
+              {(user?.nano_coins ?? 0).toLocaleString('en')}
             </div>
             <p className="text-xs text-amber-400/70 mt-2">
               {tProfile('perChat', { count: 5000 })}

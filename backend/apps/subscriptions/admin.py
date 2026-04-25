@@ -29,12 +29,10 @@ class TariffAdmin(ModelAdmin):
         }),
         ("💎 Nano koin / Token (AI kod uchun)", {
             "fields": ("nano_coins_included",),
-            "description": (
-                "To'lov muvaffaqiyatli tasdiqlangandan so'ng foydalanuvchiga BIR YO‘LA "
-                "beriladigan umumiy nano koin miqdori. 1 nano koin = 10 token. "
-                "Misol: bu yerga 5000 yozsangiz, user 50 000 token oladi. "
-                "1 chat xabar (AI kod yaratish) = 500 nano / 5 000 token."
-            ),
+            "description": "To'lov muvaffaqiyatli tasdiqlangandan so'ng foydalanuvchiga BIR YO‘LA "
+                           "beriladigan umumiy nano koin miqdori. 1 nano koin = 10 token. "
+                           "Misol: bu yerga 5000 yozsangiz, user 50 000 token oladi. "
+                           "1 chat xabar (AI kod yaratish) = 500 nano / 5 000 token.",
         }),
         ("📊 Sayt limitlari", {
             "fields": (
@@ -44,11 +42,9 @@ class TariffAdmin(ModelAdmin):
                 "pages_per_project_limit",  # bir loyihada sahifalar
                 "ai_generations_limit",
             ),
-            "description": (
-                "<b>max_sites_per_month</b> — har oy yaratilishi mumkin bo'lgan saytlar (0 = cheksiz).<br>"
-                "<b>projects_limit</b> — bir vaqtning o'zida faol bo'lgan saytlar.<br>"
-                "<b>max_active_sites</b> — 0 bo'lsa projects_limit ishlatiladi."
-            ),
+            "description": "<b>max_sites_per_month</b> — har oy yaratilishi mumkin bo'lgan saytlar (0 = cheksiz).<br>"
+                           "<b>projects_limit</b> — bir vaqtning o'zida faol bo'lgan saytlar.<br>"
+                           "<b>max_active_sites</b> — 0 bo'lsa projects_limit ishlatiladi.",
         }),
         ("🌐 Hosting/storage (metadata)", {
             "fields": ("storage_limit_mb", "traffic_limit_gb"),

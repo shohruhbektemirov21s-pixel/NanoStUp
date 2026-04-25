@@ -167,5 +167,26 @@ class Subscription(models.Model):
         )
         self.refresh_from_db(fields=["sites_created_this_month", "projects_created"])
 
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        # Agar end_date kiritilmagan bo'lsa, tariff bo'yicha hisoblaymiz
+        if not self.end_date:
+            self.end_date = timezone.now() + timedelta(days=self.tariff.duration_days)
+            
+        super().save(*args, **kwargs)
+        
+        # Yangi faol obuna yaratilganda nano koinlarni balansga qo'shish
+        if is_new and self.status == SubscriptionStatus.ACTIVE:
+            from django.contrib.auth import get_user_model
+            UserModel = get_user_model()
+            from apps.accounts.models import TOKENS_PER_NANO_COIN
+            nano_to_add = self.tariff.nano_coins_included
+            if nano_to_add > 0:
+                tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
+                from django.db.models import F
+                UserModel.objects.filter(pk=self.user.pk).update(
+                    tokens_balance=F("tokens_balance") + tokens_to_add
+                )
+
     def __str__(self):
         return f"{self.user.email} - {self.tariff.name}"
