@@ -27,11 +27,79 @@ interface SiteSettings {
   font?: string;
 }
 
+interface SiteDesign {
+  style?: string;
+  layoutPattern?: string;
+  mood?: string;
+  density?: string;
+  cornerRadius?: string;
+  animation?: string;
+}
+
 interface SiteSchema {
   siteName?: string;
   settings?: SiteSettings;
+  design?: SiteDesign;
   pages?: Page[];
   [key: string]: unknown;
+}
+
+// ── Design system helpers ──────────────────────────────────────
+
+const DESIGN_STYLES_FE = ['minimal','luxury','startup','dark','glassmorphism','editorial','playful','corporate','bold-gradient','local-uzbek'] as const;
+const LAYOUT_PATTERNS_FE = ['centered-hero','split-hero','image-first-hero','saas-landing','premium-dark','gradient-modern','hero-fullscreen','bold-hero','magazine-layout','editorial','two-column-content','minimal-clean','glassmorphism-card','asymmetric-layout','bold-typography','overlap-cards','hero-with-cards','dashboard-style','local-business','hero-with-sidebar'] as const;
+const DENSITIES_FE = ['compact','comfortable','spacious'] as const;
+const CORNERS_FE = ['none','small','medium','large','extra'] as const;
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+function pick<T>(arr: readonly T[], seed: number): T { return arr[seed % arr.length]; }
+
+function resolveDesign(schema: SiteSchema): SiteDesign {
+  if (schema.design && typeof schema.design === 'object') return schema.design;
+  const seed = hashStr(String(schema.siteName ?? '') + String(schema.pages?.length ?? 0));
+  return {
+    style:         pick(DESIGN_STYLES_FE,    seed),
+    layoutPattern: pick(LAYOUT_PATTERNS_FE,  seed + 7),
+    mood:          'modern',
+    density:       pick(DENSITIES_FE,        seed + 3),
+    cornerRadius:  pick(CORNERS_FE,          seed + 5),
+    animation:     'none',
+  };
+}
+
+function getRadius(d: SiteDesign): string {
+  const map: Record<string, string> = { none:'0px', small:'6px', medium:'12px', large:'20px', extra:'9999px' };
+  return map[d.cornerRadius ?? 'medium'] ?? '12px';
+}
+
+function getDensityPy(d: SiteDesign): string {
+  const map: Record<string, string> = { compact:'py-12 md:py-16', comfortable:'py-16 md:py-24', spacious:'py-20 md:py-32' };
+  return map[d.density ?? 'comfortable'] ?? 'py-16 md:py-24';
+}
+
+function heroVariant(d: SiteDesign): 'centered' | 'split' | 'fullscreen' {
+  const lp = d.layoutPattern ?? '';
+  const split = ['split-hero','two-column-content','hero-with-sidebar','magazine-layout','asymmetric-layout'];
+  const full  = ['image-first-hero','premium-dark','gradient-modern','hero-fullscreen','bold-hero','glassmorphism-card','bold-typography'];
+  if (split.includes(lp)) return 'split';
+  if (full.includes(lp))  return 'fullscreen';
+  return 'centered';
+}
+
+function featuresVariant(d: SiteDesign): 'grid' | 'list' | 'timeline' {
+  const style = d.style ?? '';
+  if (['minimal','corporate'].includes(style)) return 'list';
+  if (['luxury','editorial'].includes(style))  return 'timeline';
+  return 'grid';
+}
+
+function pricingVariant(d: SiteDesign): 'cards' | 'minimal' {
+  if (['minimal','corporate','editorial'].includes(d.style ?? '')) return 'minimal';
+  return 'cards';
 }
 
 // ── Predefined palettes ─────────────────────────────────────────
@@ -102,73 +170,181 @@ function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: st
 
 // ── Shared props type ───────────────────────────────────────────
 type Colors = ReturnType<typeof useColors>;
-type SectionProps = { content: SectionContent; colors: Colors };
+type SectionProps = { content: SectionContent; colors: Colors; design: SiteDesign };
 
-// ── Section: Hero ───────────────────────────────────────────────
-function Hero({ content, colors }: SectionProps) {
+// ── Section: Hero (3 variants: centered | split | fullscreen) ────────
+function Hero({ content, colors, design }: SectionProps) {
   const title    = String(content.title    ?? content.heading  ?? 'Xush kelibsiz');
   const subtitle = String(content.subtitle ?? '');
   const desc     = String(content.description ?? '');
   const cta      = String(content.ctaText  ?? content.cta ?? content.button ?? '');
   const cta2     = String(content.cta2Text ?? content.secondaryCta ?? '');
   const badge    = content.badge ? String(content.badge) : '';
+  const v        = heroVariant(design);
+  const r        = getRadius(design);
+  const py       = getDensityPy(design);
+
+  const Badge = badge ? (
+    <span style={{ background: colors.primary + '22', color: colors.primary, border: `1px solid ${colors.primary}44`, borderRadius: r }}
+      className="inline-block mb-4 px-3 py-1 text-xs font-bold tracking-wider uppercase">{badge}</span>
+  ) : null;
+
+  const CtaButtons = (cta || cta2) ? (
+    <div className="mt-8 flex flex-wrap gap-3 items-center">
+      {cta && <a href={String(content.ctaLink ?? '#contact')}
+        style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+        className="px-7 py-3.5 font-bold text-sm shadow-lg hover:opacity-90 transition-opacity">{cta}</a>}
+      {cta2 && <a href="#"
+        style={{ border: `2px solid ${colors.primary}`, color: colors.primary, borderRadius: r }}
+        className="px-7 py-3.5 font-bold text-sm hover:opacity-80 transition-opacity bg-transparent">{cta2}</a>}
+    </div>
+  ) : null;
+
+  if (v === 'split') {
+    return (
+      <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+          <div>
+            {Badge}
+            <h1 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight">{title}</h1>
+            {subtitle && <p style={{ color: colors.primary }} className="mt-3 text-base sm:text-lg font-semibold">{subtitle}</p>}
+            {desc && <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base leading-relaxed max-w-lg">{desc}</p>}
+            {CtaButtons}
+          </div>
+          <div style={{ background: colors.primary + '18', borderRadius: r }} className="aspect-square md:aspect-video flex items-center justify-center">
+            <div style={{ color: colors.primary }} className="text-6xl md:text-8xl opacity-60">✦</div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (v === 'fullscreen') {
+    return (
+      <section style={{ background: colors.primary, fontFamily: colors.font }}
+        className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
+        <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 70% 30%, ${colors.accent}, transparent 60%)` }} />
+        <div className="relative z-10 max-w-4xl mx-auto">
+          {badge && (
+            <span style={{ background: 'rgba(255,255,255,0.15)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)', borderRadius: r }}
+              className="inline-block mb-4 px-3 py-1 text-xs font-bold tracking-wider uppercase">{badge}</span>
+          )}
+          <h1 style={{ color: colors.onPrimary }} className="text-4xl sm:text-5xl md:text-7xl font-black leading-none tracking-tight">{title}</h1>
+          {subtitle && <p style={{ color: colors.onPrimary, opacity: 0.8 }} className="mt-4 text-lg sm:text-xl font-semibold">{subtitle}</p>}
+          {desc && <p style={{ color: colors.onPrimary, opacity: 0.65 }} className="mt-4 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">{desc}</p>}
+          {(cta || cta2) && (
+            <div className="mt-8 flex flex-wrap gap-3 justify-center">
+              {cta && <a href={String(content.ctaLink ?? '#contact')}
+                style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r }}
+                className="px-8 py-4 font-black text-sm hover:opacity-90 transition-opacity">{cta}</a>}
+              {cta2 && <a href="#"
+                style={{ border: `2px solid ${colors.onPrimary}`, color: colors.onPrimary, borderRadius: r }}
+                className="px-8 py-4 font-bold text-sm hover:opacity-80 transition-opacity bg-transparent">{cta2}</a>}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }}
-      className="py-20 md:py-32 px-4 md:px-8 text-center">
-      {badge && (
-        <span style={{ background: colors.primary + '18', color: colors.primary, border: `1px solid ${colors.primary}33` }}
-          className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase">
-          {badge}
-        </span>
-      )}
+      className={`${py} px-4 md:px-8 text-center`}>
+      {Badge}
       <h1 style={{ color: colors.text }}
         className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight max-w-4xl mx-auto leading-tight">
         {title}
       </h1>
       {subtitle && <p style={{ color: colors.primary }} className="mt-3 text-base sm:text-lg font-semibold max-w-xl mx-auto">{subtitle}</p>}
       {desc && <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">{desc}</p>}
-      {(cta || cta2) && (
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center items-center">
-          {cta && (
-            <a href={String(content.ctaLink ?? '#contact')}
-              style={{ background: colors.primary, color: colors.onPrimary }}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-bold text-sm shadow-lg hover:opacity-90 transition-opacity text-center">
-              {cta}
-            </a>
-          )}
-          {cta2 && (
-            <a href="#"
-              style={{ border: `2px solid ${colors.primary}`, color: colors.primary }}
-              className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-bold text-sm hover:opacity-80 transition-opacity text-center bg-transparent">
-              {cta2}
-            </a>
-          )}
-        </div>
-      )}
+      <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">{CtaButtons}</div>
     </section>
   );
 }
 
-// ── Section: Features / Services ───────────────────────────────
+// ── Section: Features / Services (3 variants: grid | list | timeline) ───
 interface ListItem { title?: string; name?: string; desc?: string; description?: string; text?: string; icon?: string; price?: string | number; }
 
-function Features({ content, colors }: SectionProps) {
+function Features({ content, colors, design }: SectionProps) {
   const title    = String(content.title ?? 'Xizmatlarimiz');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: ListItem[] = (content.items as ListItem[]) ?? (content.features as ListItem[]) ?? [];
+  const v  = featuresVariant(design);
+  const r  = getRadius(design);
+  const py = getDensityPy(design);
   const count = items.length;
   const cols = count <= 2 ? 'grid-cols-1 sm:grid-cols-2' : count === 4 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
-  return (
-    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-10 md:mb-14">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base max-w-xl mx-auto">{subtitle}</p>}
+
+  const Header = (
+    <div className="text-center mb-10 md:mb-14">
+      <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+      {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base max-w-xl mx-auto">{subtitle}</p>}
+    </div>
+  );
+
+  if (v === 'list') {
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-3xl mx-auto">
+          {Header}
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                className="flex items-start gap-4 p-4 md:p-5">
+                <div style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r, minWidth: '2.25rem' }}
+                  className="w-9 h-9 flex items-center justify-center text-sm font-black shrink-0">
+                  {item.icon ?? String(i + 1).padStart(2, '0')}
+                </div>
+                <div className="flex-1">
+                  <h3 style={{ color: colors.text }} className="font-bold text-sm md:text-base">{item.title ?? item.name ?? ''}</h3>
+                  <p style={{ color: colors.mutedText }} className="mt-1 text-xs sm:text-sm leading-relaxed">{item.desc ?? item.description ?? item.text ?? ''}</p>
+                  {item.price && <span style={{ color: colors.primary }} className="mt-1 inline-block font-black text-sm">{item.price}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
+    );
+  }
+
+  if (v === 'timeline') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-3xl mx-auto">
+          {Header}
+          <div className="relative">
+            <div style={{ background: colors.primary + '33' }} className="absolute left-4 top-0 bottom-0 w-0.5 md:left-6" />
+            <div className="space-y-6 md:space-y-8">
+              {items.map((item, i) => (
+                <div key={i} className="flex gap-6 md:gap-10 items-start relative pl-10 md:pl-16">
+                  <div style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+                    className="absolute left-0 w-8 h-8 md:w-12 md:h-12 flex items-center justify-center font-black text-sm md:text-base shrink-0">
+                    {item.icon ?? (i + 1)}
+                  </div>
+                  <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                    className="flex-1 p-4 md:p-6">
+                    <h3 style={{ color: colors.text }} className="font-bold text-sm md:text-base">{item.title ?? item.name ?? ''}</h3>
+                    <p style={{ color: colors.mutedText }} className="mt-1 text-xs sm:text-sm leading-relaxed">{item.desc ?? item.description ?? item.text ?? ''}</p>
+                    {item.price && <span style={{ color: colors.primary }} className="mt-2 inline-block font-black text-sm">{item.price}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+      <div className="max-w-6xl mx-auto">
+        {Header}
         <div className={`grid ${cols} gap-4 md:gap-6`}>
           {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}
-              className="p-5 md:p-7 rounded-2xl">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+              className="p-5 md:p-7">
               {item.icon && <div className="text-2xl mb-3">{item.icon}</div>}
               <h3 style={{ color: colors.text }} className="text-base md:text-lg font-bold">{item.title ?? item.name ?? ''}</h3>
               <p style={{ color: colors.mutedText }} className="mt-2 text-sm leading-relaxed">{item.desc ?? item.description ?? item.text ?? ''}</p>
@@ -184,7 +360,7 @@ function Features({ content, colors }: SectionProps) {
 // ── Section: Stats ──────────────────────────────────────────────
 interface StatItem { value?: string | number; number?: string | number; label?: string; title?: string; icon?: string; }
 
-function Stats({ content, colors }: SectionProps) {
+function Stats({ content, colors, design: _d }: SectionProps) {
   const items: StatItem[] = (content.items as StatItem[]) ?? (content.stats as StatItem[]) ?? [];
   return (
     <section style={{ background: colors.primary, fontFamily: colors.font }} className="py-14 md:py-20 px-4 md:px-8">
@@ -204,27 +380,63 @@ function Stats({ content, colors }: SectionProps) {
 // ── Section: Pricing ────────────────────────────────────────────
 interface PricingItem { name?: string; title?: string; price?: string | number; period?: string; description?: string; features?: string[]; cta?: string; popular?: boolean; }
 
-function Pricing({ content, colors }: SectionProps) {
+function Pricing({ content, colors, design }: SectionProps) {
   const title = String(content.title ?? 'Tariflar');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: PricingItem[] = (content.items as PricingItem[]) ?? (content.plans as PricingItem[]) ?? [];
-  return (
-    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-10 md:mb-14">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base max-w-xl mx-auto">{subtitle}</p>}
+  const v  = pricingVariant(design);
+  const r  = getRadius(design);
+  const py = getDensityPy(design);
+
+  const Header = (
+    <div className="text-center mb-10 md:mb-14">
+      <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+      {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base max-w-xl mx-auto">{subtitle}</p>}
+    </div>
+  );
+
+  if (v === 'minimal') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-2xl mx-auto">
+          {Header}
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={i} style={{ border: `1px solid ${item.popular ? colors.primary : colors.cardBorder}`, borderRadius: r }}
+                className="flex items-center justify-between p-4 md:p-5 gap-4">
+                <div className="flex-1">
+                  <span style={{ color: colors.text }} className="font-bold text-sm">{item.name ?? item.title ?? ''}</span>
+                  {item.description && <p style={{ color: colors.mutedText }} className="text-xs mt-0.5">{item.description}</p>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span style={{ color: colors.primary }} className="font-black text-lg">{item.price ?? ''}</span>
+                  <a href="#contact" style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+                    className="px-4 py-2 text-xs font-bold hover:opacity-90 transition-opacity">
+                    {item.cta ?? 'Tanlash'}
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+      <div className="max-w-6xl mx-auto">
+        {Header}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {items.map((item, i) => (
             <div key={i}
               style={item.popular
-                ? { background: colors.primary, border: `2px solid ${colors.primary}`, color: colors.onPrimary }
-                : { background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text }}
-              className="p-6 md:p-8 rounded-2xl md:rounded-3xl flex flex-col relative">
+                ? { background: colors.primary, border: `2px solid ${colors.primary}`, color: colors.onPrimary, borderRadius: r }
+                : { background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }}
+              className="p-6 md:p-8 flex flex-col relative">
               {item.popular && (
-                <div style={{ background: colors.accent, color: '#fff' }}
-                  className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-xs font-bold whitespace-nowrap">
+                <div style={{ background: colors.accent, color: '#fff', borderRadius: r }}
+                  className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 text-xs font-bold whitespace-nowrap">
                   ⭐ Top
                 </div>
               )}
@@ -245,9 +457,9 @@ function Pricing({ content, colors }: SectionProps) {
               )}
               <a href="#contact"
                 style={item.popular
-                  ? { background: colors.onPrimary, color: colors.primary }
-                  : { background: colors.primary, color: colors.onPrimary }}
-                className="mt-6 text-center px-5 py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">
+                  ? { background: colors.onPrimary, color: colors.primary, borderRadius: r }
+                  : { background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+                className="mt-6 text-center px-5 py-3 font-bold text-sm hover:opacity-90 transition-opacity">
                 {item.cta ?? 'Tanlash'}
               </a>
             </div>
@@ -259,7 +471,8 @@ function Pricing({ content, colors }: SectionProps) {
 }
 
 // ── Section: Contact ────────────────────────────────────────────
-function Contact({ content, colors }: SectionProps) {
+function Contact({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title    = String(content.title ?? "Bog'lanish");
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const email    = content.email   ? String(content.email)   : '';
@@ -274,7 +487,7 @@ function Contact({ content, colors }: SectionProps) {
           {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="p-6 rounded-2xl space-y-4">
+          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6 space-y-4">
             {email && (
               <div>
                 <div style={{ color: colors.mutedText }} className="text-xs font-semibold uppercase tracking-wider mb-1">Email</div>
@@ -300,12 +513,12 @@ function Contact({ content, colors }: SectionProps) {
               </div>
             )}
           </div>
-          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="p-6 rounded-2xl">
+          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6">
             <div className="space-y-3">
-              <input placeholder="Ismingiz" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text }} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-offset-0" />
-              <input placeholder="Email" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text }} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none" />
-              <textarea rows={4} placeholder="Xabar..." style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text }} className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none" />
-              <button style={{ background: colors.primary, color: colors.onPrimary }} className="w-full py-3 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity">Yuborish</button>
+              <input placeholder="Ismingiz" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-offset-0" />
+              <input placeholder="Email" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none" />
+              <textarea rows={4} placeholder="Xabar..." style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none resize-none" />
+              <button style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }} className="w-full py-3 font-bold text-sm hover:opacity-90 transition-opacity">Yuborish</button>
             </div>
           </div>
         </div>
@@ -315,7 +528,8 @@ function Contact({ content, colors }: SectionProps) {
 }
 
 // ── Section: About ──────────────────────────────────────────────
-function About({ content, colors }: SectionProps) {
+function About({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title    = String(content.title ?? content.heading ?? 'Biz haqimizda');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const desc     = String(content.description ?? content.text ?? '');
@@ -334,7 +548,7 @@ function About({ content, colors }: SectionProps) {
           {values.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {values.map((v, i) => (
-                <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="p-4 rounded-xl">
+                <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-4">
                   <h4 style={{ color: colors.primary }} className="font-bold text-sm">{v.title ?? ''}</h4>
                   <p style={{ color: colors.mutedText }} className="mt-1 text-xs leading-relaxed">{v.text ?? ''}</p>
                 </div>
@@ -350,7 +564,8 @@ function About({ content, colors }: SectionProps) {
 // ── Section: Testimonials ───────────────────────────────────────
 interface TestimonialItem { name?: string; role?: string; company?: string; text?: string; rating?: number; }
 
-function Testimonials({ content, colors }: SectionProps) {
+function Testimonials({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Mijozlar fikri');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: TestimonialItem[] = (content.items as TestimonialItem[]) ?? [];
@@ -363,7 +578,7 @@ function Testimonials({ content, colors }: SectionProps) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="p-5 md:p-6 rounded-2xl flex flex-col">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-5 md:p-6 flex flex-col">
               {item.rating && <div className="text-amber-400 text-sm mb-3">{'★'.repeat(Math.min(5, item.rating))}</div>}
               <p style={{ color: colors.text }} className="text-sm leading-relaxed flex-1 italic">&ldquo;{item.text ?? ''}&rdquo;</p>
               <div className="mt-4 flex items-center gap-3">
@@ -386,7 +601,8 @@ function Testimonials({ content, colors }: SectionProps) {
 // ── Section: Team ───────────────────────────────────────────────
 interface TeamItem { name?: string; role?: string; bio?: string; }
 
-function Team({ content, colors }: SectionProps) {
+function Team({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Jamoa');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: TeamItem[] = (content.items as TeamItem[]) ?? [];
@@ -400,7 +616,7 @@ function Team({ content, colors }: SectionProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
           {items.map((item, i) => (
             <div key={i} className="text-center">
-              <div style={{ background: colors.primary, color: colors.onPrimary }} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl mx-auto flex items-center justify-center font-black text-xl sm:text-2xl">
+              <div style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }} className="w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center font-black text-xl sm:text-2xl">
                 {(item.name ?? '?')[0].toUpperCase()}
               </div>
               <div style={{ color: colors.text }} className="mt-3 font-bold text-sm">{item.name ?? ''}</div>
@@ -417,7 +633,8 @@ function Team({ content, colors }: SectionProps) {
 // ── Section: FAQ ────────────────────────────────────────────────
 interface FaqItem { question?: string; answer?: string; }
 
-function Faq({ content, colors }: SectionProps) {
+function Faq({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Ko\'p so\'raladigan savollar');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: FaqItem[] = (content.items as FaqItem[]) ?? [];
@@ -431,7 +648,7 @@ function Faq({ content, colors }: SectionProps) {
         </div>
         <div className="space-y-3">
           {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="rounded-2xl overflow-hidden">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden">
               <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between p-4 md:p-5 text-left gap-4">
                 <span style={{ color: colors.text }} className="font-semibold text-sm md:text-base">{item.question ?? ''}</span>
                 <span style={{ color: colors.primary }} className="text-lg shrink-0">{open === i ? '−' : '+'}</span>
@@ -449,7 +666,8 @@ function Faq({ content, colors }: SectionProps) {
 interface MenuItem { name?: string; price?: string | number; description?: string; vegetarian?: boolean; }
 interface MenuCategory { name?: string; items?: MenuItem[]; }
 
-function Menu({ content, colors }: SectionProps) {
+function Menu({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Menyu');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const categories: MenuCategory[] = (content.categories as MenuCategory[]) ?? [];
@@ -465,7 +683,7 @@ function Menu({ content, colors }: SectionProps) {
             <h3 style={{ color: colors.primary, borderBottom: `2px solid ${colors.primary}33` }} className="text-lg font-black pb-2 mb-4">{cat.name ?? ''}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(cat.items ?? []).map((item, ii) => (
-                <div key={ii} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }} className="flex items-start justify-between p-4 rounded-xl gap-3">
+                <div key={ii} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="flex items-start justify-between p-4 gap-3">
                   <div className="flex-1 min-w-0">
                     <div style={{ color: colors.text }} className="font-semibold text-sm">{item.name ?? ''}</div>
                     {item.description && <p style={{ color: colors.mutedText }} className="text-xs mt-0.5 leading-relaxed">{item.description}</p>}
@@ -483,7 +701,8 @@ function Menu({ content, colors }: SectionProps) {
 }
 
 // ── Section: CTA ────────────────────────────────────────────────
-function Cta({ content, colors }: SectionProps) {
+function Cta({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Boshlash vaqti keldi');
   const desc  = content.description ? String(content.description) : '';
   const cta   = String(content.ctaText ?? 'Bepul sinab ko\'rish');
@@ -494,8 +713,8 @@ function Cta({ content, colors }: SectionProps) {
       <h2 style={{ color: colors.onPrimary }} className="text-2xl sm:text-3xl md:text-4xl font-black max-w-2xl mx-auto">{title}</h2>
       {desc && <p style={{ color: colors.onPrimary, opacity: 0.75 }} className="mt-4 text-sm sm:text-base max-w-xl mx-auto">{desc}</p>}
       <a href={String(content.ctaLink ?? '#contact')}
-        style={{ background: colors.onPrimary, color: colors.primary }}
-        className="inline-block mt-8 px-8 py-4 rounded-2xl font-black text-sm shadow-2xl hover:opacity-90 transition-opacity">
+        style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r }}
+        className="inline-block mt-8 px-8 py-4 font-black text-sm shadow-2xl hover:opacity-90 transition-opacity">
         {cta}
       </a>
     </section>
@@ -503,7 +722,8 @@ function Cta({ content, colors }: SectionProps) {
 }
 
 // ── Section: Gallery ────────────────────────────────────────────
-function Gallery({ content, colors }: SectionProps) {
+function Gallery({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
   const title = String(content.title ?? 'Galereya');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: Array<{ src?: string; alt?: string; caption?: string }> = (content.items as Array<{ src?: string; alt?: string; caption?: string }>) ?? [];
@@ -516,8 +736,8 @@ function Gallery({ content, colors }: SectionProps) {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {items.length > 0 ? items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}
-              className="aspect-square rounded-xl overflow-hidden flex items-center justify-center text-2xl">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+              className="aspect-square overflow-hidden flex items-center justify-center text-2xl">
               {item.src ? (
                 <img src={item.src} alt={item.alt ?? ''} className="w-full h-full object-cover" />
               ) : (
@@ -525,8 +745,8 @@ function Gallery({ content, colors }: SectionProps) {
               )}
             </div>
           )) : Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}
-              className="aspect-square rounded-xl flex items-center justify-center">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+              className="aspect-square flex items-center justify-center">
               <span style={{ color: colors.mutedText }} className="text-2xl">🖼️</span>
             </div>
           ))}
@@ -617,6 +837,7 @@ export const SiteRenderer = React.memo(function SiteRenderer({
     siteName,
     allSectionTypes,
   );
+  const design = schema ? resolveDesign(schema) : {} as SiteDesign;
 
   if (!schema) return null;
 
@@ -721,7 +942,7 @@ export const SiteRenderer = React.memo(function SiteRenderer({
         }
         return (
           <div key={key} id={section.id}>
-            <Component content={content} colors={colors} />
+            <Component content={content} colors={colors} design={design} />
           </div>
         );
       })}

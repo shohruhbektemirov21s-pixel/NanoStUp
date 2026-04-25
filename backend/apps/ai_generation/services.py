@@ -211,11 +211,31 @@ Each section:
 - menu: title, subtitle, categories:[{name,items:[{name,price,description,vegetarian}]}]
 - cta: title, description, ctaText, ctaLink, badge
 
-## Pages strategy (decide based on business complexity):
-- **Simple landing** (portfolio, promo, event) → 1 page: ["home"] with 3-5 sections
-- **Small business** (cafe, salon, shop) → 2-3 pages: ["home","menu"/"services","contact"]
-- **Service business** (agency, clinic, studio) → 3-4 pages: ["home","services","about","contact"]
-- **Rich business** (SaaS, institution, chain) → 4-5 pages: ["home","about","services","pricing","contact"]
+## Pages strategy — ALWAYS MULTI-PAGE (minimum 4 pages):
+EVERY website MUST have at least these 4 pages (NO EXCEPTIONS):
+1. **home**    → hero + features/services-preview + testimonials + cta
+2. **about**   → about + stats + team
+3. **services** → services + pricing (if relevant) + faq
+4. **contact** → contact
+
+Additionally, based on business type, ADD relevant pages:
+- Restaurant/cafe/bar   → add **menu** page: menu sections with categories
+- Hotel/resort/tourism  → add **gallery** page: gallery sections  
+- SaaS/tech/startup     → add **pricing** page: pricing + features comparison
+- Portfolio/freelancer  → add **portfolio** page: gallery + stats
+- Education/academy     → add **courses** page: services + pricing
+- Agency/studio         → add **work** page: gallery + testimonials
+- Medical/clinic        → add **doctors** page: team + services
+- Rich business (5+ pages) → add **blog** or **faq** standalone page
+
+Result examples:
+- Cafe → ["home","menu","about","contact"]
+- Agency → ["home","services","work","about","contact"]
+- SaaS → ["home","features","pricing","about","contact"]
+- Clinic → ["home","services","doctors","about","contact"]
+- Hotel → ["home","gallery","about","contact"]
+
+NEVER return just 1 page — always build a complete multi-page website.
 
 ## COLOR RULES (CRITICAL — NEVER use plain black/white as primaryColor):
 Pick a VIVID, professional color palette that matches the industry:
@@ -246,7 +266,21 @@ Font choices: "Inter", "Poppins", "Montserrat", "Raleway", "Playfair Display", "
 - Write rich, realistic content (NOT lorem ipsum) matching the business type
 - ALL text in the requested language
 - Unique section ids (e.g. "hero-1", "features-home", "contact-final")
-- Return ONLY JSON, no explanation"""
+- Return ONLY JSON, no explanation
+
+## VARIATION MANDATE (CRITICAL — READ CAREFULLY):
+Every generated website MUST be visually and structurally UNIQUE. These elements MUST change each time:
+- Hero section layout: alternate between centered text, split left/right, large background overlay, minimal with single line
+- Section ORDER on each page: never use the same order twice (e.g. hero→features→cta vs hero→stats→services→cta)
+- Card design style: sometimes borderless, sometimes heavy border, sometimes with icon, sometimes with number
+- CTA placement: sometimes inline, sometimes as a separate section, sometimes inside hero
+- Typography hierarchy: vary heading sizes, weights and letter-spacing dramatically
+- Grid structure: mix 2-col, 3-col, 4-col, masonry, list, table layouts across sections
+- Section backgrounds: alternate bg, primary color, dark overlay, card surface — never all-same
+- Content density: sometimes very sparse (3 sections), sometimes rich (6 sections per page)
+
+If the MANDATORY DESIGN CONSTRAINT is provided in the user message — follow it EXACTLY.
+The "design" block from the constraint MUST appear in your JSON output."""
 
 REVISE_SYSTEM_PROMPT = (
     "You are a website schema editor. Apply the user change to the provided JSON schema "

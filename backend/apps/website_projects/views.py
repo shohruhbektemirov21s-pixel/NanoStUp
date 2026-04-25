@@ -1,6 +1,7 @@
 import json
 import logging
 import queue as _queue_module
+import random as _random
 import secrets
 import threading
 import time
@@ -37,7 +38,7 @@ from apps.subscriptions.models import Subscription, SubscriptionStatus
 
 # ── Tarif bo'yicha limitlar ───────────────────────────────────
 # Free (obunasi yo'q) foydalanuvchi uchun default:
-FREE_MAX_PAGES = 1
+FREE_MAX_PAGES = 10   # Ko'p sahifali sayt — hamma uchun ochiq
 FREE_CAN_PUBLISH = False  # publik URL bermaymiz — faqat preview
 
 
@@ -130,6 +131,304 @@ from .models import ChatMessage, ChatRole, Conversation, ProjectStatus, ProjectV
 from .serializers import WebsiteProjectSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_multipage(schema: Dict) -> Dict:
+    """
+    AI faqat 1 sahifa bergan bo'lsa, standart ko'p sahifali tuzilma yaratadi.
+    Mavjud sahifalar buzilmaydi. Minimal 4 sahifa: home, about, services, contact.
+    """
+    pages = schema.get("pages", [])
+    if not isinstance(pages, list):
+        pages = []
+
+    existing_slugs = {p.get("slug", "") for p in pages}
+
+    # Agar allaqachon 4+ sahifa bo'lsa — hech narsa qilmaymiz
+    if len(pages) >= 4:
+        return schema
+
+    # home sahifasidan site_name va birinchi sektsiya mazmunini olamiz
+    home_page = next((p for p in pages if p.get("slug") == "home"), pages[0] if pages else {})
+    home_sections = home_page.get("sections", [])
+    site_name = schema.get("siteName") or schema.get("name") or "Biznes"
+
+    # home sahifasida qaysi turdagi seksiyalar bor?
+    home_types = {s.get("type", "") for s in home_sections}
+
+    # -- about sahifasi --
+    if "about" not in existing_slugs:
+        about_sections = []
+        # home dan about seksiyasini ko'chirmasdan nusxa olamiz
+        existing_about = [s for s in home_sections if s.get("type") == "about"]
+        if existing_about:
+            about_sections.extend(existing_about)
+        else:
+            about_sections.append({
+                "id": "about-main",
+                "type": "about",
+                "content": {
+                    "title": f"{site_name} haqida",
+                    "subtitle": "Bizning hikoyamiz",
+                    "description": f"{site_name} — mijozlarimizga sifatli xizmat ko'rsatishga bag'ishlangan kompaniya.",
+                    "mission": "Har bir mijozga eng yaxshi xizmat ko'rsatish",
+                    "values": [
+                        {"title": "Sifat", "text": "Yuqori sifatli mahsulot va xizmatlar"},
+                        {"title": "Ishonch", "text": "Mijozlarimizga to'liq ishonch"},
+                        {"title": "Innovatsiya", "text": "Zamonaviy yechimlar"}
+                    ]
+                }
+            })
+        # stats qo'shamiz agar home da yo'q bo'lsa
+        if "stats" not in home_types:
+            about_sections.append({
+                "id": "about-stats",
+                "type": "stats",
+                "content": {"items": [
+                    {"value": "5+", "label": "Yillik tajriba"},
+                    {"value": "500+", "label": "Mamnun mijozlar"},
+                    {"value": "100%", "label": "Kafolat"}
+                ]}
+            })
+        # team
+        about_sections.append({
+            "id": "about-team",
+            "type": "team",
+            "content": {
+                "title": "Bizning jamoa",
+                "subtitle": "Professional mutaxassislar",
+                "items": [
+                    {"name": "Rahbar", "role": "Direktor", "bio": "10 yillik tajriba"},
+                    {"name": "Mutaxassis", "role": "Bosh mutaxassis", "bio": "5 yillik tajriba"},
+                    {"name": "Yordamchi", "role": "Mijozlar bilan ishlash", "bio": "3 yillik tajriba"}
+                ]
+            }
+        })
+        pages.append({"slug": "about", "title": "Biz haqimizda", "sections": about_sections})
+        existing_slugs.add("about")
+
+    # -- services sahifasi --
+    if "services" not in existing_slugs:
+        services_sections = []
+        existing_services = [s for s in home_sections if s.get("type") in ("services", "features")]
+        if existing_services:
+            services_sections.extend(existing_services)
+        else:
+            services_sections.append({
+                "id": "services-main",
+                "type": "services",
+                "content": {
+                    "title": "Bizning xizmatlar",
+                    "subtitle": "Sizga mos yechimni topamiz",
+                    "items": [
+                        {"icon": "⭐", "title": "Asosiy xizmat", "description": "Professional darajada xizmat", "price": "Narx kelishiladi"},
+                        {"icon": "🔧", "title": "Qo'shimcha xizmat", "description": "Har qanday so'rovni bajaramiz", "price": "Narx kelishiladi"},
+                        {"icon": "✅", "title": "Kafolat", "description": "Barcha ishlarimizga kafolat beramiz", "price": "Bepul"}
+                    ]
+                }
+            })
+        # faq
+        services_sections.append({
+            "id": "services-faq",
+            "type": "faq",
+            "content": {
+                "title": "Ko'p so'raladigan savollar",
+                "subtitle": "Sizning savollaringizga javob beramiz",
+                "items": [
+                    {"question": "Qanday murojaat qilish mumkin?", "answer": "Bizga telefon yoki email orqali murojaat qilishingiz mumkin."},
+                    {"question": "Xizmat narxi qancha?", "answer": "Narx loyiha hajmiga qarab kelishiladi. Bepul konsultatsiya uchun aloqaga chiqing."},
+                    {"question": "Qancha vaqt ketadi?", "answer": "Loyiha murakkabligiga qarab 1-4 hafta davom etadi."}
+                ]
+            }
+        })
+        pages.append({"slug": "services", "title": "Xizmatlar", "sections": services_sections})
+        existing_slugs.add("services")
+
+    # -- contact sahifasi --
+    if "contact" not in existing_slugs:
+        existing_contact = [s for s in home_sections if s.get("type") == "contact"]
+        if existing_contact:
+            contact_sections = existing_contact
+        else:
+            contact_sections = [{
+                "id": "contact-main",
+                "type": "contact",
+                "content": {
+                    "title": "Biz bilan bog'laning",
+                    "subtitle": "Har qanday savol uchun murojaat qiling",
+                    "email": "info@example.com",
+                    "phone": "+998 90 000 00 00",
+                    "address": "Toshkent, O'zbekiston",
+                    "workingHours": "Du-Ju: 9:00 - 18:00"
+                }
+            }]
+        pages.append({"slug": "contact", "title": "Aloqa", "sections": contact_sections})
+        existing_slugs.add("contact")
+
+    schema["pages"] = pages
+    return schema
+
+
+# ─────────────────────────────────────────────────────────────────
+# DESIGN RANDOMIZATION ENGINE
+# ─────────────────────────────────────────────────────────────────
+
+LAYOUT_PATTERNS = [
+    "centered-hero", "split-hero", "hero-with-sidebar", "image-first-hero",
+    "dashboard-style", "magazine-layout", "saas-landing", "local-business",
+    "premium-dark", "gradient-modern", "hero-fullscreen", "minimal-clean",
+    "bold-typography", "glassmorphism-card", "asymmetric-layout",
+    "hero-with-cards", "editorial", "overlap-cards",
+    "two-column-content", "bold-hero",
+]
+
+DESIGN_STYLES = [
+    "minimal", "luxury", "startup", "dark", "glassmorphism",
+    "editorial", "playful", "corporate", "bold-gradient", "local-uzbek",
+]
+
+BUSINESS_PALETTES: Dict[str, list] = {
+    "restaurant": [
+        {"primary": "#e85d04", "accent": "#f48c06", "bg": "#fff8f0", "text": "#1a0a00", "font": "Poppins"},
+        {"primary": "#d62828", "accent": "#fcbf49", "bg": "#1a0000", "text": "#ffffff", "font": "Montserrat"},
+        {"primary": "#606c38", "accent": "#dda15e", "bg": "#fefae0", "text": "#283618", "font": "Playfair Display"},
+        {"primary": "#bc6c25", "accent": "#dda15e", "bg": "#0a0a0a", "text": "#ffffff", "font": "Space Grotesk"},
+    ],
+    "salon": [
+        {"primary": "#c9184a", "accent": "#ff4d6d", "bg": "#fff0f3", "text": "#1a0005", "font": "Playfair Display"},
+        {"primary": "#6d2b8f", "accent": "#d4a5ff", "bg": "#f8f0ff", "text": "#1a0030", "font": "Raleway"},
+        {"primary": "#b5179e", "accent": "#f72585", "bg": "#0d001a", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#a2836e", "accent": "#d4b8a5", "bg": "#fdf5f0", "text": "#2d1b12", "font": "Playfair Display"},
+    ],
+    "clinic": [
+        {"primary": "#0077b6", "accent": "#00b4d8", "bg": "#f0f8ff", "text": "#023e8a", "font": "Inter"},
+        {"primary": "#2d6a4f", "accent": "#52b788", "bg": "#f0fff4", "text": "#081c15", "font": "Inter"},
+        {"primary": "#005f73", "accent": "#0a9396", "bg": "#ffffff", "text": "#001219", "font": "Space Grotesk"},
+        {"primary": "#1d3557", "accent": "#457b9d", "bg": "#f8f9fa", "text": "#1d3557", "font": "Raleway"},
+    ],
+    "tech": [
+        {"primary": "#6366f1", "accent": "#8b5cf6", "bg": "#0f0f1a", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#0ea5e9", "accent": "#6366f1", "bg": "#020617", "text": "#ffffff", "font": "Inter"},
+        {"primary": "#10b981", "accent": "#06b6d4", "bg": "#0a0a0a", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#f59e0b", "accent": "#ef4444", "bg": "#09090b", "text": "#ffffff", "font": "Montserrat"},
+    ],
+    "gym": [
+        {"primary": "#e63946", "accent": "#f4a261", "bg": "#0d0d0d", "text": "#ffffff", "font": "Montserrat"},
+        {"primary": "#f97316", "accent": "#fbbf24", "bg": "#0a0a0a", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#dc2626", "accent": "#16a34a", "bg": "#111827", "text": "#ffffff", "font": "Montserrat"},
+        {"primary": "#7c3aed", "accent": "#f59e0b", "bg": "#0a0a0a", "text": "#ffffff", "font": "Space Grotesk"},
+    ],
+    "hotel": [
+        {"primary": "#b5838d", "accent": "#e5989b", "bg": "#fff4e6", "text": "#2d1b1e", "font": "Playfair Display"},
+        {"primary": "#c9a84c", "accent": "#e5c687", "bg": "#1a1100", "text": "#ffffff", "font": "Playfair Display"},
+        {"primary": "#8338ec", "accent": "#ff006e", "bg": "#10002b", "text": "#ffffff", "font": "Raleway"},
+        {"primary": "#c77dff", "accent": "#e0aaff", "bg": "#10002b", "text": "#ffffff", "font": "Playfair Display"},
+    ],
+    "agency": [
+        {"primary": "#7209b7", "accent": "#f72585", "bg": "#10002b", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#3a0ca3", "accent": "#4cc9f0", "bg": "#0d0d0d", "text": "#ffffff", "font": "Space Grotesk"},
+        {"primary": "#f72585", "accent": "#7209b7", "bg": "#ffffff", "text": "#10002b", "font": "Montserrat"},
+        {"primary": "#ff6b35", "accent": "#004e89", "bg": "#ffffff", "text": "#1a1a2e", "font": "Raleway"},
+    ],
+    "education": [
+        {"primary": "#2d6a4f", "accent": "#52b788", "bg": "#f0fff4", "text": "#081c15", "font": "Poppins"},
+        {"primary": "#1d3557", "accent": "#457b9d", "bg": "#f8f9fa", "text": "#1d3557", "font": "Inter"},
+        {"primary": "#6930c3", "accent": "#5e60ce", "bg": "#f8f0ff", "text": "#1a003a", "font": "Space Grotesk"},
+        {"primary": "#e76f51", "accent": "#f4a261", "bg": "#fef9ef", "text": "#1a0a00", "font": "Poppins"},
+    ],
+    "shop": [
+        {"primary": "#e63946", "accent": "#457b9d", "bg": "#ffffff", "text": "#1d3557", "font": "Inter"},
+        {"primary": "#0f4c81", "accent": "#f7b731", "bg": "#ffffff", "text": "#1a1a2e", "font": "Montserrat"},
+        {"primary": "#2d6a4f", "accent": "#52b788", "bg": "#f8fff8", "text": "#0a1a0a", "font": "Inter"},
+        {"primary": "#6d2b8f", "accent": "#d4a5ff", "bg": "#ffffff", "text": "#1a0030", "font": "Space Grotesk"},
+    ],
+    "default": [
+        {"primary": "#2563eb", "accent": "#7c3aed", "bg": "#ffffff", "text": "#111827", "font": "Inter"},
+        {"primary": "#0f172a", "accent": "#6366f1", "bg": "#f8fafc", "text": "#0f172a", "font": "Space Grotesk"},
+        {"primary": "#059669", "accent": "#0891b2", "bg": "#ffffff", "text": "#064e3b", "font": "Poppins"},
+        {"primary": "#dc2626", "accent": "#b45309", "bg": "#fffbeb", "text": "#1c1917", "font": "Inter"},
+    ],
+}
+
+BUSINESS_KEYWORDS: Dict[str, list] = {
+    "restaurant": ["restoran", "kafe", "cafe", "taom", "oshxona", "pizza", "burger", "sushi", "food", "ovqat", "choyxona"],
+    "salon": ["salon", "spa", "beauty", "go'zallik", "gozallik", "barber", "nail", "soch", "kosmetik", "manikur"],
+    "clinic": ["klinika", "clinic", "shifokor", "doktor", "tibbiy", "hospital", "health", "sog'liq", "stomatolog"],
+    "tech": ["tech", "saas", "startup", "software", "it", "dastur", "ilova", "app", "digital", "texnologiya", "web"],
+    "gym": ["gym", "fitness", "sport", "trener", "bodybuilding", "crossfit", "yoga", "zal", "mma"],
+    "hotel": ["hotel", "mehmonxona", "turizm", "travel", "tourism", "resort", "sayohat", "hostel"],
+    "agency": ["agentlik", "agency", "kreativ", "creative", "dizayn", "design", "studio", "marketing", "reklama"],
+    "education": ["ta'lim", "talim", "kurs", "maktab", "akademiya", "school", "academy", "edu", "o'quv", "trening"],
+    "shop": ["shop", "do'kon", "dokon", "market", "mahsulot", "store", "ecommerce", "savdo", "sotish"],
+}
+
+
+def _detect_business_type(prompt: str) -> str:
+    """Promptdan biznes turini aniqlaydi."""
+    lower = prompt.lower()
+    for btype, keywords in BUSINESS_KEYWORDS.items():
+        if any(k in lower for k in keywords):
+            return btype
+    return "default"
+
+
+def _pick_random_design(business_type: str) -> tuple:
+    """Har generatsiyada yangi random dizayn va rang palitrasini tanlaydi."""
+    style = _random.choice(DESIGN_STYLES)
+    layout = _random.choice(LAYOUT_PATTERNS)
+
+    mood_map = {
+        "minimal": "calm", "luxury": "elegant", "startup": "modern",
+        "dark": "modern", "glassmorphism": "premium", "editorial": "elegant",
+        "playful": "energetic", "corporate": "calm", "bold-gradient": "energetic",
+        "local-uzbek": "modern",
+    }
+    mood = mood_map.get(style, "modern")
+
+    if style in ("dark", "glassmorphism", "bold-gradient"):
+        corner = _random.choice(["medium", "large", "extra"])
+    elif style == "corporate":
+        corner = _random.choice(["none", "small", "medium"])
+    else:
+        corner = _random.choice(["small", "medium", "large", "extra"])
+
+    palettes = BUSINESS_PALETTES.get(business_type, BUSINESS_PALETTES["default"])
+    palette = _random.choice(palettes)
+
+    design = {
+        "style": style,
+        "layoutPattern": layout,
+        "mood": mood,
+        "density": _random.choice(["compact", "comfortable", "spacious"]),
+        "cornerRadius": corner,
+        "animation": _random.choice(["none", "subtle", "smooth"]),
+    }
+    return design, palette
+
+
+def _build_design_constraint(design: Dict, palette: Dict) -> str:
+    """Claude promptiga qo'shiladigan majburiy dizayn constraint matni."""
+    return (
+        "\n\n=== MANDATORY DESIGN CONSTRAINT ===\n"
+        f"Style: {design['style']}  |  Layout: {design['layoutPattern']}  |  Mood: {design['mood']}\n"
+        f"Density: {design['density']}  |  CornerRadius: {design['cornerRadius']}\n"
+        "\nColor palette — USE EXACTLY THESE VALUES in settings{}:\n"
+        f'  primaryColor: "{palette["primary"]}"\n'
+        f'  accentColor:  "{palette["accent"]}"\n'
+        f'  bgColor:      "{palette["bg"]}"\n'
+        f'  textColor:    "{palette["text"]}"\n'
+        f'  font:         "{palette["font"]}"\n'
+        "\nInclude this block at top level of JSON (same level as settings):\n"
+        '"design": {\n'
+        f'  "style": "{design["style"]}",\n'
+        f'  "layoutPattern": "{design["layoutPattern"]}",\n'
+        f'  "mood": "{design["mood"]}",\n'
+        f'  "density": "{design["density"]}",\n'
+        f'  "cornerRadius": "{design["cornerRadius"]}",\n'
+        f'  "animation": "{design["animation"]}"\n'
+        "}\n"
+        "=== END DESIGN CONSTRAINT ==="
+    )
 
 
 def _deduct_for_generation(
@@ -550,11 +849,16 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi
                     # Generatsiyadan oldin balansni tekshiramiz (auth user uchun)
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
+                    _btype = _detect_business_type(prompt)
+                    _design, _palette = _pick_random_design(_btype)
+                    _constraint = _build_design_constraint(_design, _palette)
                     gen_start = time.monotonic()
                     claude = ClaudeService()
                     new_schema, usage = claude.generate_from_spec(
-                        spec, max_pages=user_limits["max_pages"],
+                        spec + _constraint, max_pages=user_limits["max_pages"],
                     )
+                    if isinstance(new_schema, dict) and "design" not in new_schema:
+                        new_schema["design"] = _design
                     gen_ms = int((time.monotonic() - gen_start) * 1000)
                     complexity = _estimate_complexity(new_schema)
 
@@ -570,6 +874,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                         return _insufficient_balance_response(
                             request.user, conversation, site_cost_nano, action=action_label
                         )
+                    # Fallback: AI 4 dan kam sahifa bersa, standart ko'p sahifali tuzilma qo'shamiz
+                    new_schema = _ensure_multipage(new_schema)
                     logger.info(
                         "Claude schema: type=%s keys=%s siteName=%s pages=%s sections_in_first_page=%s",
                         type(new_schema).__name__,
@@ -701,12 +1007,19 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     action=f"sayt yaratish ({site_cost_nano:,} nano)"
                 )
 
+            _btype2 = _detect_business_type(prompt)
+            _design2, _palette2 = _pick_random_design(_btype2)
+            _constraint2 = _build_design_constraint(_design2, _palette2)
             gen_start = time.monotonic()
             claude = ClaudeService()
             new_schema, usage = claude.generate_full_site(
-                prompt, language, max_pages=user_limits["max_pages"],
+                prompt + _constraint2, language, max_pages=user_limits["max_pages"],
             )
             gen_ms = int((time.monotonic() - gen_start) * 1000)
+            if isinstance(new_schema, dict) and "design" not in new_schema:
+                new_schema["design"] = _design2
+            # Fallback: AI 4 dan kam sahifa bersa, standart ko'p sahifali tuzilma qo'shamiz
+            new_schema = _ensure_multipage(new_schema)
             complexity = _estimate_complexity(new_schema)
             # HAQIQIY Claude xarajati (input + output token, min = 5 000 token)
             actual_cost_tokens2 = max(
