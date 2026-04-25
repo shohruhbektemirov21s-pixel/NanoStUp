@@ -57,3 +57,5 @@ services:
         value: "https://nanostup-api.onrender.com/api"
       - key: NODE_VERSION
         value: "20.10.0"
+
+
