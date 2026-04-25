@@ -43,7 +43,7 @@ export default function SiteAdminPage() {
   // ── Auth gate ──────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated || isTokenExpired()) {
-      router.replace(`/${locale}/auth/login?next=/${locale}/s/${slug}/admin`);
+      router.replace(`/${locale}/login?next=/${locale}/s/${slug}/admin`);
     }
   }, [isAuthenticated, isTokenExpired, locale, router, slug]);
 
@@ -71,7 +71,7 @@ export default function SiteAdminPage() {
         if (e.response?.status === 404) {
           setError('Sayt topilmadi yoki sizniki emas.');
         } else if (e.response?.status === 401) {
-          router.replace(`/${locale}/auth/login?next=/${locale}/s/${slug}/admin`);
+          router.replace(`/${locale}/login?next=/${locale}/s/${slug}/admin`);
         } else {
           setError(e.response?.data?.error ?? 'Yuklashda xatolik.');
         }

@@ -18,6 +18,12 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const store = useAuthStore.getState();
 
+  // Axios pitfall: if URL starts with '/', it ignores the path in baseURL.
+  // We strip the leading slash to ensure it appends to '/api/'.
+  if (config.url?.startsWith('/')) {
+    config.url = config.url.substring(1);
+  }
+
   // Token muddati o'tgan — logout
   if (store.isAuthenticated && store.isTokenExpired()) {
     store.logout();
