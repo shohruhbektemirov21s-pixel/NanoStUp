@@ -207,6 +207,32 @@ Yaratilgan: {project.created_at.strftime('%Y-%m-%d %H:%M') if project.created_at
 """
 
 
+DOMAIN_PROTECTION_SCRIPT = """
+<script>
+(function() {
+    var host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '') return;
+    if (host.endsWith('nanostup.uz')) return;
+    
+    fetch('https://api.nanostup.uz/api/public/verify-domain/?domain=' + host)
+      .then(r => r.json())
+      .then(d => {
+         if(!d.allowed) {
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f8f9fa;color:#1f2937;text-align:center;"><div style="background:white;padding:40px;border-radius:16px;box-shadow:0 10px 25px rgba(0,0,0,0.05);max-width:500px;"><h2>Ruxsat etilmagan domen</h2><p>Ushbu sayt faqat NanoStUp platformasida ishlashga mo\\'ljallangan.</p><a href="https://nanostup.uz" style="display:inline-block;margin-top:20px;padding:10px 20px;background:#6366f1;color:white;text-decoration:none;border-radius:8px;">NanoStUp ga o\\'tish</a></div></div>';
+         }
+      }).catch(e => {
+         console.warn("Domain verification check failed.");
+      });
+})();
+</script>
+"""
+
+def _inject_domain_protection(html: str) -> str:
+    if "</body>" in html:
+        return html.replace("</body>", f"{DOMAIN_PROTECTION_SCRIPT}\n</body>")
+    return html + DOMAIN_PROTECTION_SCRIPT
+
+
 class ExportService:
 
     @staticmethod
@@ -219,6 +245,8 @@ class ExportService:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for file_path, content in generated_files.items():
+                if file_path.endswith('.html'):
+                    content = _inject_domain_protection(content)
                 zf.writestr(file_path, content)
             zf.writestr("README.md", _build_readme(project, has_backend))
             zf.writestr(
@@ -233,7 +261,8 @@ class ExportService:
         """Fallback: JSON sxemadan oddiy HTML ZIP tuzadi (Claude fayllari yo'q bo'lsa)."""
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("index.html", _build_index_html(project))
+            html_content = _inject_domain_protection(_build_index_html(project))
+            zf.writestr("index.html", html_content)
             zf.writestr("README.md", _build_readme(project, has_backend=False))
             zf.writestr(
                 "schema_data.json",

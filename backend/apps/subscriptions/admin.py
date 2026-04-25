@@ -17,7 +17,8 @@ from .services import SubscriptionService
 class TariffAdmin(ModelAdmin):
     list_display = [
         "name", "price_display", "nano_coins_display", "tokens_display", "duration_days",
-        "projects_limit", "ai_generations_limit", "is_active", "subscribers_count",
+        "max_sites_per_month", "projects_limit", "ai_generations_limit",
+        "is_active", "subscribers_count",
     ]
     list_editable = ["is_active"]
     search_fields = ["name"]
@@ -35,8 +36,23 @@ class TariffAdmin(ModelAdmin):
                 "1 chat xabar (AI kod yaratish) = 500 nano / 5 000 token."
             ),
         }),
-        ("Cheklovlar", {
-            "fields": ("projects_limit", "pages_per_project_limit", "ai_generations_limit"),
+        ("📊 Sayt limitlari", {
+            "fields": (
+                "max_sites_per_month",     # oyiga nechta yangi sayt
+                "projects_limit",           # bir vaqtda nechta faol sayt
+                "max_active_sites",         # alternativ override (0 = projects_limit)
+                "pages_per_project_limit",  # bir loyihada sahifalar
+                "ai_generations_limit",
+            ),
+            "description": (
+                "<b>max_sites_per_month</b> — har oy yaratilishi mumkin bo'lgan saytlar (0 = cheksiz).<br>"
+                "<b>projects_limit</b> — bir vaqtning o'zida faol bo'lgan saytlar.<br>"
+                "<b>max_active_sites</b> — 0 bo'lsa projects_limit ishlatiladi."
+            ),
+        }),
+        ("🌐 Hosting/storage (metadata)", {
+            "fields": ("storage_limit_mb", "traffic_limit_gb"),
+            "classes": ("collapse",),
         }),
     )
 
@@ -83,20 +99,28 @@ class TariffAdmin(ModelAdmin):
 class SubscriptionAdmin(ModelAdmin):
     list_display = [
         "user_email", "tariff", "status_badge",
-        "start_date", "end_date", "days_left", "is_valid_display",
+        "sites_usage_display", "start_date", "end_date",
+        "days_left", "is_valid_display",
     ]
     list_filter = ["status", "tariff"]
     search_fields = ["user__email", "user__full_name"]
     autocomplete_fields = ["user"]
     ordering = ["-created_at"]
-    readonly_fields = ["created_at", "updated_at", "projects_created", "generations_used"]
+    readonly_fields = [
+        "created_at", "updated_at",
+        "projects_created", "generations_used",
+        "sites_remaining_display",
+    ]
     fields = [
         "user", "tariff", "status", "start_date", "end_date",
-        "projects_created", "generations_used", "created_at", "updated_at",
+        "sites_created_this_month", "month_reset_date",
+        "sites_remaining_display",
+        "projects_created", "generations_used",
+        "created_at", "updated_at",
     ]
 
     # Admin panelda foydalanuvchiga obuna berish tugmasi
-    actions = ["extend_30_days", "cancel_subscriptions"]
+    actions = ["extend_30_days", "cancel_subscriptions", "reset_monthly_counter"]
 
     def user_email(self, obj):
         return obj.user.email
@@ -134,6 +158,24 @@ class SubscriptionAdmin(ModelAdmin):
     is_valid_display.short_description = "Faolmi?"
     is_valid_display.boolean = True
 
+    def sites_usage_display(self, obj):
+        cap = obj.tariff.max_sites_per_month
+        used = obj.sites_created_this_month
+        if cap == 0:
+            return format_html('<span style="color:#22c55e">{} / ∞</span>', used)
+        color = "#22c55e" if used < cap else "#ef4444"
+        return format_html(
+            '<span style="color:{};font-weight:600">{} / {}</span>', color, used, cap,
+        )
+    sites_usage_display.short_description = "Bu oy saytlar"
+
+    def sites_remaining_display(self, obj):
+        rem = obj.sites_remaining
+        if rem == -1:
+            return "♾ Cheksiz"
+        return f"{rem} ta qoldi"
+    sites_remaining_display.short_description = "Qolgan limit"
+
     @admin.action(description="30 kunlik uzaytirish")
     def extend_30_days(self, request, queryset):
         count = 0
@@ -148,6 +190,19 @@ class SubscriptionAdmin(ModelAdmin):
     def cancel_subscriptions(self, request, queryset):
         count = queryset.update(status=SubscriptionStatus.CANCELED)
         self.message_user(request, f"{count} ta obuna bekor qilindi.", messages.WARNING)
+
+    @admin.action(description="🔄 Oylik sayt limitini qo'lda reset qilish")
+    def reset_monthly_counter(self, request, queryset):
+        today = timezone.now().date()
+        count = queryset.update(
+            sites_created_this_month=0,
+            month_reset_date=today + timedelta(days=30),
+        )
+        self.message_user(
+            request,
+            f"{count} ta obunada oylik sayt counter 0 ga reset qilindi.",
+            messages.SUCCESS,
+        )
 
     def save_model(self, request, obj, form, change):
         """end_date avtomatik hisoblash (start_date + tariff.duration_days)."""

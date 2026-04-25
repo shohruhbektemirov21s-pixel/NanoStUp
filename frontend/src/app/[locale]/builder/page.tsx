@@ -74,6 +74,11 @@ interface ChatMessage {
   pricingUrl?: string;   // sotib olish sahifasi URL
   requiredNano?: number;
   currentNano?: number;
+  // Limit reached info
+  limitReached?: boolean;
+  maxSites?: number;
+  sitesCreated?: number;
+  hasSubscription?: boolean;
 }
 
 interface DesignVariant {
@@ -125,6 +130,12 @@ interface ApiResponse {
   required_nano?: number;      // nano koin kerak
   current_nano?: number;       // joriy nano koin balansi
   pricing_url?: string;        // /pricing ga yo'naltirish
+  // Limit reached info
+  limit_reached?: boolean;
+  max_sites_per_month?: number;
+  sites_created_this_month?: number;
+  sites_remaining?: number;
+  has_subscription?: boolean;
   // Eski maydonlar (orqaga moslik)
   required_tokens?: number;
   current_tokens?: number;
@@ -443,6 +454,19 @@ function ChatBubble({
               className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-semibold transition-all shadow-lg shadow-purple-900/30"
             >
               💳 Nano koin sotib olish
+            </Link>
+          </div>
+        )}
+        {msg.limitReached && (
+          <div className="mt-3 pt-3 border-t border-zinc-600/50 flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs text-zinc-400">
+              <span>Oyiga sayt: <span className="text-red-400 font-semibold">{msg.sitesCreated} / {msg.maxSites}</span></span>
+            </div>
+            <Link
+              href={msg.pricingUrl ?? '/pricing'}
+              className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-xs font-semibold transition-all shadow-lg shadow-purple-900/30"
+            >
+              🚀 {msg.hasSubscription ? 'Tarifni oshirish' : 'Obuna sotib olish'}
             </Link>
           </div>
         )}
@@ -997,6 +1021,28 @@ export default function BuilderPage() {
             pricingUrl: data.pricing_url ?? '/pricing',
             requiredNano: needNano,
             currentNano: haveNano,
+          }]);
+        } else if (data.limit_reached) {
+          const cap = data.max_sites_per_month ?? 0;
+          const used = data.sites_created_this_month ?? 0;
+          const msgText = [
+            `⚠️ Oy uchun sayt yaratish limiti tugadi.`,
+            ``,
+            `📊 Bu oy yaratilgan: ${used} / ${cap}`,
+            ``,
+            data.has_subscription 
+              ? `Yuqoriroq tarifga o'tib, ko'proq sayt yaratishingiz mumkin.` 
+              : `Obuna sotib olib, oyiga ko'proq sayt yarating.`
+          ].join('\n');
+          setErrorMsg('Oy uchun sayt limiti tugadi');
+          setChatMessages(prev => [...prev, {
+            role: 'ai',
+            text: msgText,
+            limitReached: true,
+            maxSites: cap,
+            sitesCreated: used,
+            hasSubscription: !!data.has_subscription,
+            pricingUrl: data.pricing_url ?? '/pricing',
           }]);
         } else {
           setErrorMsg(data.error ?? 'Xatolik yuz berdi.');

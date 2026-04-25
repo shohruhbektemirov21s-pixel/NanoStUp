@@ -42,6 +42,19 @@ class WebsiteProject(models.Model):
     published_at = models.DateTimeField(null=True, blank=True)
     view_count = models.PositiveIntegerField(default=0)
 
+    # ── Hosting kontroli ───────────────────────────────────────
+    # is_active=False bo'lsa publik URL inactive qaytaradi (admin manual o'chirishi mumkin).
+    is_active = models.BooleanField(
+        "Faol", default=True,
+        help_text="Sayt publik URL orqali ko'rinadimi? Obuna tugaganda yoki "
+                  "admin tomonidan bloklanganda False qilinadi.",
+    )
+    # Sayt faqat NanoStUp infrastrukturasida hosting bo'ladi.
+    hosted_on_platform = models.BooleanField(
+        "NanoStUp'da hosting", default=True,
+        help_text="Saytlar faqat NanoStUp serverlarida ishlaydi (external hosting taqiqlangan).",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     generation_started_at = models.DateTimeField(null=True, blank=True)

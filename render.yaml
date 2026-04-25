@@ -12,9 +12,54 @@ services:
     branch: main
     buildCommand: "./build.sh"
     # gthread: async I/O — Claude/Gemini uzoq javob bersa worker o'lmaydi (SIGABRT yo'q)
-    # --timeout 300: ZIP generatsiya (Claude) 150s olishi mumkin + buffer
+    # --timeout 1260: Claude uzoq generatsiya (max 20 min = 1200s) + 60s buffer
     # --threads 4: har worker 4 ta parallel so'rovni handle qiladi
-    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 300 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 1260 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # Qo'lda kiritamiz (dashboard orqali)
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "nanostup-api.onrender.com,nanostup.uz,www.nanostup.uz"
+      - key: DEBUG
+        value: "False"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://nanostup.onrender.com,https://nanostup.uz,https://www.nanostup.uz"
+      - key: DJANGO_SETTINGS_MODULE
+        value: "config.settings.production"
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: ANTHROPIC_MODEL
+        value: "claude-sonnet-4-6"
+      - key: GOOGLE_GENERATIVE_AI_MODEL
+        value: "gemini-2.5-flash"
+      # AI API kalitlari — dashboard orqali qo'lda kiritiladi (sync:false)
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+
+  # Frontend (Next.js)
+  - type: web
+    name: nanostup
+    runtime: node
+    rootDir: frontend
+    region: frankfurt
+    plan: starter  # $7/oy — uxlamaydi!
+    branch: main
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://nanostup-api.onrender.com"
+      - key: BACKEND_INTERNAL_URL
+        value: "https://nanostup-api.onrender.com/api"
+      - key: NODE_VERSION
+        value: "20.10.0"
+
+    # --threads 4: har worker 4 ta parallel so'rovni handle qiladi
+    startCommand: "gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --worker-class gthread --threads 4 --timeout 1260 --graceful-timeout 30 --keep-alive 5 --access-logfile - --error-logfile -"
     envVars:
       - key: DATABASE_URL
         sync: false  # Qo'lda kiritamiz (dashboard orqali)

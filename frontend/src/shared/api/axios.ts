@@ -10,7 +10,7 @@ const getBaseUrl = () => {
 
 const api = axios.create({
   baseURL: getBaseUrl(),
-  timeout: 180000,
+  timeout: 1260000,  // 21 min — gunicorn --timeout 1260 bilan moslashtirildi (Claude 20 min)
   withCredentials: false,
 });
 

@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -12,10 +14,31 @@ class Tariff(models.Model):
     )
     duration_days = models.IntegerField("Muddati (kun)", default=30)
 
-    # Limits
-    projects_limit = models.IntegerField("Loyihalar soni", default=1)
+    # ── Limits ────────────────────────────────────────────────────
+    projects_limit = models.IntegerField(
+        "Faol saytlar soni", default=1,
+        help_text="Bir vaqtning o'zida ushlab turish mumkin bo'lgan faol saytlar.",
+    )
+    max_sites_per_month = models.IntegerField(
+        "Oylik yangi sayt limiti", default=3,
+        help_text="Foydalanuvchi bir oyda yarata oladigan yangi saytlar soni. 0 = cheksiz.",
+    )
+    max_active_sites = models.IntegerField(
+        "Bir vaqtdagi maks. faol saytlar", default=0,
+        help_text="0 = projects_limit bilan bir xil. Aks holda alohida cheklov.",
+    )
     pages_per_project_limit = models.IntegerField("Bir loyihada sahifalar", default=5)
     ai_generations_limit = models.IntegerField("AI generatsiya limiti", default=10)
+
+    # ── Hosting/storage limitlari (faqat metadata) ────────────────
+    storage_limit_mb = models.IntegerField(
+        "Saqlash hajmi (MB)", default=100,
+        help_text="Hosting'da har sayt uchun maksimal disk hajmi (MB).",
+    )
+    traffic_limit_gb = models.IntegerField(
+        "Oylik trafik (GB)", default=1,
+        help_text="Oyiga maksimal trafik (GB). 0 = cheksiz.",
+    )
 
     # Nano koin — admin panel orqali qo'lda kiritiladi.
     nano_coins_included = models.PositiveIntegerField(
@@ -26,6 +49,12 @@ class Tariff(models.Model):
 
     is_active = models.BooleanField("Faol", default=True)
     created_at = models.DateTimeField("Yaratilgan sana", auto_now_add=True)
+
+    # Helper'lar
+    @property
+    def effective_max_active_sites(self) -> int:
+        """`max_active_sites` 0 bo'lsa `projects_limit` qiymati ishlatiladi."""
+        return self.max_active_sites if self.max_active_sites > 0 else self.projects_limit
 
     class Meta:
         verbose_name = "Tarif (narxlar)"
@@ -64,9 +93,18 @@ class Subscription(models.Model):
     start_date = models.DateTimeField("Boshlanish sanasi", default=timezone.now)
     end_date = models.DateTimeField("Tugash sanasi")
 
-    # Tracking usage
-    projects_created = models.IntegerField("Yaratilgan loyihalar", default=0)
+    # Tracking usage (jami tarix)
+    projects_created = models.IntegerField("Jami yaratilgan loyihalar", default=0)
     generations_used = models.IntegerField("Ishlatilgan AI", default=0)
+
+    # ── Oylik counter (har oy reset bo'ladi) ──────────────────────
+    sites_created_this_month = models.PositiveIntegerField(
+        "Bu oy yaratilgan saytlar", default=0,
+    )
+    month_reset_date = models.DateField(
+        "Oylik reset sanasi", null=True, blank=True,
+        help_text="Bu sana kelganda sites_created_this_month 0 ga resetlanadi.",
+    )
 
     created_at = models.DateTimeField("Yaratilgan", auto_now_add=True)
     updated_at = models.DateTimeField("Yangilangan", auto_now=True)
@@ -77,6 +115,57 @@ class Subscription(models.Model):
 
     def is_valid(self):
         return self.status == SubscriptionStatus.ACTIVE and self.end_date > timezone.now()
+
+    # ── Limit helpers ─────────────────────────────────────────────
+    def maybe_reset_period(self) -> bool:
+        """
+        Agar `month_reset_date` o'tgan bo'lsa, oylik counter va sanani yangilaydi.
+        Returns: True — reset bo'lgan bo'lsa.
+        """
+        today = timezone.now().date()
+        # Hech qachon reset_date qo'yilmagan — hoziroq belgilaymiz
+        if not self.month_reset_date:
+            self.month_reset_date = today + timedelta(days=30)
+            self.save(update_fields=["month_reset_date", "updated_at"])
+            return False
+        if today >= self.month_reset_date:
+            self.sites_created_this_month = 0
+            self.month_reset_date = today + timedelta(days=30)
+            self.save(update_fields=[
+                "sites_created_this_month", "month_reset_date", "updated_at",
+            ])
+            return True
+        return False
+
+    @property
+    def sites_remaining(self) -> int:
+        """Bu oy uchun qolgan sayt yaratish miqdori. -1 = cheksiz."""
+        cap = self.tariff.max_sites_per_month
+        if cap == 0:
+            return -1
+        return max(0, cap - self.sites_created_this_month)
+
+    def can_create_site(self) -> bool:
+        """Foydalanuvchi yangi sayt yaratish huquqiga egami?"""
+        if not self.is_valid():
+            return False
+        # Avval oylik counter o'tib ketgan bo'lsa, reset qilamiz
+        self.maybe_reset_period()
+        # Refresh from DB to ensure post-reset state is read
+        self.refresh_from_db(fields=["sites_created_this_month", "month_reset_date"])
+        cap = self.tariff.max_sites_per_month
+        if cap == 0:  # cheksiz
+            return True
+        return self.sites_created_this_month < cap
+
+    def increment_sites_counter(self) -> None:
+        """Yangi sayt yaratilganda chaqiriladi: oylik va umumiy counter'ni oshiradi."""
+        from django.db.models import F
+        Subscription.objects.filter(pk=self.pk).update(
+            sites_created_this_month=F("sites_created_this_month") + 1,
+            projects_created=F("projects_created") + 1,
+        )
+        self.refresh_from_db(fields=["sites_created_this_month", "projects_created"])
 
     def __str__(self):
         return f"{self.user.email} - {self.tariff.name}"

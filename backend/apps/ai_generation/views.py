@@ -38,6 +38,17 @@ class DetectIntentView(APIView):
 
     def post(self, request):
         prompt = (request.data.get("prompt") or "").strip()
+        has_project = bool(request.data.get("project_id"))
+        has_images = bool(request.data.get("images"))
         if not prompt:
             return Response({"error": "Prompt kutilmoqda."}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({"intent": AIRouterService.detect_intent(prompt)})
+        primary = AIRouterService.detect_intent(prompt, has_project=has_project)
+        topic = AIRouterService.classify_topic(
+            prompt, has_project=has_project, has_images=has_images,
+        )
+        return Response({
+            "intent": primary,                       # backwards-compat (ARCHITECT/REVISE/CHAT/GENERATE)
+            "semantic_intent": topic["intent"],     # CREATE_SITE/REVISE_SITE/SEO_HELP/...
+            "language": topic["language"],
+            "off_topic": topic["off_topic"],
+        })

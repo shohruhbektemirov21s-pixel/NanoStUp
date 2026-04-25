@@ -38,17 +38,15 @@ from apps.subscriptions.models import Subscription, SubscriptionStatus
 
 # ── Tarif bo'yicha limitlar ───────────────────────────────────
 # Free (obunasi yo'q) foydalanuvchi uchun default:
-FREE_MAX_PAGES = 10   # Ko'p sahifali sayt — hamma uchun ochiq
-FREE_CAN_PUBLISH = False  # publik URL bermaymiz — faqat preview
+FREE_MAX_PAGES = 10           # Ko'p sahifali sayt — hamma uchun ochiq (preview)
+FREE_CAN_PUBLISH = False      # publik URL bermaymiz — faqat preview
+FREE_MAX_SITES_PER_MONTH = 1  # Obunasiz user 1 ta preview sayt yarata oladi
 
 
-def _get_user_limits(user) -> Dict[str, int]:
-    """
-    Foydalanuvchining faol obunasiga qarab limitlarini qaytaradi.
-    Faol obuna bo'lmasa — FREE default.
-    """
+def _get_active_subscription(user) -> Optional[Subscription]:
+    """Foydalanuvchining hozirda faol obunasini qaytaradi (yoki None)."""
     if not user or not user.is_authenticated:
-        return {"max_pages": FREE_MAX_PAGES, "can_publish": False}
+        return None
     sub = (
         Subscription.objects
         .filter(user=user, status=SubscriptionStatus.ACTIVE)
@@ -57,12 +55,91 @@ def _get_user_limits(user) -> Dict[str, int]:
         .first()
     )
     if sub and sub.is_valid():
+        # Lazy oylik reset — har request paytida tekshiriladi
+        sub.maybe_reset_period()
+        return sub
+    return None
+
+
+def _get_user_limits(user) -> Dict[str, int]:
+    """
+    Foydalanuvchining faol obunasiga qarab limitlarini qaytaradi.
+    Faol obuna bo'lmasa — FREE default.
+
+    Returns:
+        {
+          "max_pages": int,
+          "can_publish": bool,
+          "max_sites_per_month": int (0 = cheksiz),
+          "sites_created_this_month": int,
+          "sites_remaining": int (-1 = cheksiz),
+          "has_subscription": bool,
+        }
+    """
+    if not user or not user.is_authenticated:
+        return {
+            "max_pages": FREE_MAX_PAGES,
+            "can_publish": False,
+            "max_sites_per_month": FREE_MAX_SITES_PER_MONTH,
+            "sites_created_this_month": 0,
+            "sites_remaining": FREE_MAX_SITES_PER_MONTH,
+            "has_subscription": False,
+        }
+
+    sub = _get_active_subscription(user)
+    if sub:
         tariff = sub.tariff
         return {
             "max_pages": int(tariff.pages_per_project_limit or 1),
-            "can_publish": True,  # obuna bor — publik URL ishlaydi
+            "can_publish": True,
+            "max_sites_per_month": int(tariff.max_sites_per_month),
+            "sites_created_this_month": int(sub.sites_created_this_month),
+            "sites_remaining": sub.sites_remaining,
+            "has_subscription": True,
+            "tariff_name": tariff.name,
         }
-    return {"max_pages": FREE_MAX_PAGES, "can_publish": FREE_CAN_PUBLISH}
+
+    # Obuna yo'q — FREE
+    # Bu user qancha sayt yaratganini sanaymiz (oylik proxy = oxirgi 30 kun)
+    free_count = WebsiteProject.objects.filter(
+        user=user, created_at__gte=timezone.now() - timedelta(days=30),
+    ).count()
+    return {
+        "max_pages": FREE_MAX_PAGES,
+        "can_publish": FREE_CAN_PUBLISH,
+        "max_sites_per_month": FREE_MAX_SITES_PER_MONTH,
+        "sites_created_this_month": free_count,
+        "sites_remaining": max(0, FREE_MAX_SITES_PER_MONTH - free_count),
+        "has_subscription": False,
+    }
+
+
+def _site_limit_response(user_limits: Dict, action: str = "Yangi sayt yaratish") -> Response:
+    """Oylik sayt limiti tugaganda standart 402 javob."""
+    cap = user_limits.get("max_sites_per_month", 0)
+    used = user_limits.get("sites_created_this_month", 0)
+    has_sub = user_limits.get("has_subscription", False)
+    msg = (
+        f"⚠️ Oy uchun sayt yaratish limiti tugadi.\n\n"
+        f"📌 Sizning tarifingiz: {user_limits.get('tariff_name', 'FREE')}\n"
+        f"📊 Bu oy yaratilgan: {used} / {cap}\n\n"
+    )
+    if has_sub:
+        msg += "Yuqoriroq tarifga o'tib, ko'proq sayt yaratishingiz mumkin."
+    else:
+        msg += "Obuna sotib olib, oyiga ko'proq sayt yarating."
+    return Response({
+        "success": False,
+        "limit_reached": True,
+        "error": msg,
+        "message": "Oy uchun sayt limiti tugadi",
+        "action": action,
+        "max_sites_per_month": cap,
+        "sites_created_this_month": used,
+        "sites_remaining": user_limits.get("sites_remaining", 0),
+        "has_subscription": has_sub,
+        "pricing_url": "/pricing",
+    }, status=status.HTTP_402_PAYMENT_REQUIRED)
 
 # ── TEST REJIMI ───────────────────────────────────────────────
 # True bo'lsa — token balans tekshirilmaydi (cheklovsiz test).
@@ -431,6 +508,82 @@ def _build_design_constraint(design: Dict, palette: Dict) -> str:
     )
 
 
+def _deduct_partial_nano(
+    user, conversation: Optional[Conversation], nano: int,
+) -> int:
+    """
+    Generatsiya davomida (har 5 soniyada) qisman nano koin yechib olish.
+    Mavjud bo'lganini yechib oladi, raise qilmaydi.
+    Returns: haqiqatda yechib olingan nano miqdori.
+    """
+    if nano <= 0 or user is None or not getattr(user, "is_authenticated", False):
+        return 0
+    deducted = 0
+    remaining = nano
+
+    # 1. Avval chat bonus budjetidan
+    if conversation and conversation.chat_budget_nano > 0 and remaining > 0:
+        bonus_use = min(conversation.chat_budget_nano, remaining)
+        if bonus_use > 0:
+            try:
+                Conversation.objects.filter(id=conversation.id).update(
+                    chat_budget_nano=F("chat_budget_nano") - bonus_use,
+                )
+                conversation.refresh_from_db(fields=["chat_budget_nano"])
+                deducted += bonus_use
+                remaining -= bonus_use
+            except Exception:
+                logger.warning("Partial bonus deduct failed", exc_info=True)
+
+    # 2. Qolgan qismini obuna tokenlaridan
+    if remaining > 0:
+        sub_nano_avail = (user.tokens_balance or 0) // TOKENS_PER_NANO_COIN
+        sub_use = min(sub_nano_avail, remaining)
+        if sub_use > 0:
+            try:
+                user.deduct_tokens(sub_use * TOKENS_PER_NANO_COIN)
+                deducted += sub_use
+            except Exception:
+                logger.warning("Partial subscription deduct failed", exc_info=True)
+    return deducted
+
+
+def _deduct_with_partial(
+    user, conversation: Optional[Conversation], cost_tokens: int,
+    request,
+) -> Dict[str, int]:
+    """
+    `_deduct_for_generation` ustidan o'rovchi: agar `request._billing_ctx`
+    da progressive partial deduction bo'lgan bo'lsa, qolgan farqnigina
+    yechib oladi va response'ga umumiy hisobotni qo'shadi.
+
+    Returns: {"from_bonus_nano", "from_subscription_tokens", "total_cost_nano",
+              "partial_deducted_nano", "final_deducted_nano"}
+    """
+    ctx = getattr(request, "_billing_ctx", None) if request is not None else None
+    partial_nano = int(ctx.get("deducted_nano", 0)) if isinstance(ctx, dict) else 0
+
+    target_nano = cost_tokens // TOKENS_PER_NANO_COIN
+    remaining_nano = max(0, target_nano - partial_nano)
+    remaining_tokens = remaining_nano * TOKENS_PER_NANO_COIN
+
+    if remaining_tokens > 0:
+        deduction = _deduct_for_generation(user, conversation, remaining_tokens)
+    else:
+        deduction = {
+            "from_bonus_nano": 0,
+            "from_subscription_tokens": 0,
+            "from_subscription_nano": 0,
+            "bonus_left": conversation.chat_budget_nano if conversation else 0,
+            "total_cost_nano": 0,
+        }
+
+    deduction["partial_deducted_nano"] = partial_nano
+    deduction["final_deducted_nano"] = deduction.get("total_cost_nano", 0)
+    deduction["grand_total_nano"] = partial_nano + deduction["final_deducted_nano"]
+    return deduction
+
+
 def _deduct_for_generation(
     user, conversation: Optional[Conversation], cost_tokens: int,
 ) -> Dict[str, int]:
@@ -610,10 +763,27 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def process_prompt(self, request):
         """
-        Streaming wrapper: agar Claude generatsiya uzoq davom etsa,
-        har 4 soniyada keep-alive bytes yuborib Render proxy timeout'ini oldini oladi.
+        Streaming wrapper:
+          - Har 4 soniyada keep-alive bytes yuboradi (Render proxy timeoutining oldini oladi)
+          - Har 5 soniyada PROGRESSIVE billing: ozgina nano koin yechib boradi.
+            Agar foydalanuvchi yarmida to'xtatsa — faqat o'tgan vaqtga proporsional
+            nano miqdori yechiladi, qolgani saqlanib qoladi.
         """
         result_q = _queue_module.Queue()
+
+        # ── Progressive billing context ────────────────────────────────
+        # `_process_prompt_impl` ichida deduct qilinganda, bu yerda allaqachon
+        # yechib olingan miqdor ayriladi (ortiqcha to'lov bo'lmaydi).
+        billing_ctx: Dict = {
+            "deducted_nano": 0,                      # shu paytgacha yechilgan
+            "expected_cost_nano": COST_COMPLEX_NANO, # max ehtimoliy narx (5000)
+            "expected_duration_sec": 90,             # taxminiy generatsiya vaqti
+            "user_id": request.user.id if getattr(request.user, "is_authenticated", False) else None,
+            "conversation_id": None,                  # _process_prompt_impl yangilaydi
+            "stopped": False,                         # generatsiya yakunlandimi?
+        }
+        # request orqali _process_prompt_impl ham bu kontekstga kira oladi
+        request._billing_ctx = billing_ctx  # type: ignore[attr-defined]
 
         def _run():
             try:
@@ -622,25 +792,55 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             except Exception as exc:
                 logger.exception("process_prompt thread xatosi")
                 result_q.put(("err", 500, {"success": False, "error": str(exc)}))
+            finally:
+                billing_ctx["stopped"] = True
 
         threading.Thread(target=_run, daemon=True).start()
 
         def _stream():
+            BILLING_INTERVAL = 5.0
+            last_bill_at = time.monotonic()
             while True:
                 try:
                     kind, status_code, data = result_q.get(timeout=4)
                     payload = json.dumps(data, ensure_ascii=False)
-                    # Status code ni response headeriga o'tkazib bo'lmaymiz —
-                    # uni data ichida yuboramiz, frontend chiqarib oladi.
                     yield payload.encode("utf-8")
                     return
                 except _queue_module.Empty:
-                    yield b" "   # keep-alive: Render proxy ulanishni uzmaydi
+                    yield b" "   # keep-alive
+
+                    # ── Progressive partial deduction ────────────────
+                    now = time.monotonic()
+                    if (
+                        not billing_ctx["stopped"]
+                        and billing_ctx["user_id"] is not None
+                        and not TOKEN_LIMITS_DISABLED
+                        and (now - last_bill_at) >= BILLING_INTERVAL
+                    ):
+                        elapsed = now - last_bill_at
+                        cap = billing_ctx["expected_cost_nano"]
+                        already = billing_ctx["deducted_nano"]
+                        if already < cap:
+                            chunk_nano = int(cap * elapsed / billing_ctx["expected_duration_sec"])
+                            chunk_nano = min(chunk_nano, cap - already)
+                            if chunk_nano > 0:
+                                try:
+                                    User = type(request.user)
+                                    u = User.objects.filter(id=billing_ctx["user_id"]).first()
+                                    conv = None
+                                    cid = billing_ctx.get("conversation_id")
+                                    if cid:
+                                        conv = Conversation.objects.filter(id=cid).first()
+                                    actually_deducted = _deduct_partial_nano(u, conv, chunk_nano)
+                                    billing_ctx["deducted_nano"] += actually_deducted
+                                except Exception:
+                                    logger.warning("Progressive billing chunk error", exc_info=True)
+                        last_bill_at = now
 
         streaming_resp = StreamingHttpResponse(
             _stream(), content_type="application/json; charset=utf-8",
         )
-        streaming_resp["X-Accel-Buffering"] = "no"   # Nginx/Render buferingni o'chiradi
+        streaming_resp["X-Accel-Buffering"] = "no"
         streaming_resp["Cache-Control"] = "no-cache"
         return streaming_resp
 
@@ -715,6 +915,14 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         if project_id and images and intent == "CHAT":
             intent = "REVISE"
 
+        # Semantic classification — analitika va til detect uchun (mavjud routerni buzmaydi)
+        topic = AIRouterService.classify_topic(
+            prompt, has_project=bool(project_id), has_images=bool(images),
+        )
+        detected_lang = topic.get("language") or language
+        if not language or language == "auto":
+            language = detected_lang
+
         # Foydalanuvchi tarif limitlari (max_pages, can_publish)
         user_limits = _get_user_limits(request.user)
         logger.info("AI request user=%s intent=%s project=%s images=%d limits=%s",
@@ -725,7 +933,21 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         conversation = _get_or_create_conversation(
             request.user, conversation_id, language, prompt,
         )
-        _save_message(conversation, ChatRole.USER, prompt, intent=intent)
+        _save_message(
+            conversation, ChatRole.USER, prompt, intent=intent,
+            metadata={
+                "topic": topic.get("intent"),
+                "language": topic.get("language"),
+                "off_topic": topic.get("off_topic", False),
+                "has_images": bool(images),
+            },
+        )
+
+        # Progressive billing context'ni conversation_id bilan yangilaymiz
+        if conversation:
+            ctx = getattr(request, "_billing_ctx", None)
+            if isinstance(ctx, dict):
+                ctx["conversation_id"] = str(conversation.id)
 
         # Agar intent generatsiya bo'lsa (yangi sayt yoki REVISE) — balansni tekshiramiz.
         # CHAT va ARCHITECT muloqot bosqichi bepul bo'ladi (faqat gaplashish).
@@ -805,13 +1027,14 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     metadata={"project_id": str(project.id), "title": project.title},
                 )
                 # Nano koin yechamiz — REVISE uchun 300/400/500 nano (murakkablikka qarab)
+                # Progressive partial allaqachon yechilgan bo'lsa — farqigina yechiladi
                 deduction = None
                 if not TOKEN_LIMITS_DISABLED:
                     rev_complexity_data = _estimate_complexity(new_schema)
                     revision_cost_tokens = rev_complexity_data["revision_cost_tokens"]
                     try:
-                        deduction = _deduct_for_generation(
-                            request.user, conversation, revision_cost_tokens,
+                        deduction = _deduct_with_partial(
+                            request.user, conversation, revision_cost_tokens, request,
                         )
                     except ValueError:
                         return Response({
@@ -847,6 +1070,9 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
 
                 if spec:
                     # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi
+                    # ── Oylik sayt limiti tekshiruvi ──
+                    if is_auth and user_limits.get("sites_remaining", 0) == 0:
+                        return _site_limit_response(user_limits)
                     # Generatsiyadan oldin balansni tekshiramiz (auth user uchun)
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     _btype = _detect_business_type(prompt)
@@ -896,6 +1122,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             schema_data=new_schema,
                             status=ProjectStatus.COMPLETED,
                         )
+                        # Oylik sayt counter'ni oshiramiz (faol obuna bo'lsa)
+                        _active_sub = _get_active_subscription(request.user)
+                        if _active_sub:
+                            _active_sub.increment_sites_counter()
                         if user_limits["can_publish"]:
                             _auto_publish(project)  # Yangi sayt — obunada publik URL
                         version = ProjectVersion.objects.create(
@@ -921,10 +1151,11 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                                 },
                             )
                         # Nano koin yechamiz (complexity ga qarab: 3000/4000/5000 nano)
+                        # Progressive partial allaqachon yechilgan bo'lsa — farqigina yechiladi
                         if not TOKEN_LIMITS_DISABLED and site_cost_nano > 0:
                             try:
-                                deduction = _deduct_for_generation(
-                                    request.user, conversation, site_cost_tokens,
+                                deduction = _deduct_with_partial(
+                                    request.user, conversation, site_cost_tokens, request,
                                 )
                                 balance_data = {
                                     "tokens": request.user.tokens_balance,
@@ -995,6 +1226,9 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 return Response(resp_data)
 
             # ── 3. TO'G'RIDAN-TO'G'RI GENERATSIYA (qisqa yo'l) ───────────
+            # ── Oylik sayt limiti tekshiruvi ──
+            if is_auth and user_limits.get("sites_remaining", 0) == 0:
+                return _site_limit_response(user_limits)
             site_cost_nano = COST_MEDIUM_NANO  # schema yo'q — o'rta narx (4000 nano)
             site_cost_tokens = site_cost_nano * TOKENS_PER_NANO_COIN
 
@@ -1037,6 +1271,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     schema_data=new_schema,
                     status=ProjectStatus.COMPLETED,
                 )
+                # Oylik sayt counter'ni oshiramiz (faol obuna bo'lsa)
+                _active_sub2 = _get_active_subscription(request.user)
+                if _active_sub2:
+                    _active_sub2.increment_sites_counter()
                 if user_limits["can_publish"]:
                     _auto_publish(project)  # Yangi sayt — obunada publik URL
                 version = ProjectVersion.objects.create(
@@ -1061,8 +1299,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     )
                 if not TOKEN_LIMITS_DISABLED and site_cost_nano > 0:
                     try:
-                        deduction2 = _deduct_for_generation(
-                            request.user, conversation, site_cost_tokens,
+                        deduction2 = _deduct_with_partial(
+                            request.user, conversation, site_cost_tokens, request,
                         )
                         balance_data2 = {
                             "tokens": request.user.tokens_balance,
@@ -1433,18 +1671,42 @@ WebsiteProjectViewSet.unpublish = action(detail=True, methods=["post"])(unpublis
 def public_site(request, slug: str):
     """
     /api/public/sites/<slug>/ — Publik URL uchun sayt sxemasini qaytaradi.
-    Faqat `is_published=True` bo'lgan loyihalar ko'rinadi.
+
+    Sayt ko'rinishi shartlari:
+      1. `is_published=True`     — sayt publish qilingan
+      2. `is_active=True`         — sayt admin/obuna tomonidan bloklanmagan
+      3. Egasining obunasi faol  — obunasi tugagan bo'lsa sayt inactive
     """
     try:
-        project = WebsiteProject.objects.only(
+        project = WebsiteProject.objects.select_related("user").only(
             "id", "title", "schema_data", "language",
-            "slug", "is_published", "view_count", "updated_at",
+            "slug", "is_published", "is_active", "view_count", "updated_at",
+            "user__id",
         ).get(slug=slug, is_published=True)
     except WebsiteProject.DoesNotExist:
         return Response(
             {"success": False, "error": "Sayt topilmadi yoki o'chirilgan."},
             status=status.HTTP_404_NOT_FOUND,
         )
+
+    # 2-shart: admin tomonidan bloklangan
+    if not project.is_active:
+        return Response({
+            "success": False,
+            "site_inactive": True,
+            "error": "Bu sayt vaqtinchalik o'chirilgan.",
+        }, status=status.HTTP_410_GONE)
+
+    # 3-shart: egasining obunasi tugaganmi?
+    owner_sub = _get_active_subscription(project.user)
+    if not owner_sub:
+        # Obunasi yo'q — sayt yopiq
+        return Response({
+            "success": False,
+            "subscription_required": True,
+            "site_inactive": True,
+            "error": "Sayt egasining obunasi muddati tugagan. Sayt vaqtinchalik ishlamayapti.",
+        }, status=status.HTTP_410_GONE)
 
     # View counter — atomik inkrement
     WebsiteProject.objects.filter(pk=project.pk).update(view_count=F("view_count") + 1)
@@ -1459,6 +1721,101 @@ def public_site(request, slug: str):
             "view_count": project.view_count + 1,
             "updated_at": project.updated_at,
         },
+    })
+
+
+# ─────────────────────────────────────────────────────────────
+# Owner admin — sayt egasi /admin sahifasi orqali boshqarish
+# ─────────────────────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def owner_get_by_slug(request, slug: str):
+    """
+    /api/projects/owner/by_slug/<slug>/ — Login qilingan sayt egasi
+    o'z saytining schema'sini olishi uchun.
+    """
+    try:
+        project = WebsiteProject.objects.get(slug=slug, user=request.user)
+    except WebsiteProject.DoesNotExist:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki sizniki emas."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    return Response({
+        "success": True,
+        "site": {
+            "id": str(project.id),
+            "title": project.title,
+            "schema_data": project.schema_data,
+            "language": project.language,
+            "slug": project.slug,
+            "is_published": project.is_published,
+            "updated_at": project.updated_at,
+        },
+    })
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def owner_save_by_slug(request, slug: str):
+    """
+    /api/projects/owner/by_slug/<slug>/save/ — Sayt egasi schema'ni
+    qo'lda tahrirlab saqlashi uchun (admin paneldan).
+    Body: { "schema_data": {...}, "title"?: "..." }
+    """
+    try:
+        project = WebsiteProject.objects.get(slug=slug, user=request.user)
+    except WebsiteProject.DoesNotExist:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki sizniki emas."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    new_schema = request.data.get("schema_data")
+    if not isinstance(new_schema, dict):
+        return Response(
+            {"success": False, "error": "schema_data dict bo'lishi kerak."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    new_title = request.data.get("title")
+    update_fields = ["schema_data", "updated_at"]
+    project.schema_data = new_schema
+    if isinstance(new_title, str) and new_title.strip():
+        project.title = new_title.strip()[:200]
+        update_fields.append("title")
+
+    # Generated_files keshini tozalaymiz — qayta yuklab olganda yangidan generatsiya qilinadi
+    if project.generated_files:
+        project.generated_files = None
+        update_fields.append("generated_files")
+
+    project.save(update_fields=update_fields)
+
+    # Versiya tarixiga ham qo'shamiz (manual edit)
+    try:
+        ProjectVersion.objects.create(
+            project=project,
+            prompt="(manual edit via /admin)",
+            schema_data=new_schema,
+            intent="manual_edit",
+            version_number=project.versions.count() + 1,
+        )
+    except Exception:
+        logger.warning("Failed to create version on manual edit", exc_info=True)
+
+    return Response({
+        "success": True,
+        "site": {
+            "id": str(project.id),
+            "title": project.title,
+            "schema_data": project.schema_data,
+            "slug": project.slug,
+            "is_published": project.is_published,
+            "updated_at": project.updated_at,
+        },
+        "message": "✅ Saqlandi.",
     })
 
 
@@ -1495,3 +1852,18 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
         instance = self.get_object()
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET"])
+@permission_classes([permissions.AllowAny])
+def verify_domain(request):
+    domain = request.query_params.get("domain", "").lower()
+    allowed_base_domains = ["nanostup.uz", "localhost", "127.0.0.1"]
+    
+    for base in allowed_base_domains:
+        if domain == base or domain.endswith("." + base):
+            return Response({"allowed": True})
+            
+    # For custom domains pointing to us, we could check if any project uses this domain.
+    # For now, if they are on an external domain, we disallow.
+    return Response({"allowed": False})
