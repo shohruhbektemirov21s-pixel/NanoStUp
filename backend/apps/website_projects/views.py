@@ -40,8 +40,8 @@ from apps.subscriptions.models import Subscription, SubscriptionStatus
 # ── Tarif bo'yicha limitlar ───────────────────────────────────
 # Free (obunasi yo'q) foydalanuvchi uchun default:
 FREE_MAX_PAGES = 10           # Ko'p sahifali sayt — hamma uchun ochiq (preview)
-FREE_CAN_PUBLISH = False      # publik URL bermaymiz — faqat preview
-FREE_MAX_SITES_PER_MONTH = 1  # Obunasiz user 1 ta preview sayt yarata oladi
+FREE_CAN_PUBLISH = True       # publik URL beramiz — bepul foydalanuvchilar uchun ham
+FREE_MAX_SITES_PER_MONTH = 1  # Obunasiz user 1 ta sayt yarata oladi
 
 
 def _get_active_subscription(user) -> Optional[Subscription]:
@@ -1700,8 +1700,8 @@ def public_site(request, slug: str):
 
     # 3-shart: egasining obunasi tugaganmi?
     owner_sub = _get_active_subscription(project.user)
-    if not owner_sub:
-        # Obunasi yo'q — sayt yopiq
+    if not owner_sub and not FREE_CAN_PUBLISH:
+        # Obunasi yo'q va bepul publish ruxsat berilmagan — sayt yopiq
         return Response({
             "success": False,
             "subscription_required": True,
