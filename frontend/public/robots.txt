@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://nanostup.uz/sitemap.xml

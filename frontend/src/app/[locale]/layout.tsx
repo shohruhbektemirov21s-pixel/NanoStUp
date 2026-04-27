@@ -4,6 +4,20 @@ import {notFound} from 'next/navigation';
 import {routing} from '@/i18n/routing';
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | NanoStUp AI',
+    default: 'NanoStUp AI - Build Your Website with AI',
+  },
+  description: 'Create professional multi-page websites in seconds with the power of Artificial Intelligence.',
+  keywords: ['AI website builder', 'automatic website generation', 'NanoStUp', 'web design AI', 'O\'zbekiston AI'],
+  authors: [{ name: 'NanoStUp Team' }],
+  viewport: 'width=device-width, initial-scale=1',
+  robots: 'index, follow',
+};
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
