@@ -256,7 +256,7 @@ export default function ProfilePage() {
         <div id="tariffs">
           <h2 className="text-3xl font-black mb-2">Obunani tanlang</h2>
           <p className="text-zinc-400 mb-8">
-            Tarifni sotib olish Sizga token qo&apos;shadi va ko&apos;proq imkoniyatlar ochadi.
+            Tarifni sotib olish Sizga nano koin qo&apos;shadi va ko&apos;proq imkoniyatlar ochadi.
           </p>
 
           {loading ? (
@@ -296,20 +296,20 @@ export default function ProfilePage() {
                         <span className="text-4xl font-black">{priceLabel(tariff.price)}</span>
                       </div>
 
-                      {/* Sotib olingach qo'shiladigan token miqdori */}
+                      {/* Sotib olingach qo'shiladigan nano koin miqdori */}
                       {tariff.nano_coins_included > 0 && (
                         <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] text-amber-300/80 uppercase font-bold tracking-wider">
-                              Beriladigan token
+                              Beriladigan nano koin
                             </span>
                             <Coins className="w-4 h-4 text-amber-400" />
                           </div>
                           <div className="text-2xl font-black text-amber-200 mt-1">
-                            💎 {(tariff.nano_coins_included * 10).toLocaleString('en')}
+                            💎 {tariff.nano_coins_included.toLocaleString('en')}
                           </div>
                           <div className="text-[10px] text-zinc-500 mt-1">
-                            ~{Math.floor((tariff.nano_coins_included * 10) / 5000)} ta chat (1 chat = 5 000 token)
+                            ~{Math.floor(tariff.nano_coins_included / 500)} ta chat (1 chat = 500 nano koin)
                           </div>
                         </div>
                       )}
@@ -330,7 +330,7 @@ export default function ProfilePage() {
                       </li>
                       <li className="flex items-center gap-2 text-zinc-300">
                         <Zap className="w-4 h-4 text-blue-400 shrink-0" />
-                        <span>1 chat = 5 000 token</span>
+                        <span>1 chat = 500 nano koin</span>
                       </li>
                     </ul>
 
@@ -365,7 +365,7 @@ export default function ProfilePage() {
         <div className="mt-10 p-5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
           <p className="text-sm text-emerald-200/80">
             <strong className="text-emerald-300">🔒 Xavfsiz to'lov:</strong> Sotib olish tugmasini bosganingizda
-            bank kartangiz orqali to'lov sahifasiga o'tasiz. Tokenlar faqat to'lov
+            bank kartangiz orqali to'lov sahifasiga o'tasiz. Nano koinlar faqat to'lov
             muvaffaqiyatli amalga oshgandan so&apos;ng avtomatik hisobingizga qo&apos;shiladi.
           </p>
         </div>
