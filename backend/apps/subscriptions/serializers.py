@@ -17,8 +17,7 @@ class TariffSerializer(serializers.ModelSerializer):
     def get_features(self, obj):
         features = []
         if obj.nano_coins_included > 0:
-            tokens = obj.nano_coins_included * 10
-            features.append(f"💎 {tokens:,} token ({obj.nano_coins_included:,} nano koin)")
+            features.append(f"💎 {obj.nano_coins_included:,} nano koin")
         if obj.projects_limit == 0:
             features.append("Cheksiz loyihalar")
         else:
@@ -28,7 +27,7 @@ class TariffSerializer(serializers.ModelSerializer):
         else:
             features.append(f"{obj.ai_generations_limit} ta AI generatsiya")
         features.append(f"{obj.duration_days} kunlik obuna")
-        features.append("1 chat = 5 000 token (AI kod)")
+        features.append("1 chat = 500 nano koin (AI kod)")
         return features
 
 class SubscriptionSerializer(serializers.ModelSerializer):

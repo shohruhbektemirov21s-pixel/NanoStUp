@@ -161,8 +161,11 @@ def verify_payment(request):
         nano_granted = tariff.nano_coins_included or 0
         tokens_to_add = nano_granted * TOKENS_PER_NANO_COIN
         if tokens_to_add > 0:
+            from django.utils import timezone as _tz
             user.tokens_balance = (user.tokens_balance or 0) + tokens_to_add
-            user.save(update_fields=["tokens_balance"])
+            # 30 kunlik foydalanmaslik timer'ini qaytadan boshlaymiz
+            user.nano_coins_last_used_at = _tz.now()
+            user.save(update_fields=["tokens_balance", "nano_coins_last_used_at"])
 
         payment.status = PaymentStatus.SUCCESS
         payment.verified_at = now
@@ -178,7 +181,7 @@ def verify_payment(request):
         "nano_coins": user.nano_coins,
         "message": (
             f"🎉 «{tariff.name}» obunasi faollashtirildi! "
-            f"+{tokens_to_add:,} token hisobingizga qo'shildi."
+            f"+{nano_granted:,} nano koin hisobingizga qo'shildi."
         ),
     })
 

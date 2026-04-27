@@ -178,14 +178,17 @@ class Subscription(models.Model):
         # Yangi faol obuna yaratilganda nano koinlarni balansga qo'shish
         if is_new and self.status == SubscriptionStatus.ACTIVE:
             from django.contrib.auth import get_user_model
+            from django.utils import timezone
             UserModel = get_user_model()
             from apps.accounts.models import TOKENS_PER_NANO_COIN
             nano_to_add = self.tariff.nano_coins_included
             if nano_to_add > 0:
                 tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
                 from django.db.models import F
+                # Nano koin qo'shilganda — 30 kunlik timer ham qaytadan boshlanadi
                 UserModel.objects.filter(pk=self.user.pk).update(
-                    tokens_balance=F("tokens_balance") + tokens_to_add
+                    tokens_balance=F("tokens_balance") + tokens_to_add,
+                    nano_coins_last_used_at=timezone.now(),
                 )
 
     def __str__(self):

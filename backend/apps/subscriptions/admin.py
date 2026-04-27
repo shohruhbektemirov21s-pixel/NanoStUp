@@ -16,7 +16,7 @@ from .services import SubscriptionService
 @admin.register(Tariff)
 class TariffAdmin(ModelAdmin):
     list_display = [
-        "name", "price_display", "nano_coins_display", "tokens_display", "duration_days",
+        "name", "price_display", "nano_coins_display", "duration_days",
         "max_sites_per_month", "projects_limit", "ai_generations_limit",
         "is_active", "subscribers_count",
     ]
@@ -27,12 +27,12 @@ class TariffAdmin(ModelAdmin):
         ("Asosiy", {
             "fields": ("name", "description", "price", "duration_days", "is_active"),
         }),
-        ("💎 Nano koin / Token (AI kod uchun)", {
+        ("💎 Nano koin (AI kod uchun)", {
             "fields": ("nano_coins_included",),
             "description": "To'lov muvaffaqiyatli tasdiqlangandan so'ng foydalanuvchiga BIR YO‘LA "
-                           "beriladigan umumiy nano koin miqdori. 1 nano koin = 10 token. "
-                           "Misol: bu yerga 5000 yozsangiz, user 50 000 token oladi. "
-                           "1 chat xabar (AI kod yaratish) = 500 nano / 5 000 token.",
+                           "beriladigan umumiy nano koin miqdori. "
+                           "Misol: bu yerga 5000 yozsangiz, user 5 000 nano koin oladi. "
+                           "1 chat xabar (AI kod yaratish) = 500 nano koin.",
         }),
         ("📊 Sayt limitlari", {
             "fields": (
@@ -71,18 +71,6 @@ class TariffAdmin(ModelAdmin):
         )
     nano_coins_display.short_description = "Oyiga nano"
     nano_coins_display.admin_order_field = "nano_coins_included"
-
-    def tokens_display(self, obj):
-        """Foydalanuvchi sotib olgach oladigan token miqdori (nano × 10)."""
-        nano = obj.nano_coins_included or 0
-        if nano == 0:
-            return "—"
-        tokens = nano * 10
-        return format_html(
-            '<span style="color:#3b82f6;font-weight:600">{} token</span>',
-            f"{tokens:,}",
-        )
-    tokens_display.short_description = "Beriladigan token"
 
     def subscribers_count(self, obj):
         try:
@@ -270,9 +258,12 @@ class SubscriptionAdmin(ModelAdmin):
                     if nano_to_add > 0:
                         from apps.accounts.models import TOKENS_PER_NANO_COIN
                         tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
-                        obj.user.nano_coins = (obj.user.nano_coins or 0) + nano_to_add
                         obj.user.tokens_balance = (obj.user.tokens_balance or 0) + tokens_to_add
-                        obj.user.save(update_fields=["nano_coins", "tokens_balance"])
+                        # 30 kunlik timer'ni qaytadan boshlaymiz
+                        obj.user.nano_coins_last_used_at = timezone.now()
+                        obj.user.save(update_fields=[
+                            "tokens_balance", "nano_coins_last_used_at",
+                        ])
                     self.message_user(
                         request,
                         f"✅ Manual obuna yaratildi va daromadga qo'shildi: "

@@ -32,8 +32,8 @@ class SubscriptionInline(TabularInline):
 @admin.register(User)
 class UserAdmin(ModelAdmin, BaseUserAdmin):
     list_display = [
-        "email", "full_name", "balance_badge", "is_staff", "is_active",
-        "subscription_badge", "date_joined",
+        "email", "full_name", "balance_badge", "expiry_badge",
+        "is_staff", "is_active", "subscription_badge", "date_joined",
     ]
     search_fields = ["email", "full_name"]
     ordering = ["-date_joined"]
@@ -43,7 +43,10 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
     fieldsets = (
         (None, {"fields": ("email", "password")}),
         ("Shaxsiy ma'lumot", {"fields": ("full_name", "role")}),
-        ("Balans", {"fields": ("tokens_balance",)}),
+        ("Balans", {
+            "fields": ("tokens_balance", "nano_coins_last_used_at"),
+            "description": "30 kun ishlatmasa nano koin avtomatik 0 ga tushadi.",
+        }),
         ("Huquqlar", {
             "fields": (
                 "is_active", "is_staff", "is_superuser",
@@ -62,21 +65,48 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
     filter_horizontal = ("groups", "user_permissions")
 
     def balance_badge(self, obj):
+        # Real-time expire — agar 30 kundan ortiq bo'lsa 0 ko'rsatamiz
         nano = obj.nano_coins
-        color = "#22c55e" if nano >= 100 else "#f59e0b" if nano >= 30 else "#ef4444"
+        color = "#22c55e" if nano >= 1000 else "#f59e0b" if nano >= 300 else "#ef4444"
         return format_html(
-            '<span style="color:{};font-weight:700;font-size:11px">💎 {} nano</span>'
-            '<span style="color:#6b7280;font-size:10px;margin-left:4px">({} token)</span>',
-            color, nano, obj.tokens_balance,
+            '<span style="color:{};font-weight:700;font-size:11px">💎 {:,} nano koin</span>',
+            color, nano,
         )
     balance_badge.short_description = "Balans"
 
-    @admin.action(description="+10 000 token qo'shish")
+    def expiry_badge(self, obj):
+        """Nano koin foydalanmaslik holatini ko'rsatadi."""
+        if not obj.nano_coins_last_used_at or obj.tokens_balance == 0:
+            return format_html('<span style="color:#6b7280;font-size:10px">—</span>')
+        from apps.accounts.models import NANO_COIN_EXPIRY_DAYS
+        days_unused = (timezone.now() - obj.nano_coins_last_used_at).days
+        days_left = NANO_COIN_EXPIRY_DAYS - days_unused
+        if days_left <= 0:
+            return format_html(
+                '<span style="color:#ef4444;font-weight:600;font-size:10px">⏰ Muddati o\'tdi</span>'
+            )
+        if days_left <= 7:
+            return format_html(
+                '<span style="color:#f59e0b;font-weight:600;font-size:10px">⚠️ {} kun qoldi</span>',
+                days_left,
+            )
+        return format_html(
+            '<span style="color:#6b7280;font-size:10px">{} kun qoldi</span>',
+            days_left,
+        )
+    expiry_badge.short_description = "Foydalanish muddati"
+
+    @admin.action(description="+1 000 nano koin qo'shish (timer reset)")
     def top_up_tokens_action(self, request, queryset):
-        count = queryset.update(tokens_balance=models.F("tokens_balance") + 10_000)  # noqa
+        from apps.accounts.models import TOKENS_PER_NANO_COIN
+        tokens_per_user = 1_000 * TOKENS_PER_NANO_COIN  # 10 000 token
+        count = queryset.update(
+            tokens_balance=models.F("tokens_balance") + tokens_per_user,
+            nano_coins_last_used_at=timezone.now(),
+        )
         self.message_user(
             request,
-            f"{count} ta foydalanuvchiga +10 000 token qo'shildi.",
+            f"{count} ta foydalanuvchiga +1 000 nano koin qo'shildi.",
             messages.SUCCESS,
         )
 
