@@ -9,11 +9,12 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: {
     template: '%s | NanoStUp AI',
-    default: 'NanoStUp AI - Build Your Website with AI',
+    default: 'Sayt Yaratish - Professional Veb-Sayt Yaratish Xizmati (NanoStUp AI)',
   },
-  description: 'Create professional multi-page websites in seconds with the power of Artificial Intelligence.',
-  keywords: ['AI website builder', 'automatic website generation', 'NanoStUp', 'web design AI', 'O\'zbekiston AI'],
+  description: 'O\'zbekistonda eng tez va sifatli sayt yaratish xizmati. Sun\'iy intellekt (AI) yordamida professional veb-sayt yaratish endi 1 daqiqa ichida.',
+  keywords: ['sayt yaratish', 'veb sayt yaratish', 'sayt ochish', 'sayt yasash', 'arzon sayt yaratish', 'tez sayt yaratish', 'O\'zbekiston sayt yaratish', 'AI sayt builder'],
   authors: [{ name: 'NanoStUp Team' }],
+
   viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
   openGraph: {
@@ -34,11 +35,15 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NanoStUp AI - Build Your Website with AI',
-    description: 'Create professional multi-page websites in seconds with the power of Artificial Intelligence.',
+    title: 'Sayt Yaratish - NanoStUp AI',
+    description: 'O\'zbekistonda eng tez va sifatli sayt yaratish xizmati.',
     images: ['https://nanostup.uz/og-image.png'],
   },
+  alternates: {
+    canonical: 'https://nanostup.uz/uz',
+  },
 };
+
 
 
 
@@ -76,8 +81,46 @@ export default async function LocaleLayout({
       <body className="min-h-full flex flex-col bg-black text-white selection:bg-purple-500/30">
         <NextIntlClientProvider messages={messages}>
           {children}
+          {/* SEO Structured Data */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "Service",
+                "name": "Sayt Yaratish Xizmati",
+                "provider": {
+                  "@type": "Organization",
+                  "name": "NanoStUp AI"
+                },
+                "description": "Sun'iy intellekt yordamida professional veb-sayt yaratish xizmati.",
+                "areaServed": "UZ",
+                "hasOfferCatalog": {
+                  "@type": "OfferCatalog",
+                  "name": "Sayt Yaratish Rejalari",
+                  "itemListElement": [
+                    {
+                      "@type": "Offer",
+                      "itemOffered": {
+                        "@type": "Service",
+                        "name": "Bepul sayt yaratish"
+                      }
+                    },
+                    {
+                      "@type": "Offer",
+                      "itemOffered": {
+                        "@type": "Service",
+                        "name": "Premium sayt yaratish"
+                      }
+                    }
+                  ]
+                }
+              })
+            }}
+          />
         </NextIntlClientProvider>
       </body>
+
     </html>
   );
 }

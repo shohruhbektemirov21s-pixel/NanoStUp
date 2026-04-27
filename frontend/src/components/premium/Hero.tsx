@@ -26,7 +26,18 @@ export function PremiumHero() {
 
       <div className="max-w-7xl mx-auto w-full">
         <div className="flex flex-col items-center text-center">
+          {t('badge') && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-6 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-semibold tracking-wide uppercase"
+            >
+              {t('badge')}
+            </motion.div>
+          )}
           <motion.h1
+
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}

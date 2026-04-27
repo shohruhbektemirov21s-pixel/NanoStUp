@@ -7,11 +7,11 @@
     "getStarted": "Boshlash"
   },
   "Hero": {
-    "badge": "",
-    "titlePrefix": "Veb-saytingizni",
-    "titleSuffix": "birgina prompt bilan quring",
-    "description": "Biznesingizni istalgan tilda tasvirlab bering va bizning sun'iy intellektimiz bir necha soniya ichida matnlar, rasmlar va yuqori konversiyali maketlar bilan ta'minlangan premium veb-sayt yaratib beradi.",
-    "startBuilding": "Yaratishni boshlash",
+    "badge": "O'zbekistonda #1 AI sayt yaratish xizmati",
+    "titlePrefix": "Professional sayt yaratish",
+    "titleSuffix": "endi birgina prompt orqali",
+    "description": "O'zbek tilida sayt yaratish xizmati. Biznesingizni tasvirlab bering va bizning sun'iy intellektimiz bir necha soniya ichida matnlar, rasmlar va yuqori konversiyali maketlar bilan ta'minlangan premium veb-sayt yaratib beradi.",
+    "startBuilding": "Sayt yaratishni boshlash",
     "viewDemo": "Demoni ko'rish"
   },
   "Stats": {
@@ -21,30 +21,30 @@
     "uptime": "Ish vaqti"
   },
   "Features": {
-    "title": "O'sish uchun kerakli barcha narsa",
-    "subtitle": "Professional biznes uchun professional vositalar.",
+    "title": "Sifatli sayt yaratish uchun barcha vositalar",
+    "subtitle": "Professional biznes uchun professional veb-sayt yaratish imkoniyati.",
     "multiPage": {
-      "title": "Ko'p sahifali maketlar",
+      "title": "Ko'p sahifali sayt yaratish",
       "desc": "Asosiy, Biz haqimizda, Xizmatlar, Kontakt va boshqa sahifalardan iborat to'liq saytlar yarating."
     },
     "instantPreview": {
-      "title": "Lahzali ko'rinish",
+      "title": "Lahzali sayt yaratish",
       "desc": "Sun'iy intellekt sizning raqamli ko'rinishingizni yaratayotganida o'zgarishlarni real vaqtda kuzating."
     },
     "multiLanguage": {
-      "title": "Ko'p tilli",
-      "desc": "Ingliz, rus va o'zbek tillarini to'liq qo'llab-quvvatlash imkoniyati mavjud."
+      "title": "Ko'p tilli saytlar",
+      "desc": "Ingliz, rus va o'zbek tillarida sayt yaratish imkoniyati mavjud."
     },
     "aiCore": {
-      "title": "AI Yadrosi",
+      "title": "AI Sayt Yaratish Yadrosi",
       "desc": "Marketing niyati va biznes ehtiyojlarini chuqur tushunadigan ilg'or sun'iy intellekt."
     },
     "bankSecurity": {
-      "title": "Bank darajasidagi xavfsizlik",
+      "title": "Xavfsiz sayt yaratish",
       "desc": "Sizning ma'lumotlaringiz zamonaviy protokollar bilan shifrlangan va himoyalangan."
     },
     "optimizedSpeed": {
-      "title": "Optimallashtirilgan tezlik",
+      "title": "Tezkor sayt yaratish",
       "desc": "Yengil kod yetkazib berish 100/100 Lighthouse performance bahosini ta'minlaydi."
     }
   },
