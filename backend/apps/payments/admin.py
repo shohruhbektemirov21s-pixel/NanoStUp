@@ -18,8 +18,9 @@ class PaymentTransactionAdmin(ModelAdmin):
     list_filter = ["status", "provider", "tariff"]
     search_fields = ["user__email", "external_id", "phone"]
     readonly_fields = ["created_at", "updated_at", "verified_at"]
-    autocomplete_fields = ["user", "tariff"]
+    list_select_related = ["user", "tariff"]
     ordering = ["-created_at"]
+    list_per_page = 50
 
     # ── Display helpers ───────────────────────────────────────────
     def user_email(self, obj):

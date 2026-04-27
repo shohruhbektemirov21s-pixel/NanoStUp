@@ -32,6 +32,7 @@ def backfill_payments(apps, schema_editor):
             continue
 
         try:
+            # auto_now_add bilan created_at avtomatik o'rnatiladi
             PaymentTransaction.objects.create(
                 user=sub.user,
                 tariff=sub.tariff,
@@ -40,7 +41,6 @@ def backfill_payments(apps, schema_editor):
                 status="SUCCESS",
                 external_id=f"backfill_{sub.id}_{int(timezone.now().timestamp())}",
                 verified_at=sub.created_at or timezone.now(),
-                created_at=sub.created_at or timezone.now(),
             )
             created_count += 1
         except Exception as exc:  # pragma: no cover

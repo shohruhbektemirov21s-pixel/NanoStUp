@@ -79,14 +79,16 @@ class TariffAdmin(ModelAdmin):
     tokens_display.short_description = "Beriladigan token"
 
     def subscribers_count(self, obj):
-        count = Subscription.objects.filter(tariff=obj, status=SubscriptionStatus.ACTIVE).count()
+        try:
+            count = Subscription.objects.filter(
+                tariff=obj, status=SubscriptionStatus.ACTIVE,
+            ).count()
+        except Exception:
+            count = 0
         return format_html(
             '<span style="color:#22c55e;font-weight:bold">{} faol</span>', count
         )
     subscribers_count.short_description = "Faol obunalar"
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).prefetch_related("subscription_set")
 
 
 # ── Obuna ──────────────────────────────────────────────────────────
@@ -100,7 +102,8 @@ class SubscriptionAdmin(ModelAdmin):
     ]
     list_filter = ["status", "tariff"]
     search_fields = ["user__email", "user__full_name"]
-    autocomplete_fields = ["user"]
+    raw_id_fields = ["user"]
+    list_select_related = ["user", "tariff"]
     ordering = ["-created_at"]
     readonly_fields = [
         "created_at", "updated_at",
