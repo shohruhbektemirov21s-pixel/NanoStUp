@@ -141,6 +141,13 @@ interface ApiResponse {
   current_tokens?: number;
   error?: string;
   conversation_id?: string | null;
+  // 🔐 Admin panel info — sayt egasiga ko'rsatiladi
+  admin_panel?: {
+    url: string;
+    public_url: string;
+    user_email: string;
+    instructions: string;
+  } | null;
 }
 
 type ProjectSchema = Record<string, unknown>;
@@ -1086,6 +1093,31 @@ export default function BuilderPage() {
           'DONE',
         );
 
+        // 🔐 Admin panel haqida alohida chiroyli xabar
+        if (data.admin_panel) {
+          const ap = data.admin_panel as {
+            url: string;
+            user_email: string;
+            instructions: string;
+          };
+          const adminUrl = typeof window !== 'undefined'
+            ? `${window.location.origin}${ap.url}`
+            : ap.url;
+          addMsg(
+            'ai',
+            `🔐 **Admin panel — faqat siz uchun:**\n\n` +
+            `👉 **${adminUrl}**\n\n` +
+            `📌 Sayt linkining oxiriga \`/admin\` qo'shsangiz — kirish formasi ochiladi.\n` +
+            `📧 Faqat o'z akkauntingiz bilan kira olasiz: **${ap.user_email}**\n` +
+            `🔑 NanoStUp'ga ro'yxatdan o'tgandagi parolingizdan foydalaning.\n\n` +
+            `⚠️ **MUHIM:**\n` +
+            `• URL oxirida \`/admin\` bo'lmasa — hech kim kira olmaydi (yashirin manzil)\n` +
+            `• Bu havolani **SAQLANG** va boshqalarga **BERMANG**\n` +
+            `• Admin panel'da matn, ranglar, sahifalarni o'zgartirish mumkin`,
+            'DONE',
+          );
+        }
+
         // Preview ni yangilaymiz, loyihaga tegmaymiz
         setPreviewSchema(data.project.schema_data);
         setPreviewTitle(data.project.title);
@@ -1739,13 +1771,36 @@ export default function BuilderPage() {
                 <h3 className="text-xs font-bold text-white">AI Arxitektor</h3>
                 <p className="text-[10px] text-zinc-500">Sayt dizayni bo&apos;yicha maslahat</p>
               </div>
-              <div className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg bg-zinc-800/80">
+              <div className="ml-auto flex items-center gap-1 px-1.5 md:px-2 py-1 rounded-lg bg-zinc-800/80">
                 <div className={cn('w-1.5 h-1.5 rounded-full',
                   isGenerating ? 'bg-blue-400 animate-pulse' : phase === 'done' ? 'bg-emerald-400' : 'bg-zinc-500')} />
-                <span className="text-[9px] text-zinc-400">
+                <span className="text-[9px] text-zinc-400 hidden md:inline">
                   {isGenerating ? 'Ishlayapti' : phase === 'done' ? 'Tayyor' : 'Kutmoqda'}
                 </span>
               </div>
+
+              {/* Mobile uchun: Yangi chat + Tarix + Yopish */}
+              {isAuthenticated && (
+                <>
+                  <button
+                    onClick={handleReset}
+                    className="md:hidden p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                    aria-label="Yangi chat"
+                    title="Yangi chat"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </button>
+                  <Link
+                    href="/history"
+                    className="md:hidden p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    aria-label="Suhbatlar tarixi"
+                    title="Tarix"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </Link>
+                </>
+              )}
+
               {/* Mobilda yopish tugmasi */}
               <button
                 onClick={() => setIsChatOpen(false)}

@@ -163,6 +163,67 @@ def _auto_publish(project) -> None:
         project.save(update_fields=updates)
 
 
+def _build_admin_panel_info(project, user, language: str = "uz") -> Optional[Dict]:
+    """
+    Sayt egasiga admin panel haqida ma'lumot tayyorlaydi.
+
+    Returns: {
+      "url": "/uz/s/<slug>/admin",
+      "public_url": "/uz/s/<slug>",
+      "user_email": "...",
+      "instructions": "<chat AI uchun tayyor matn (uz/ru/en)>",
+    }
+    """
+    if not project.slug or not user or not getattr(user, "is_authenticated", False):
+        return None
+
+    lang = (language or "uz").lower()[:2]
+    if lang not in ("uz", "ru", "en"):
+        lang = "uz"
+
+    public_url = f"/{lang}/s/{project.slug}"
+    admin_url = f"{public_url}/admin"
+    email = user.email or ""
+
+    if lang == "ru":
+        instructions = (
+            f"\n\n🔐 **АДМИН-ПАНЕЛЬ — только для вас:**\n"
+            f"👉 {admin_url}\n\n"
+            f"• Просто добавьте `/admin` в конце ссылки сайта — откроется форма входа.\n"
+            f"• Войти можно ТОЛЬКО под вашим аккаунтом: **{email}** "
+            f"(тот же пароль, что и при регистрации в NanoStUp).\n"
+            f"• 🛡 Без `/admin` в конце URL никто посторонний не сможет зайти.\n"
+            f"• 💾 Сохраните эту ссылку и не передавайте её другим!"
+        )
+    elif lang == "en":
+        instructions = (
+            f"\n\n🔐 **ADMIN PANEL — only for you:**\n"
+            f"👉 {admin_url}\n\n"
+            f"• Just append `/admin` to your site URL — a login form will appear.\n"
+            f"• Sign in ONLY with your account: **{email}** "
+            f"(the same password you used to register on NanoStUp).\n"
+            f"• 🛡 Without `/admin` at the end, no one else can access it.\n"
+            f"• 💾 Save this link and do not share it!"
+        )
+    else:  # uz
+        instructions = (
+            f"\n\n🔐 **ADMIN PANEL — faqat siz uchun:**\n"
+            f"👉 {admin_url}\n\n"
+            f"• Sayt linkining oxiriga `/admin` qo'shsangiz — kirish formasi ochiladi.\n"
+            f"• Faqat O'Z akkauntingiz bilan kira olasiz: **{email}** "
+            f"(NanoStUp'ga ro'yxatdan o'tgandagi parolingiz bilan).\n"
+            f"• 🛡 URL oxirida `/admin` bo'lmasa, hech kim kira olmaydi — bu yashirin manzil.\n"
+            f"• 💾 Bu havolani SAQLANG va boshqalarga BERMANG!"
+        )
+
+    return {
+        "url": admin_url,
+        "public_url": public_url,
+        "user_email": email,
+        "instructions": instructions,
+    }
+
+
 def _estimate_complexity(schema: Dict) -> Dict:
     """Sayt murakkabligini hisoblaydi va nano koin narxini qaytaradi."""
     pages = schema.get("pages", [])
@@ -563,10 +624,17 @@ def _deduct_with_partial(
     """
     ctx = getattr(request, "_billing_ctx", None) if request is not None else None
     partial_nano = int(ctx.get("deducted_nano", 0)) if isinstance(ctx, dict) else 0
+    aborted = bool(ctx.get("aborted")) if isinstance(ctx, dict) else False
 
     target_nano = cost_tokens // TOKENS_PER_NANO_COIN
     remaining_nano = max(0, target_nano - partial_nano)
     remaining_tokens = remaining_nano * TOKENS_PER_NANO_COIN
+
+    # Foydalanuvchi pauza qilgan bo'lsa — qolgan top-up'ni yechib olmaymiz.
+    # Faqat progressive partial yechilgan miqdor saqlanib qoladi.
+    if aborted:
+        remaining_tokens = 0
+        logger.info("User aborted — top-up skipped (partial=%d nano kept)", partial_nano)
 
     if remaining_tokens > 0:
         deduction = _deduct_for_generation(user, conversation, remaining_tokens)
@@ -782,6 +850,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             "user_id": request.user.id if getattr(request.user, "is_authenticated", False) else None,
             "conversation_id": None,                  # _process_prompt_impl yangilaydi
             "stopped": False,                         # generatsiya yakunlandimi?
+            "aborted": False,                         # foydalanuvchi pause/abort qildimi?
+            # Progressive billing FAQAT kod yozish (Claude generate/revise) boshlanganda
+            # aktivlashadi. Chat (Gemini suhbat) bepul — nano yechilmaydi.
+            "generation_started": False,
         }
         # request orqali _process_prompt_impl ham bu kontekstga kira oladi
         request._billing_ctx = billing_ctx  # type: ignore[attr-defined]
@@ -799,44 +871,57 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         threading.Thread(target=_run, daemon=True).start()
 
         def _stream():
-            BILLING_INTERVAL = 5.0
+            # 2s — har 2 soniyada nano koin kamayadi (foydalanuvchi ko'rishi uchun).
+            BILLING_INTERVAL = 2.0
             last_bill_at = time.monotonic()
-            while True:
-                try:
-                    kind, status_code, data = result_q.get(timeout=4)
-                    payload = json.dumps(data, ensure_ascii=False)
-                    yield payload.encode("utf-8")
-                    return
-                except _queue_module.Empty:
-                    yield b" "   # keep-alive
+            try:
+                while True:
+                    try:
+                        kind, status_code, data = result_q.get(timeout=2)
+                        payload = json.dumps(data, ensure_ascii=False)
+                        yield payload.encode("utf-8")
+                        return
+                    except _queue_module.Empty:
+                        yield b" "   # keep-alive
 
-                    # ── Progressive partial deduction ────────────────
-                    now = time.monotonic()
-                    if (
-                        not billing_ctx["stopped"]
-                        and billing_ctx["user_id"] is not None
-                        and not TOKEN_LIMITS_DISABLED
-                        and (now - last_bill_at) >= BILLING_INTERVAL
-                    ):
-                        elapsed = now - last_bill_at
-                        cap = billing_ctx["expected_cost_nano"]
-                        already = billing_ctx["deducted_nano"]
-                        if already < cap:
-                            chunk_nano = int(cap * elapsed / billing_ctx["expected_duration_sec"])
-                            chunk_nano = min(chunk_nano, cap - already)
-                            if chunk_nano > 0:
-                                try:
-                                    User = type(request.user)
-                                    u = User.objects.filter(id=billing_ctx["user_id"]).first()
-                                    conv = None
-                                    cid = billing_ctx.get("conversation_id")
-                                    if cid:
-                                        conv = Conversation.objects.filter(id=cid).first()
-                                    actually_deducted = _deduct_partial_nano(u, conv, chunk_nano)
-                                    billing_ctx["deducted_nano"] += actually_deducted
-                                except Exception:
-                                    logger.warning("Progressive billing chunk error", exc_info=True)
-                        last_bill_at = now
+                        # ── Progressive partial deduction ────────────────
+                        # FAQAT kod yozish (Claude) boshlanganda yechiladi.
+                        # Chat (Gemini suhbat) — bepul.
+                        now = time.monotonic()
+                        if (
+                            not billing_ctx["stopped"]
+                            and not billing_ctx.get("aborted")
+                            and billing_ctx.get("generation_started")
+                            and billing_ctx["user_id"] is not None
+                            and not TOKEN_LIMITS_DISABLED
+                            and (now - last_bill_at) >= BILLING_INTERVAL
+                        ):
+                            elapsed = now - last_bill_at
+                            cap = billing_ctx["expected_cost_nano"]
+                            already = billing_ctx["deducted_nano"]
+                            if already < cap:
+                                chunk_nano = int(cap * elapsed / billing_ctx["expected_duration_sec"])
+                                chunk_nano = min(chunk_nano, cap - already)
+                                if chunk_nano > 0:
+                                    try:
+                                        User = type(request.user)
+                                        u = User.objects.filter(id=billing_ctx["user_id"]).first()
+                                        conv = None
+                                        cid = billing_ctx.get("conversation_id")
+                                        if cid:
+                                            conv = Conversation.objects.filter(id=cid).first()
+                                        actually_deducted = _deduct_partial_nano(u, conv, chunk_nano)
+                                        billing_ctx["deducted_nano"] += actually_deducted
+                                    except Exception:
+                                        logger.warning("Progressive billing chunk error", exc_info=True)
+                            last_bill_at = now
+            except GeneratorExit:
+                # Foydalanuvchi pause/abort qildi (frontend AbortController) —
+                # progressive billing darrov to'xtaydi va final top-up qilinmaydi.
+                billing_ctx["aborted"] = True
+                logger.info("Stream aborted by client (user_id=%s, deducted=%d nano)",
+                            billing_ctx.get("user_id"), billing_ctx.get("deducted_nano", 0))
+                raise
 
         streaming_resp = StreamingHttpResponse(
             _stream(), content_type="application/json; charset=utf-8",
@@ -993,7 +1078,11 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     logger.exception("plan_revision xatosi — foydalanuvchi matni to'g'ridan yuboriladi")
                     claude_instruction = prompt
 
-                # 2-bosqich: Claude tayyor ko'rsatma bo'yicha schema'ni yangilaydi
+                # 2-bosqich: Claude tayyor ko'rsatma bo'yicha schema'ni yangilaydi.
+                # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
+                _ctx = getattr(request, "_billing_ctx", None)
+                if isinstance(_ctx, dict):
+                    _ctx["generation_started"] = True
                 gen_start = time.monotonic()
                 claude = ClaudeService()
                 new_schema, usage = claude.revise_site(
@@ -1079,6 +1168,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     _btype = _detect_business_type(prompt)
                     _design, _palette = _pick_random_design(_btype)
                     _constraint = _build_design_constraint(_design, _palette)
+                    # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
+                    _ctx = getattr(request, "_billing_ctx", None)
+                    if isinstance(_ctx, dict):
+                        _ctx["generation_started"] = True
                     gen_start = time.monotonic()
                     claude = ClaudeService()
                     new_schema, usage = claude.generate_from_spec(
@@ -1133,12 +1226,17 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             project=project, prompt=spec, schema_data=new_schema,
                             intent="generate", version_number=1,
                         )
+                        # Admin panel ma'lumotlarini hozir quramiz (project.slug tayyor)
+                        _admin_info = _build_admin_panel_info(project, request.user, language)
+                        _done_text = f"✅ Sayt tayyor: «{project.title}»"
+                        if _admin_info:
+                            _done_text += _admin_info["instructions"]
                         # Suhbatni bu loyihaga bog'laymiz + AI javobini saqlaymiz
                         if conversation:
                             Conversation.objects.filter(id=conversation.id).update(project=project)
                             _save_message(
                                 conversation, ChatRole.ASSISTANT,
-                                f"✅ Sayt tayyor: «{project.title}»",
+                                _done_text,
                                 intent="GENERATE",
                                 tokens_input=usage.get("input_tokens", 0),
                                 tokens_output=usage.get("output_tokens", 0),
@@ -1149,6 +1247,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                                     "title": project.title,
                                     "complexity": complexity,
                                     "architect_message": ai_text,
+                                    "admin_panel": _admin_info,
                                 },
                             )
                         # Nano koin yechamiz (complexity ga qarab: 3000/4000/5000 nano)
@@ -1186,6 +1285,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             "status": "COMPLETED",
                             "schema_data": new_schema,
                         }
+                        _admin_info = None
+                        _done_text = f"✅ Sayt tayyor: «{project_data['title']}»"
 
                     resp = {
                         "success": True,
@@ -1193,7 +1294,8 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                         "is_chat": False,
                         "project": project_data,
                         "architect_message": ai_text,
-                        "message": f"✅ Sayt tayyor: «{project_data['title']}»",
+                        "message": _done_text,
+                        "admin_panel": _admin_info,
                         "stats": {
                             "generation_time_ms": gen_ms,
                             "input_tokens": usage.get("input_tokens", 0),
@@ -1208,7 +1310,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     return Response(resp)
 
                 # Spec hali yo'q — davom etayotgan suhbat (Gemini)
-                # AI javobini va (bo'lsa) variantlarni tarixga yozamiz
+                # AI javobini va (bo'lsa) variantlarni tarixga yozamiz.
+                # ⚠️ MUHIM: Chat suhbati BEPUL — nano koin yechilmaydi.
+                # Nano koin faqat Claude kod yozganda (FINAL_SITE_SPEC + generate)
+                # yoki saytni tahrirlaganda (REVISE) yechiladi.
                 _save_message(
                     conversation, ChatRole.ASSISTANT, ai_text,
                     intent="ARCHITECT" if design_variants else intent,
@@ -1224,6 +1329,15 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     resp_data["design_variants"] = design_variants
                 if conversation:
                     resp_data["conversation_id"] = str(conversation.id)
+                # Chat bepul — balansni shunchaki yangi qiymat bilan qaytaramiz
+                # (UI doim hozirgi balansni ko'rsatib tursin)
+                if is_auth:
+                    resp_data["balance"] = {
+                        "tokens": request.user.tokens_balance,
+                        "nano_coins": request.user.nano_coins,
+                        "cost_nano": 0,
+                        "chat_bonus_left": conversation.chat_budget_nano if conversation else 0,
+                    }
                 return Response(resp_data)
 
             # ── 3. TO'G'RIDAN-TO'G'RI GENERATSIYA (qisqa yo'l) ───────────
@@ -1245,6 +1359,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             _btype2 = _detect_business_type(prompt)
             _design2, _palette2 = _pick_random_design(_btype2)
             _constraint2 = _build_design_constraint(_design2, _palette2)
+            # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
+            _ctx = getattr(request, "_billing_ctx", None)
+            if isinstance(_ctx, dict):
+                _ctx["generation_started"] = True
             gen_start = time.monotonic()
             claude = ClaudeService()
             new_schema, usage = claude.generate_full_site(
@@ -1282,11 +1400,16 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     project=project, prompt=prompt, schema_data=new_schema,
                     intent="generate", version_number=1,
                 )
+                # Admin panel ma'lumotlarini quramiz (project.slug tayyor)
+                _admin_info2 = _build_admin_panel_info(project, request.user, language)
+                _done_text2 = f"✅ Sayt tayyor: «{project.title}»"
+                if _admin_info2:
+                    _done_text2 += _admin_info2["instructions"]
                 if conversation:
                     Conversation.objects.filter(id=conversation.id).update(project=project)
                     _save_message(
                         conversation, ChatRole.ASSISTANT,
-                        f"✅ Sayt tayyor: «{project.title}»",
+                        _done_text2,
                         intent="GENERATE",
                         tokens_input=usage.get("input_tokens", 0),
                         tokens_output=usage.get("output_tokens", 0),
@@ -1296,6 +1419,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                             "project_id": str(project.id),
                             "title": project.title,
                             "complexity": complexity,
+                            "admin_panel": _admin_info2,
                         },
                     )
                 if not TOKEN_LIMITS_DISABLED and site_cost_nano > 0:
@@ -1329,13 +1453,16 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     "status": "COMPLETED",
                     "schema_data": new_schema,
                 }
+                _admin_info2 = None
+                _done_text2 = f"✅ Sayt tayyor: «{project_data['title']}»"
 
             resp2 = {
                 "success": True,
                 "phase": "DONE",
                 "is_chat": False,
                 "project": project_data,
-                "message": f"✅ Sayt tayyor: «{project_data['title']}»",
+                "message": _done_text2,
+                "admin_panel": _admin_info2,
                 "stats": {
                     "generation_time_ms": gen_ms,
                     "input_tokens": usage.get("input_tokens", 0),

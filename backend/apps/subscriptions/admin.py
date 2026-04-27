@@ -172,15 +172,35 @@ class SubscriptionAdmin(ModelAdmin):
         return f"{rem} ta qoldi"
     sites_remaining_display.short_description = "Qolgan limit"
 
-    @admin.action(description="30 kunlik uzaytirish")
+    @admin.action(description="30 kunlik uzaytirish (+ daromad)")
     def extend_30_days(self, request, queryset):
+        from apps.payments.models import PaymentTransaction, PaymentStatus
         count = 0
+        total_revenue = 0
         for sub in queryset:
             sub.end_date = sub.end_date + timedelta(days=30)
             sub.status = SubscriptionStatus.ACTIVE
             sub.save(update_fields=["end_date", "status", "updated_at"])
+            # Uzaytirish ham daromad — payment yozamiz
+            try:
+                PaymentTransaction.objects.create(
+                    user=sub.user,
+                    tariff=sub.tariff,
+                    amount=sub.tariff.price,
+                    provider="admin_manual",
+                    status=PaymentStatus.SUCCESS,
+                    external_id=f"admin_extend_{sub.id}_{int(timezone.now().timestamp())}",
+                    verified_at=timezone.now(),
+                )
+                total_revenue += float(sub.tariff.price)
+            except Exception:
+                pass
             count += 1
-        self.message_user(request, f"{count} ta obuna 30 kunga uzaytirildi.", messages.SUCCESS)
+        self.message_user(
+            request,
+            f"{count} ta obuna 30 kunga uzaytirildi. Daromad: +{total_revenue:,.0f} so'm",
+            messages.SUCCESS,
+        )
 
     @admin.action(description="Bekor qilish")
     def cancel_subscriptions(self, request, queryset):
@@ -201,8 +221,58 @@ class SubscriptionAdmin(ModelAdmin):
         )
 
     def save_model(self, request, obj, form, change):
-        """end_date avtomatik hisoblash (start_date + tariff.duration_days)."""
-        if not change or "tariff" in form.changed_data or "start_date" in form.changed_data:
+        """
+        end_date avtomatik hisoblash (start_date + tariff.duration_days).
+
+        Plus: admin tomonidan QO'LDA yaratilgan obuna uchun avtomatik
+        PaymentTransaction (provider='admin_manual', status=SUCCESS) yaratiladi.
+        Shu tarzda umumiy daromad statistikasiga manual obunalar ham qo'shiladi
+        (real to'lov tizimi integratsiyasi yo'q paytda).
+        """
+        is_new = not change
+        if is_new or "tariff" in form.changed_data or "start_date" in form.changed_data:
             if not form.cleaned_data.get("end_date"):
                 obj.end_date = obj.start_date + timedelta(days=obj.tariff.duration_days)
         super().save_model(request, obj, form, change)
+
+        # Yangi yaratilgan ACTIVE obuna → daromad sifatida PaymentTransaction yozamiz
+        if is_new and obj.status == SubscriptionStatus.ACTIVE and obj.tariff_id:
+            try:
+                from apps.payments.models import PaymentTransaction, PaymentStatus
+                # Dublikat oldini olamiz (xuddi shu user+tariff+admin_manual oxirgi 60s ichida)
+                recent = PaymentTransaction.objects.filter(
+                    user=obj.user,
+                    tariff=obj.tariff,
+                    provider="admin_manual",
+                    created_at__gte=timezone.now() - timedelta(seconds=60),
+                ).exists()
+                if not recent:
+                    PaymentTransaction.objects.create(
+                        user=obj.user,
+                        tariff=obj.tariff,
+                        amount=obj.tariff.price,
+                        provider="admin_manual",
+                        status=PaymentStatus.SUCCESS,
+                        external_id=f"admin_{obj.id}_{int(timezone.now().timestamp())}",
+                        verified_at=timezone.now(),
+                    )
+                    # User'ga nano koin ham beramiz (real to'lovdagi kabi)
+                    nano_to_add = obj.tariff.nano_coins_included or 0
+                    if nano_to_add > 0:
+                        from apps.accounts.models import TOKENS_PER_NANO_COIN
+                        tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
+                        obj.user.nano_coins = (obj.user.nano_coins or 0) + nano_to_add
+                        obj.user.tokens_balance = (obj.user.tokens_balance or 0) + tokens_to_add
+                        obj.user.save(update_fields=["nano_coins", "tokens_balance"])
+                    self.message_user(
+                        request,
+                        f"✅ Manual obuna yaratildi va daromadga qo'shildi: "
+                        f"+{obj.tariff.price:,.0f} so'm",
+                        messages.SUCCESS,
+                    )
+            except Exception as exc:
+                self.message_user(
+                    request,
+                    f"⚠️ Obuna saqlandi, lekin payment yozilmadi: {exc}",
+                    messages.WARNING,
+                )
