@@ -3,6 +3,12 @@
 .env.*
 !.env.example
 
+# ─── Maxfiy loyiha hujjatlari (faqat lokalda) ───────────────────
+PROJECT_CONTEXT.md
+.cursorrules
+.claude/
+.windsurf/
+
 # ─── Python ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
