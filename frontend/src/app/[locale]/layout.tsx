@@ -16,7 +16,30 @@ export const metadata: Metadata = {
   authors: [{ name: 'NanoStUp Team' }],
   viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
+  openGraph: {
+    type: 'website',
+    locale: 'uz_UZ',
+    url: 'https://nanostup.uz',
+    siteName: 'NanoStUp AI',
+    title: 'NanoStUp AI - Build Your Website with AI',
+    description: 'Create professional multi-page websites in seconds with the power of Artificial Intelligence.',
+    images: [
+      {
+        url: 'https://nanostup.uz/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'NanoStUp AI Preview',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'NanoStUp AI - Build Your Website with AI',
+    description: 'Create professional multi-page websites in seconds with the power of Artificial Intelligence.',
+    images: ['https://nanostup.uz/og-image.png'],
+  },
 };
+
 
 
 const geistSans = Geist({
