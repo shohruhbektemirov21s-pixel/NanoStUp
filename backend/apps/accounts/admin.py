@@ -66,34 +66,43 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
 
     def balance_badge(self, obj):
         # Real-time expire — agar 30 kundan ortiq bo'lsa 0 ko'rsatamiz
-        nano = obj.nano_coins
-        color = "#22c55e" if nano >= 1000 else "#f59e0b" if nano >= 300 else "#ef4444"
-        return format_html(
-            '<span style="color:{};font-weight:700;font-size:11px">💎 {:,} nano koin</span>',
-            color, nano,
-        )
+        try:
+            tokens = obj.tokens_balance or 0
+            nano = tokens // 10  # property emas — DB'dan to'g'ri o'qiymiz
+            color = "#22c55e" if nano >= 1000 else "#f59e0b" if nano >= 300 else "#ef4444"
+            nano_str = f"{nano:,}"
+            return format_html(
+                '<span style="color:{};font-weight:700;font-size:11px">💎 {} nano koin</span>',
+                color, nano_str,
+            )
+        except Exception:
+            return format_html('<span style="color:#6b7280">—</span>')
     balance_badge.short_description = "Balans"
 
     def expiry_badge(self, obj):
         """Nano koin foydalanmaslik holatini ko'rsatadi."""
-        if not obj.nano_coins_last_used_at or obj.tokens_balance == 0:
-            return format_html('<span style="color:#6b7280;font-size:10px">—</span>')
-        from apps.accounts.models import NANO_COIN_EXPIRY_DAYS
-        days_unused = (timezone.now() - obj.nano_coins_last_used_at).days
-        days_left = NANO_COIN_EXPIRY_DAYS - days_unused
-        if days_left <= 0:
+        try:
+            last_used = getattr(obj, "nano_coins_last_used_at", None)
+            if not last_used or (obj.tokens_balance or 0) == 0:
+                return format_html('<span style="color:#6b7280;font-size:10px">—</span>')
+            from apps.accounts.models import NANO_COIN_EXPIRY_DAYS
+            days_unused = (timezone.now() - last_used).days
+            days_left = NANO_COIN_EXPIRY_DAYS - days_unused
+            if days_left <= 0:
+                return format_html(
+                    '<span style="color:#ef4444;font-weight:600;font-size:10px">⏰ Muddati o\'tdi</span>'
+                )
+            if days_left <= 7:
+                return format_html(
+                    '<span style="color:#f59e0b;font-weight:600;font-size:10px">⚠️ {} kun qoldi</span>',
+                    days_left,
+                )
             return format_html(
-                '<span style="color:#ef4444;font-weight:600;font-size:10px">⏰ Muddati o\'tdi</span>'
-            )
-        if days_left <= 7:
-            return format_html(
-                '<span style="color:#f59e0b;font-weight:600;font-size:10px">⚠️ {} kun qoldi</span>',
+                '<span style="color:#6b7280;font-size:10px">{} kun qoldi</span>',
                 days_left,
             )
-        return format_html(
-            '<span style="color:#6b7280;font-size:10px">{} kun qoldi</span>',
-            days_left,
-        )
+        except Exception:
+            return format_html('<span style="color:#6b7280;font-size:10px">—</span>')
     expiry_badge.short_description = "Foydalanish muddati"
 
     @admin.action(description="+1 000 nano koin qo'shish (timer reset)")
@@ -111,15 +120,22 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
         )
 
     def subscription_badge(self, obj):
-        sub = obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).first()
-        if not sub:
-            return mark_safe('<span style="color:#6b7280;font-size:11px">Yo\'q</span>')
-        days = (sub.end_date - timezone.now()).days
-        color = "#22c55e" if days > 3 else "#f59e0b"
-        return format_html(
-            '<span style="color:{};font-weight:600;font-size:11px">{} · {} kun</span>',
-            color, sub.tariff.name, max(days, 0),
-        )
+        try:
+            sub = obj.subscriptions.filter(status=SubscriptionStatus.ACTIVE).first()
+            if not sub or not sub.tariff_id:
+                return mark_safe('<span style="color:#6b7280;font-size:11px">Yo\'q</span>')
+            if not sub.end_date:
+                days = 0
+            else:
+                days = (sub.end_date - timezone.now()).days
+            color = "#22c55e" if days > 3 else "#f59e0b"
+            tariff_name = sub.tariff.name if sub.tariff else "—"
+            return format_html(
+                '<span style="color:{};font-weight:600;font-size:11px">{} · {} kun</span>',
+                color, tariff_name, max(days, 0),
+            )
+        except Exception:
+            return mark_safe('<span style="color:#6b7280;font-size:11px">—</span>')
     subscription_badge.short_description = "Obuna"
 
     @admin.action(description="30 kunlik Pro obuna berish")
