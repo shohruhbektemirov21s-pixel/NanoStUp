@@ -32,7 +32,7 @@ class SubscriptionInline(TabularInline):
 @admin.register(User)
 class UserAdmin(ModelAdmin, BaseUserAdmin):
     list_display = [
-        "email", "full_name", "balance_badge", "expiry_badge",
+        "email", "full_name", "balance_badge",
         "is_staff", "is_active", "subscription_badge", "date_joined",
     ]
     search_fields = ["email", "full_name"]
@@ -44,8 +44,8 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
         (None, {"fields": ("email", "password")}),
         ("Shaxsiy ma'lumot", {"fields": ("full_name", "role")}),
         ("Balans", {
-            "fields": ("tokens_balance", "nano_coins_last_used_at"),
-            "description": "30 kun ishlatmasa nano koin avtomatik 0 ga tushadi.",
+            "fields": ("tokens_balance",),
+            "description": "Balans token'da. 1 nano koin = 10 token.",
         }),
         ("Huquqlar", {
             "fields": (
@@ -105,14 +105,20 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
             return format_html('<span style="color:#6b7280;font-size:10px">—</span>')
     expiry_badge.short_description = "Foydalanish muddati"
 
-    @admin.action(description="+1 000 nano koin qo'shish (timer reset)")
+    @admin.action(description="+1 000 nano koin qo'shish")
     def top_up_tokens_action(self, request, queryset):
         from apps.accounts.models import TOKENS_PER_NANO_COIN
         tokens_per_user = 1_000 * TOKENS_PER_NANO_COIN  # 10 000 token
-        count = queryset.update(
-            tokens_balance=models.F("tokens_balance") + tokens_per_user,
-            nano_coins_last_used_at=timezone.now(),
-        )
+        try:
+            count = queryset.update(
+                tokens_balance=models.F("tokens_balance") + tokens_per_user,
+                nano_coins_last_used_at=timezone.now(),
+            )
+        except Exception:
+            # Migration qo'llanmagan bo'lsa fallback
+            count = queryset.update(
+                tokens_balance=models.F("tokens_balance") + tokens_per_user,
+            )
         self.message_user(
             request,
             f"{count} ta foydalanuvchiga +1 000 nano koin qo'shildi.",
