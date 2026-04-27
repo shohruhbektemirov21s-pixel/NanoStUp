@@ -34,7 +34,8 @@ class PaymentTransactionAdmin(ModelAdmin):
     tariff_name.admin_order_field = "tariff__name"
 
     def amount_display(self, obj):
-        return format_html("<b>{:,.0f}</b> so'm", float(obj.amount or 0))
+        amount_str = f"{float(obj.amount or 0):,.0f}"
+        return format_html("<b>{}</b> so'm", amount_str)
     amount_display.short_description = "Summa"
     amount_display.admin_order_field = "amount"
 
@@ -45,8 +46,9 @@ class PaymentTransactionAdmin(ModelAdmin):
             "click": "#3b82f6",
             "paylov": "#f59e0b",
         }
-        color = colors.get(obj.provider, "#6b7280")
-        label = "👨‍💼 Admin" if obj.provider == "admin_manual" else obj.provider.upper()
+        provider = obj.provider or "unknown"
+        color = colors.get(provider, "#6b7280")
+        label = "Admin" if provider == "admin_manual" else provider.upper()
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 10px;'
             'border-radius:12px;font-size:11px;font-weight:600">{}</span>',
@@ -57,51 +59,42 @@ class PaymentTransactionAdmin(ModelAdmin):
     def status_badge(self, obj):
         colors = {"SUCCESS": "#22c55e", "PENDING": "#f59e0b", "FAILED": "#ef4444"}
         color = colors.get(obj.status, "#6b7280")
+        try:
+            label = obj.get_status_display()
+        except Exception:
+            label = obj.status or "—"
         return format_html(
             '<span style="background:{};color:#fff;padding:2px 10px;'
             'border-radius:12px;font-size:11px;font-weight:600">{}</span>',
-            color, obj.get_status_display(),
+            color, label,
         )
     status_badge.short_description = "Holat"
 
-    # ── Daromad summary changelist ustida ─────────────────────────
+    # ── Daromad summary message_user orqali ko'rsatamiz (template-siz) ──
     def changelist_view(self, request, extra_context=None):
-        """List page tepasiga umumiy daromad statistikasini qo'shadi."""
-        qs = PaymentTransaction.objects.filter(status=PaymentStatus.SUCCESS)
+        """List page'ga umumiy daromad summary'ni message orqali qo'shadi."""
+        try:
+            from django.contrib import messages as dj_messages
+            qs = PaymentTransaction.objects.filter(status=PaymentStatus.SUCCESS)
 
-        now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        last_30_start = now - timedelta(days=30)
+            now = timezone.now()
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        total = qs.aggregate(s=Sum("amount"))["s"] or 0
-        month = qs.filter(created_at__gte=month_start).aggregate(s=Sum("amount"))["s"] or 0
-        today = qs.filter(created_at__gte=today_start).aggregate(s=Sum("amount"))["s"] or 0
-        last_30 = qs.filter(created_at__gte=last_30_start).aggregate(s=Sum("amount"))["s"] or 0
+            total = qs.aggregate(s=Sum("amount"))["s"] or 0
+            month = qs.filter(created_at__gte=month_start).aggregate(s=Sum("amount"))["s"] or 0
+            today = qs.filter(created_at__gte=today_start).aggregate(s=Sum("amount"))["s"] or 0
+            success_count = qs.count()
 
-        # Provider bo'yicha breakdown
-        by_provider = (
-            qs.values("provider")
-            .annotate(total=Sum("amount"), count=Count("id"))
-            .order_by("-total")
-        )
-
-        # Eng ko'p sotilgan tarif
-        top_tariff = (
-            qs.values("tariff__name")
-            .annotate(total=Sum("amount"), count=Count("id"))
-            .order_by("-total")
-            .first()
-        )
-
-        extra_context = extra_context or {}
-        extra_context["revenue_summary"] = {
-            "total": total,
-            "month": month,
-            "today": today,
-            "last_30": last_30,
-            "by_provider": list(by_provider),
-            "top_tariff": top_tariff,
-            "successful_count": qs.count(),
-        }
+            # GET request bo'lsa message qo'shamiz (POST'da form-level message bo'ladi)
+            if request.method == "GET" and success_count > 0:
+                summary = (
+                    f"💰 Jami daromad: {float(total):,.0f} so'm  •  "
+                    f"📅 Bu oy: {float(month):,.0f} so'm  •  "
+                    f"📍 Bugun: {float(today):,.0f} so'm  •  "
+                    f"✅ {success_count} ta muvaffaqiyatli to'lov"
+                )
+                dj_messages.info(request, summary)
+        except Exception:
+            pass  # Summary xato bersa ham asosiy sahifa ishlasin
         return super().changelist_view(request, extra_context=extra_context)

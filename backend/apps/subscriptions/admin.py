@@ -53,25 +53,31 @@ class TariffAdmin(ModelAdmin):
     )
 
     def price_display(self, obj):
-        return format_html("<b>{:,.0f} so'm</b>", float(obj.price))
+        try:
+            price_str = f"{float(obj.price or 0):,.0f}"
+        except Exception:
+            price_str = str(obj.price or 0)
+        return format_html("<b>{} so'm</b>", price_str)
     price_display.short_description = "Narxi"
     price_display.admin_order_field = "price"
 
     def nano_coins_display(self, obj):
-        if obj.nano_coins_included == 0:
+        nano = obj.nano_coins_included or 0
+        if nano == 0:
             return format_html('<span style="color:#6b7280">—</span>')
         return format_html(
-            '<span style="color:#f59e0b;font-weight:700">💎 {}</span>',
-            f"{obj.nano_coins_included:,}",
+            '<span style="color:#f59e0b;font-weight:700">{}</span>',
+            f"{nano:,} nano",
         )
     nano_coins_display.short_description = "Oyiga nano"
     nano_coins_display.admin_order_field = "nano_coins_included"
 
     def tokens_display(self, obj):
         """Foydalanuvchi sotib olgach oladigan token miqdori (nano × 10)."""
-        if obj.nano_coins_included == 0:
+        nano = obj.nano_coins_included or 0
+        if nano == 0:
             return "—"
-        tokens = obj.nano_coins_included * 10
+        tokens = nano * 10
         return format_html(
             '<span style="color:#3b82f6;font-weight:600">{} token</span>',
             f"{tokens:,}",
