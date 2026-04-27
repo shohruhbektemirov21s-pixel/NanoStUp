@@ -5,6 +5,7 @@ import { PremiumNavbar } from '@/components/premium/Navbar';
 import { PremiumHero } from '@/components/premium/Hero';
 import { PremiumStats } from '@/components/premium/Stats';
 import { PremiumFeatures } from '@/components/premium/Features';
+import { PremiumFAQ } from '@/components/premium/FAQ';
 
 export default function LandingPage() {
   return (
@@ -17,6 +18,9 @@ export default function LandingPage() {
         <PremiumStats />
         
         <PremiumFeatures />
+
+        <PremiumFAQ />
+
 
       </main>
 
