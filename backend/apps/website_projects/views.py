@@ -1884,6 +1884,46 @@ def owner_get_by_slug(request, slug: str):
     })
 
 
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def owner_download_by_slug(request, slug: str):
+    """
+    /api/projects/owner/by_slug/<slug>/download/ — Sayt egasi o'z saytining
+    kodini ZIP holida tezkor yuklab olishi uchun.
+
+    TEZKOR: faqat o'zining loyihasi, Claude orqali qayta generatsiya qilmaydi.
+    - Agar `generated_files` (Claude kodlari) keshlangan bo'lsa — undan ZIP qiladi.
+    - Aks holda — schema'dan to'g'ridan-to'g'ri static HTML ZIP qiladi (~100ms).
+    """
+    try:
+        project = WebsiteProject.objects.get(slug=slug, user=request.user)
+    except WebsiteProject.DoesNotExist:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki sizniki emas."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        if project.generated_files and isinstance(project.generated_files, dict):
+            zip_buffer = ExportService.generate_zip_from_files(
+                project, project.generated_files,
+            )
+        else:
+            zip_buffer = ExportService.generate_static_zip(project)
+    except Exception:
+        logger.exception("owner_download_by_slug ZIP xatosi project=%s", project.id)
+        return Response(
+            {"success": False, "error": "ZIP yaratishda xatolik."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    safe_title = "".join(c for c in (project.title or slug) if c.isalnum() or c in " -_").strip() or slug
+    resp = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+    resp["Content-Disposition"] = f'attachment; filename="{safe_title}.zip"'
+    resp["Cache-Control"] = "no-store"
+    return resp
+
+
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def owner_save_by_slug(request, slug: str):
