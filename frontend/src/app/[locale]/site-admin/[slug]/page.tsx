@@ -15,8 +15,11 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Wand2,
   X,
 } from 'lucide-react';
+
+import { EditorTab, type SchemaShape } from './EditorTab';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 
@@ -40,10 +43,11 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'dashboard' | 'schema' | 'settings';
+type Tab = 'dashboard' | 'editor' | 'schema' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { key: 'editor', label: 'Visual Editor', icon: Wand2 },
   { key: 'schema', label: 'Schema (JSON)', icon: FileJson },
   { key: 'settings', label: 'Sozlamalar', icon: Settings },
 ];
@@ -516,8 +520,22 @@ export default function SiteAdminPage() {
               locale={locale}
               onEditSchema={() => setTab('schema')}
               onEditSettings={() => setTab('settings')}
+              onEditVisual={() => setTab('editor')}
               onDownload={handleDownload}
               downloading={downloading}
+            />
+          ) : tab === 'editor' ? (
+            <EditorTab
+              schema={(() => {
+                try {
+                  return JSON.parse(schemaText) as SchemaShape;
+                } catch {
+                  return {} as SchemaShape;
+                }
+              })()}
+              setSchema={(s) => setSchemaText(JSON.stringify(s, null, 2))}
+              saving={saving}
+              onSave={handleSave}
             />
           ) : tab === 'schema' ? (
             <SchemaTab
@@ -589,6 +607,7 @@ function DashboardTab({
   locale,
   onEditSchema,
   onEditSettings,
+  onEditVisual,
   onDownload,
   downloading,
 }: {
@@ -598,6 +617,7 @@ function DashboardTab({
   locale: string;
   onEditSchema: () => void;
   onEditSettings: () => void;
+  onEditVisual: () => void;
   onDownload: () => void;
   downloading: boolean;
 }) {
@@ -665,6 +685,13 @@ function DashboardTab({
           <h2 className="font-bold text-white mb-4 text-sm">Tezkor harakatlar</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             <QuickAction
+              icon={Wand2}
+              label="Visual editor (formalar)"
+              color="text-pink-400"
+              bg="bg-pink-500/10"
+              onClick={onEditVisual}
+            />
+            <QuickAction
               icon={Download}
               label={downloading ? 'ZIP yuklanmoqda...' : 'Sayt kodini ZIP yuklash'}
               color="text-emerald-400"
@@ -674,7 +701,7 @@ function DashboardTab({
             />
             <QuickAction
               icon={FileJson}
-              label="JSON tahrirlash"
+              label="JSON (advanced)"
               color="text-purple-400"
               bg="bg-purple-500/10"
               onClick={onEditSchema}

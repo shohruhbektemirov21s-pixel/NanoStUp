@@ -397,12 +397,51 @@ Font choices: "Inter", "Poppins", "Montserrat", "Raleway", "Playfair Display", "
 
 ## Rules:
 - First page MUST have slug="home"
-- Each page: 3-6 sections (start with hero, end with contact or cta)
+- Each page: 4-7 sections (start with hero, end with contact or cta)
 - ALWAYS include a settings block with vivid, industry-appropriate colors (see COLOR RULES above)
 - Write rich, realistic content (NOT lorem ipsum) matching the business type
 - ALL text in the requested language
 - Unique section ids (e.g. "hero-1", "features-home", "contact-final")
 - Return ONLY JSON, no explanation
+
+## ✨ QUALITY MANDATE (CRITICAL — like a senior designer/copywriter):
+The site MUST look and read like a real, launched business — NOT a demo/template.
+
+### Content depth (mandatory minimums):
+- **Hero**: 5-12 word title, 8-15 word subtitle, 20-40 word description, ALWAYS a CTA + secondary CTA
+- **Features/Services**: 4-6 items (NEVER fewer than 4); each item: 2-5 word title + 12-25 word description + emoji icon
+- **Stats**: ALWAYS 4 items with realistic numbers (e.g. "5000+", "98%", "15", "24/7")
+- **Pricing**: 3 plans (mark middle one popular:true); each plan: name + price + period + 4-7 features array
+- **Testimonials**: 3-6 reviews with REAL-sounding names (mix Uzbek+ Russian + English names per locale), role, 30-60 word text, rating:5
+- **Team**: 3-6 members; each: name + role + 1-line bio
+- **FAQ**: 5-8 question/answer pairs covering pricing, delivery, guarantees, returns, support
+- **Menu** (restaurants): 8-15 dishes split across 2-4 categories with realistic Uzbek prices ("45 000 so'm", "120 000 so'm")
+- **Gallery**: 6-12 placeholder image URLs from `https://images.unsplash.com/photo-...?w=800` matching business niche
+- **Contact**: real-looking Uzbek phone (+998 XX XXX XX XX), email, Toshkent street address, working hours
+- **About**: title + subtitle + 40-80 word description + mission + 3 values
+
+### Realism rules:
+- NO "Lorem ipsum", NO "Example", NO "Test", NO placeholder text — EVERY string must read like a real brand
+- Phone numbers: +998 format only
+- Prices: in UZS (so'm) for Uzbek sites, USD for English/global sites, RUB for Russian
+- Names: 70% local (Uzbek/Russian) + 30% international depending on language
+- Addresses: real Tashkent districts (Yunusobod, Mirzo Ulug'bek, Chilonzor, Yashnobod, Olmazor, Yakkasaroy, Sergeli, Bektemir, Mirobod, Shayxontohur, Uchtepa, Yangihayot)
+- Email domains: match site name (e.g. info@bestcafe.uz, hello@medclinic.uz)
+
+### SEO & Accessibility:
+- siteName MUST be branded (2-4 words, memorable, NOT generic like "Mening saytim")
+- Add top-level `description` (50-160 chars meta description)
+- Add top-level `keywords` (array of 5-10 SEO keywords)
+- Each section's content includes `alt` text for any image fields
+
+### JSON validity (ZERO ERRORS allowed):
+- Output MUST be parseable by JSON.parse on the first try
+- All strings: properly escaped (\\n for newlines, \\" for quotes inside)
+- All arrays: trailing commas FORBIDDEN
+- All keys: double-quoted, no single quotes
+- Section ids: UNIQUE across the entire schema (not just per page)
+- Cross-references: any ctaLink starting with # MUST point to an existing section id or page anchor
+- DO NOT invent custom section types — stick to the 13 listed above
 
 ## ADMIN PANEL:
 Every site automatically gets a HIDDEN admin panel at `nanostup.uz/<lang>/site-admin/<slug>` (a separate URL, NOT a path under the public site).

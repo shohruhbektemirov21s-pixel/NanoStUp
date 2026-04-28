@@ -281,3 +281,172 @@ class AdminTariffDetailView(APIView):
             return Response({"error": f"{active} ta faol obuna bor, o'chirib bo'lmaydi."}, status=400)
         t.delete()
         return Response({"ok": True})
+
+
+# ── Projects (user saytlari) ───────────────────────────────────────
+
+def _schema_summary(schema):
+    if not isinstance(schema, dict):
+        return {"page_count": 0, "section_count": 0}
+    pages = schema.get("pages") or []
+    sections = 0
+    for p in pages:
+        if isinstance(p, dict):
+            secs = p.get("sections") or []
+            if isinstance(secs, list):
+                sections += len(secs)
+    return {"page_count": len(pages) if isinstance(pages, list) else 0, "section_count": sections}
+
+
+class AdminProjectsView(APIView):
+    """Barcha foydalanuvchi loyihalari ro'yxati (qidiruv + filtr)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from django.db.models import Q
+
+        qs = WebsiteProject.objects.select_related("user").order_by("-created_at")
+
+        search = (request.query_params.get("search") or "").strip()
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search)
+                | Q(slug__icontains=search)
+                | Q(user__email__icontains=search)
+                | Q(user__username__icontains=search)
+            )
+
+        status_f = (request.query_params.get("status") or "").strip().upper()
+        if status_f in {"COMPLETED", "FAILED", "GENERATING", "IDLE"}:
+            qs = qs.filter(status=status_f)
+
+        published = request.query_params.get("published")
+        if published == "true":
+            qs = qs.filter(is_published=True)
+        elif published == "false":
+            qs = qs.filter(is_published=False)
+
+        active = request.query_params.get("active")
+        if active == "true":
+            qs = qs.filter(is_active=True)
+        elif active == "false":
+            qs = qs.filter(is_active=False)
+
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 50)), 200))
+        except (TypeError, ValueError):
+            limit = 50
+        try:
+            offset = max(0, int(request.query_params.get("offset", 0)))
+        except (TypeError, ValueError):
+            offset = 0
+
+        total = qs.count()
+        rows = qs[offset:offset + limit]
+
+        items = []
+        for p in rows:
+            summary = _schema_summary(p.schema_data)
+            items.append({
+                "id": str(p.id),
+                "title": p.title,
+                "slug": p.slug,
+                "language": p.language,
+                "status": p.status,
+                "is_published": p.is_published,
+                "is_active": p.is_active,
+                "view_count": p.view_count,
+                "page_count": summary["page_count"],
+                "section_count": summary["section_count"],
+                "created_at": p.created_at.isoformat(),
+                "updated_at": p.updated_at.isoformat(),
+                "published_at": p.published_at.isoformat() if p.published_at else None,
+                "user": {
+                    "id": p.user.id,
+                    "email": p.user.email,
+                    "username": getattr(p.user, "username", "") or "",
+                },
+            })
+
+        return Response({
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "items": items,
+        })
+
+
+class AdminProjectDetailView(APIView):
+    """Bitta loyiha haqida batafsil + tahrir/aktiv/o'chirish."""
+    permission_classes = [IsAdminUser]
+
+    def _get(self, project_id):
+        try:
+            return WebsiteProject.objects.select_related("user").get(id=project_id)
+        except WebsiteProject.DoesNotExist:
+            return None
+
+    def get(self, request, project_id):
+        p = self._get(project_id)
+        if not p:
+            return Response({"error": "Topilmadi"}, status=404)
+        summary = _schema_summary(p.schema_data)
+        return Response({
+            "id": str(p.id),
+            "title": p.title,
+            "slug": p.slug,
+            "prompt": p.prompt,
+            "language": p.language,
+            "status": p.status,
+            "is_published": p.is_published,
+            "is_active": p.is_active,
+            "hosted_on_platform": p.hosted_on_platform,
+            "view_count": p.view_count,
+            "schema_data": p.schema_data,
+            "page_count": summary["page_count"],
+            "section_count": summary["section_count"],
+            "created_at": p.created_at.isoformat(),
+            "updated_at": p.updated_at.isoformat(),
+            "published_at": p.published_at.isoformat() if p.published_at else None,
+            "user": {
+                "id": p.user.id,
+                "email": p.user.email,
+                "username": getattr(p.user, "username", "") or "",
+            },
+        })
+
+    def patch(self, request, project_id):
+        p = self._get(project_id)
+        if not p:
+            return Response({"error": "Topilmadi"}, status=404)
+        updated = []
+        if "title" in request.data:
+            p.title = str(request.data["title"])[:200]
+            updated.append("title")
+        if "is_active" in request.data:
+            p.is_active = bool(request.data["is_active"])
+            updated.append("is_active")
+        if "is_published" in request.data:
+            new_val = bool(request.data["is_published"])
+            if new_val and not p.is_published:
+                p.published_at = timezone.now()
+                updated.append("published_at")
+            p.is_published = new_val
+            updated.append("is_published")
+        if "schema_data" in request.data:
+            schema = request.data.get("schema_data")
+            if isinstance(schema, dict):
+                p.schema_data = schema
+                updated.append("schema_data")
+        if updated:
+            updated.append("updated_at")
+            p.save(update_fields=updated)
+        return Response({"ok": True, "updated": updated})
+
+    def delete(self, request, project_id):
+        p = self._get(project_id)
+        if not p:
+            return Response({"error": "Topilmadi"}, status=404)
+        title = p.title
+        p.delete()
+        return Response({"ok": True, "message": f"'{title}' o'chirildi."})

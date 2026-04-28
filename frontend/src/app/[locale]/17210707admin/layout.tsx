@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
+  Globe,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -20,6 +21,7 @@ import { useAuthStore } from '@/store/authStore';
 const NAV = [
   { href: '/17210707admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/17210707admin/users', label: 'Foydalanuvchilar', icon: Users },
+  { href: '/17210707admin/projects', label: 'Loyihalar', icon: Globe },
   { href: '/17210707admin/tariffs', label: 'Tariflar', icon: Tags },
 ];
 

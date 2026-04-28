@@ -9,6 +9,8 @@ from .admin_api import (
     AdminToggleUserView,
     AdminTariffsView,
     AdminTariffDetailView,
+    AdminProjectsView,
+    AdminProjectDetailView,
 )
 
 urlpatterns = [
@@ -24,4 +26,6 @@ urlpatterns = [
     path('admin/users/<int:user_id>/toggle/', AdminToggleUserView.as_view(), name='admin_toggle_user'),
     path('admin/tariffs/', AdminTariffsView.as_view(), name='admin_tariffs'),
     path('admin/tariffs/<int:tariff_id>/', AdminTariffDetailView.as_view(), name='admin_tariff_detail'),
+    path('admin/projects/', AdminProjectsView.as_view(), name='admin_projects'),
+    path('admin/projects/<uuid:project_id>/', AdminProjectDetailView.as_view(), name='admin_project_detail'),
 ]
