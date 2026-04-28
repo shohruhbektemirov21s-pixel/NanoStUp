@@ -43,7 +43,7 @@ export default function SiteAdminPage() {
   // ── Auth gate ──────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated || isTokenExpired()) {
-      router.replace(`/${locale}/login?next=/${locale}/s/${slug}/admin`);
+      router.replace(`/${locale}/login?next=/${locale}/site-admin/${slug}`);
     }
   }, [isAuthenticated, isTokenExpired, locale, router, slug]);
 
@@ -71,7 +71,7 @@ export default function SiteAdminPage() {
         if (e.response?.status === 404) {
           setError('Sayt topilmadi yoki sizniki emas.');
         } else if (e.response?.status === 401) {
-          router.replace(`/${locale}/login?next=/${locale}/s/${slug}/admin`);
+          router.replace(`/${locale}/login?next=/${locale}/site-admin/${slug}`);
         } else {
           setError(e.response?.data?.error ?? 'Yuklashda xatolik.');
         }
@@ -132,7 +132,7 @@ export default function SiteAdminPage() {
   // ── UI ─────────────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-500">
+      <div className="min-h-screen flex items-center justify-center text-zinc-500 bg-zinc-950">
         Kirish kerak...
       </div>
     );
@@ -144,7 +144,7 @@ export default function SiteAdminPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <span className="text-xs font-bold uppercase tracking-widest text-amber-400 shrink-0">
-              Admin
+              Site Admin
             </span>
             <span className="font-semibold truncate">{site?.title || slug}</span>
           </div>
@@ -191,7 +191,6 @@ export default function SiteAdminPage() {
           </div>
         ) : (
           <>
-            {/* siteName / title */}
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
@@ -216,7 +215,6 @@ export default function SiteAdminPage() {
               </div>
             </section>
 
-            {/* JSON editor */}
             <section className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-sm font-bold">Schema JSON</h2>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 
@@ -27,10 +28,7 @@ export function PublicSiteView({ schema, updatedAt, locale, generatedByLabel }: 
 
   // Owner ekanligini fonda tekshiramiz — agar shunday bo'lsa, "Admin" tugma chiqadi.
   useEffect(() => {
-    if (!isAuthenticated || !slug) {
-      setIsOwner(false);
-      return;
-    }
+    if (!isAuthenticated || !slug) return;
     let cancelled = false;
     api
       .get(`/projects/owner/by_slug/${encodeURIComponent(slug)}/`)
@@ -38,7 +36,7 @@ export function PublicSiteView({ schema, updatedAt, locale, generatedByLabel }: 
         if (!cancelled && res.data?.success) setIsOwner(true);
       })
       .catch(() => {
-        if (!cancelled) setIsOwner(false);
+        /* not owner — keep default false */
       });
     return () => {
       cancelled = true;
@@ -50,14 +48,14 @@ export function PublicSiteView({ schema, updatedAt, locale, generatedByLabel }: 
       <SiteRenderer schema={schema} />
       {isOwner && (
         <a
-          href={`/${locale}/s/${slug}/admin`}
+          href={`/${locale}/site-admin/${slug}`}
           className="fixed bottom-4 right-4 z-50 px-4 py-2.5 rounded-full font-bold text-xs bg-amber-500 text-zinc-900 shadow-lg hover:bg-amber-400 transition flex items-center gap-2"
         >
           <span>⚙️</span> Admin panel
         </a>
       )}
       <div className="py-4 px-6 text-center text-[11px] text-zinc-400 border-t border-zinc-100">
-        {generatedByLabel} · {dateStr} · <a href="/" className="hover:text-zinc-600 transition-colors">NanoStUp AI</a>
+        {generatedByLabel} · {dateStr} · <Link href="/" className="hover:text-zinc-600 transition-colors">NanoStUp AI</Link>
       </div>
     </main>
   );

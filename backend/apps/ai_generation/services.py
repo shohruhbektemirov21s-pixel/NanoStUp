@@ -214,12 +214,12 @@ build, create, make, start, go, ok, yes, готово, давай, сделай,
 
 ## 🔐 ADMIN PANEL — DOIM SO'RASH (KRITIK):
 Har bir sayt avtomatik ravishda **yashirin admin panel** bilan keladi:
-URL: `nanostup.uz/<lang>/s/<slug>/admin` (oddiy public URL'ga `/admin` qo'shilgan).
+URL: `nanostup.uz/<lang>/site-admin/<slug>` (alohida yashirin admin havola, public URL'dan farqli).
 
 ### 📌 DESIGN_VARIANTS dan KEYIN va FINAL_SITE_SPEC dan OLDIN — admin panel haqida so'ra:
 
 **1️⃣ Foydalanuvchiga qisqa tushuntir:**
-"Saytingizga **admin panel** ham qo'shilib, faqat siz ko'ra olasiz (URL oxiriga `/admin` qo'shilganda ochiladi, NanoStUp parolingiz bilan kirasiz)."
+"Saytingizga **alohida yashirin admin panel** ham qo'shilib, faqat siz ko'ra olasiz (`/site-admin/<slug>` manzili, NanoStUp parolingiz bilan kirasiz)."
 
 **2️⃣ DOIM so'ra — biznes turiga qarab kerakli funksiyalarni:**
 
@@ -619,14 +619,14 @@ NEVER fabricate sources. If search returns nothing useful, say so honestly.
 
 ## 🔐 ADMIN PANEL — KEY KNOWLEDGE:
 Every NanoStUp site automatically comes with a HIDDEN admin panel:
-- **URL**: append `/admin` to the public site URL (e.g. `nanostup.uz/uz/s/<slug>/admin`)
+- **URL**: a separate hidden path — `nanostup.uz/<lang>/site-admin/<slug>`
 - **Access**: ONLY the site owner can log in with their NanoStUp account email + password
-- **Hidden by design**: without `/admin` at the end, no one knows it exists
+- **Hidden by design**: only the owner knows this URL exists
 - **Features**: edit text, images, colors, schema; manage products/orders/content
   depending on the site type (shop, blog, restaurant, portfolio, etc.)
 
 If user asks "admin panel haqida" / "an admin panel" / "об админ-панели" — explain:
-1. URL pattern (`/admin` suffix)
+1. URL pattern (`/site-admin/<slug>` — separate hidden path)
 2. Login = their NanoStUp email + password
 3. Hidden — no one can guess it
 4. What features they can manage there

@@ -168,7 +168,7 @@ def _build_admin_panel_info(project, user, language: str = "uz") -> Optional[Dic
     Sayt egasiga admin panel haqida ma'lumot tayyorlaydi.
 
     Returns: {
-      "url": "/uz/s/<slug>/admin",
+      "url": "/uz/site-admin/<slug>",
       "public_url": "/uz/s/<slug>",
       "user_email": "...",
       "instructions": "<chat AI uchun tayyor matn (uz/ru/en)>",
@@ -182,37 +182,37 @@ def _build_admin_panel_info(project, user, language: str = "uz") -> Optional[Dic
         lang = "uz"
 
     public_url = f"/{lang}/s/{project.slug}"
-    admin_url = f"{public_url}/admin"
+    admin_url = f"/{lang}/site-admin/{project.slug}"
     email = user.email or ""
 
     if lang == "ru":
         instructions = (
             f"\n\n🔐 **АДМИН-ПАНЕЛЬ — только для вас:**\n"
             f"👉 {admin_url}\n\n"
-            f"• Просто добавьте `/admin` в конце ссылки сайта — откроется форма входа.\n"
+            f"• Это отдельная скрытая ссылка для управления сайтом.\n"
             f"• Войти можно ТОЛЬКО под вашим аккаунтом: **{email}** "
             f"(тот же пароль, что и при регистрации в NanoStUp).\n"
-            f"• 🛡 Без `/admin` в конце URL никто посторонний не сможет зайти.\n"
+            f"• 🛡 Никто кроме вас не сможет зайти.\n"
             f"• 💾 Сохраните эту ссылку и не передавайте её другим!"
         )
     elif lang == "en":
         instructions = (
             f"\n\n🔐 **ADMIN PANEL — only for you:**\n"
             f"👉 {admin_url}\n\n"
-            f"• Just append `/admin` to your site URL — a login form will appear.\n"
+            f"• This is a separate hidden URL to manage your site.\n"
             f"• Sign in ONLY with your account: **{email}** "
             f"(the same password you used to register on NanoStUp).\n"
-            f"• 🛡 Without `/admin` at the end, no one else can access it.\n"
+            f"• 🛡 No one else can access it.\n"
             f"• 💾 Save this link and do not share it!"
         )
     else:  # uz
         instructions = (
             f"\n\n🔐 **ADMIN PANEL — faqat siz uchun:**\n"
             f"👉 {admin_url}\n\n"
-            f"• Sayt linkining oxiriga `/admin` qo'shsangiz — kirish formasi ochiladi.\n"
+            f"• Bu — saytni boshqarish uchun alohida yashirin havola.\n"
             f"• Faqat O'Z akkauntingiz bilan kira olasiz: **{email}** "
             f"(NanoStUp'ga ro'yxatdan o'tgandagi parolingiz bilan).\n"
-            f"• 🛡 URL oxirida `/admin` bo'lmasa, hech kim kira olmaydi — bu yashirin manzil.\n"
+            f"• 🛡 Sizdan boshqa hech kim kira olmaydi.\n"
             f"• 💾 Bu havolani SAQLANG va boshqalarga BERMANG!"
         )
 

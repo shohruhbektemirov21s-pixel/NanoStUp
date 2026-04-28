@@ -1107,11 +1107,11 @@ export default function BuilderPage() {
             'ai',
             `🔐 **Admin panel — faqat siz uchun:**\n\n` +
             `👉 **${adminUrl}**\n\n` +
-            `📌 Sayt linkining oxiriga \`/admin\` qo'shsangiz — kirish formasi ochiladi.\n` +
+            `📌 Bu — saytni boshqarish uchun alohida yashirin havola.\n` +
             `📧 Faqat o'z akkauntingiz bilan kira olasiz: **${ap.user_email}**\n` +
             `🔑 NanoStUp'ga ro'yxatdan o'tgandagi parolingizdan foydalaning.\n\n` +
             `⚠️ **MUHIM:**\n` +
-            `• URL oxirida \`/admin\` bo'lmasa — hech kim kira olmaydi (yashirin manzil)\n` +
+            `• Bu havola yashirin — sizdan boshqa hech kim kira olmaydi\n` +
             `• Bu havolani **SAQLANG** va boshqalarga **BERMANG**\n` +
             `• Admin panel'da matn, ranglar, sahifalarni o'zgartirish mumkin`,
             'DONE',
