@@ -5,6 +5,7 @@ import {
   Activity,
   CheckCircle2,
   CreditCard,
+  DollarSign,
   FolderOpen,
   Loader2,
   RefreshCw,
@@ -19,6 +20,16 @@ interface Stats {
   users: { total: number; active: number; new_today: number; new_week: number };
   subscriptions: { total: number; active: number };
   projects: { total: number; completed: number; today: number };
+  revenue?: {
+    total: number;
+    month: number;
+    today: number;
+    success_payments: number;
+  };
+}
+
+function fmtMoney(n: number | undefined): string {
+  return `${(n ?? 0).toLocaleString('uz-UZ')} so'm`;
 }
 
 const cardVariants = {
@@ -149,6 +160,34 @@ export default function AdminDashboard() {
           Yangilash
         </motion.button>
       </motion.div>
+
+      {/* Revenue KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KpiCard
+          index={0}
+          label="Jami daromad"
+          value={fmtMoney(stats?.revenue?.total)}
+          sub={`${stats?.revenue?.success_payments ?? 0} ta to'lov`}
+          icon={DollarSign}
+          color="bg-emerald-500"
+        />
+        <KpiCard
+          index={1}
+          label="Bu oy daromad"
+          value={fmtMoney(stats?.revenue?.month)}
+          sub="Joriy oy"
+          icon={TrendingUp}
+          color="bg-purple-500"
+        />
+        <KpiCard
+          index={2}
+          label="Bugungi daromad"
+          value={fmtMoney(stats?.revenue?.today)}
+          sub="Joriy kun"
+          icon={Activity}
+          color="bg-amber-500"
+        />
+      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

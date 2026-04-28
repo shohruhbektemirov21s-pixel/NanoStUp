@@ -42,6 +42,30 @@ class AdminStatsView(APIView):
         completed = WebsiteProject.objects.filter(status=ProjectStatus.COMPLETED).count()
         today_projects = WebsiteProject.objects.filter(created_at__date=now.date()).count()
 
+        # ── Daromad (PaymentTransaction.SUCCESS bo'yicha) ─────────────
+        revenue_total = 0.0
+        revenue_month = 0.0
+        revenue_today = 0.0
+        success_payments = 0
+        try:
+            from django.db.models import Sum
+            from apps.payments.models import PaymentStatus, PaymentTransaction
+
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            qs = PaymentTransaction.objects.filter(status=PaymentStatus.SUCCESS)
+
+            revenue_total = float(qs.aggregate(s=Sum("amount"))["s"] or 0)
+            revenue_month = float(
+                qs.filter(created_at__gte=month_start).aggregate(s=Sum("amount"))["s"] or 0
+            )
+            revenue_today = float(
+                qs.filter(created_at__gte=today_start).aggregate(s=Sum("amount"))["s"] or 0
+            )
+            success_payments = qs.count()
+        except Exception:
+            pass
+
         return Response({
             "users": {
                 "total": total_users,
@@ -57,6 +81,12 @@ class AdminStatsView(APIView):
                 "total": total_projects,
                 "completed": completed,
                 "today": today_projects,
+            },
+            "revenue": {
+                "total": revenue_total,
+                "month": revenue_month,
+                "today": revenue_today,
+                "success_payments": success_payments,
             },
         })
 
@@ -121,9 +151,43 @@ class AdminGrantSubscriptionView(APIView):
             start_date=now,
             end_date=now + timedelta(days=days),
         )
+
+        # ── Daromadga qo'shish: admin_manual PaymentTransaction yaratamiz ──
+        revenue_added = 0.0
+        try:
+            from apps.payments.models import PaymentStatus, PaymentTransaction
+            PaymentTransaction.objects.create(
+                user=user,
+                tariff=tariff,
+                amount=tariff.price,
+                provider="admin_manual",
+                status=PaymentStatus.SUCCESS,
+                external_id=f"admin_api_{sub.id}_{int(now.timestamp())}",
+                verified_at=now,
+            )
+            revenue_added = float(tariff.price or 0)
+        except Exception:
+            pass
+
+        # ── Foydalanuvchiga nano koin ham beramiz (real to'lovdagi kabi) ──
+        try:
+            from apps.accounts.models import TOKENS_PER_NANO_COIN
+            nano_to_add = getattr(tariff, "nano_coins_included", 0) or 0
+            if nano_to_add > 0:
+                tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
+                user.tokens_balance = (user.tokens_balance or 0) + tokens_to_add
+                user.nano_coins_last_used_at = now
+                user.save(update_fields=["tokens_balance", "nano_coins_last_used_at"])
+        except Exception:
+            pass
+
         return Response({
             "ok": True,
-            "message": f"{user.email} ga '{tariff.name}' obunasi {days} kunga berildi.",
+            "message": (
+                f"{user.email} ga '{tariff.name}' obunasi {days} kunga berildi. "
+                f"Daromad: +{revenue_added:,.0f} so'm"
+            ),
+            "revenue_added": revenue_added,
         })
 
 
