@@ -2,11 +2,9 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Code2,
   Download,
   ExternalLink,
   Eye,
-  FileJson,
   Layers,
   LayoutDashboard,
   LogOut,
@@ -43,12 +41,11 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'dashboard' | 'editor' | 'schema' | 'settings';
+type Tab = 'dashboard' | 'editor' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'editor', label: 'Visual Editor', icon: Wand2 },
-  { key: 'schema', label: 'Schema (JSON)', icon: FileJson },
+  { key: 'editor', label: 'Tahrirlash', icon: Wand2 },
+  { key: 'dashboard', label: 'Boshqaruv', icon: LayoutDashboard },
   { key: 'settings', label: 'Sozlamalar', icon: Settings },
 ];
 
@@ -79,7 +76,7 @@ export default function SiteAdminPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [schemaText, setSchemaText] = useState('');
 
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const [tab, setTab] = useState<Tab>('editor');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Inline login form (NanoStUp asosiy login/register sahifasiga umuman olib bormaydi)
@@ -512,18 +509,6 @@ export default function SiteAdminPage() {
             <div className="rounded-2xl border border-white/5 bg-zinc-900 p-10 text-center text-zinc-500">
               Sayt topilmadi.
             </div>
-          ) : tab === 'dashboard' ? (
-            <DashboardTab
-              site={site}
-              schemaStats={schemaStats}
-              jsonError={jsonError}
-              locale={locale}
-              onEditSchema={() => setTab('schema')}
-              onEditSettings={() => setTab('settings')}
-              onEditVisual={() => setTab('editor')}
-              onDownload={handleDownload}
-              downloading={downloading}
-            />
           ) : tab === 'editor' ? (
             <EditorTab
               schema={(() => {
@@ -537,13 +522,15 @@ export default function SiteAdminPage() {
               saving={saving}
               onSave={handleSave}
             />
-          ) : tab === 'schema' ? (
-            <SchemaTab
-              schemaText={schemaText}
-              setSchemaText={setSchemaText}
-              jsonError={jsonError}
-              saving={saving}
-              onSave={handleSave}
+          ) : tab === 'dashboard' ? (
+            <DashboardTab
+              site={site}
+              schemaStats={schemaStats}
+              locale={locale}
+              onEditSettings={() => setTab('settings')}
+              onEditVisual={() => setTab('editor')}
+              onDownload={handleDownload}
+              downloading={downloading}
             />
           ) : (
             <SettingsTab
@@ -603,9 +590,7 @@ function KpiCard({
 function DashboardTab({
   site,
   schemaStats,
-  jsonError,
   locale,
-  onEditSchema,
   onEditSettings,
   onEditVisual,
   onDownload,
@@ -613,9 +598,7 @@ function DashboardTab({
 }: {
   site: OwnerSite;
   schemaStats: { pageCount: number; sectionCount: number };
-  jsonError: string | null;
   locale: string;
-  onEditSchema: () => void;
   onEditSettings: () => void;
   onEditVisual: () => void;
   onDownload: () => void;
@@ -624,7 +607,7 @@ function DashboardTab({
   const updated = new Date(site.updated_at).toLocaleString(locale);
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <KpiCard
           index={0}
           label="Sahifalar"
@@ -648,14 +631,6 @@ function DashboardTab({
           sub={`Til: ${site.language?.toUpperCase() ?? '—'}`}
           icon={Eye}
           color="bg-emerald-500"
-        />
-        <KpiCard
-          index={3}
-          label="JSON"
-          value={jsonError ? 'Xato' : 'OK'}
-          sub={jsonError ? 'Tahrirlash kerak' : 'Yaroqli sxema'}
-          icon={Code2}
-          color={jsonError ? 'bg-red-500' : 'bg-amber-500'}
         />
       </div>
 
@@ -682,29 +657,22 @@ function DashboardTab({
           transition={{ delay: 0.35 }}
           className="bg-zinc-900 rounded-2xl border border-white/5 p-5"
         >
-          <h2 className="font-bold text-white mb-4 text-sm">Tezkor harakatlar</h2>
+          <h2 className="font-bold text-white mb-4 text-sm">Tez harakatlar</h2>
           <div className="grid sm:grid-cols-2 gap-3">
             <QuickAction
               icon={Wand2}
-              label="Visual editor (formalar)"
+              label="Saytni tahrirlash"
               color="text-pink-400"
               bg="bg-pink-500/10"
               onClick={onEditVisual}
             />
             <QuickAction
               icon={Download}
-              label={downloading ? 'ZIP yuklanmoqda...' : 'Sayt kodini ZIP yuklash'}
+              label={downloading ? 'ZIP yuklanmoqda...' : 'Sayt kodini ZIP yuklab olish'}
               color="text-emerald-400"
               bg="bg-emerald-500/10"
               onClick={onDownload}
               disabled={downloading}
-            />
-            <QuickAction
-              icon={FileJson}
-              label="JSON (advanced)"
-              color="text-purple-400"
-              bg="bg-purple-500/10"
-              onClick={onEditSchema}
             />
             <QuickAction
               icon={Settings}
@@ -717,58 +685,6 @@ function DashboardTab({
         </motion.div>
       </div>
     </div>
-  );
-}
-
-function SchemaTab({
-  schemaText,
-  setSchemaText,
-  jsonError,
-  saving,
-  onSave,
-}: {
-  schemaText: string;
-  setSchemaText: (s: string) => void;
-  jsonError: string | null;
-  saving: boolean;
-  onSave: () => void;
-}) {
-  return (
-    <section className="rounded-2xl border border-white/5 bg-zinc-900 p-5 space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold flex items-center gap-2">
-          <FileJson className="w-4 h-4 text-purple-400" />
-          Schema JSON
-        </h2>
-        <span className={`text-xs ${jsonError ? 'text-red-400' : 'text-emerald-400'}`}>
-          {jsonError ? `❌ ${jsonError}` : '✓ Yaroqli JSON'}
-        </span>
-      </div>
-      <p className="text-xs text-zinc-500 leading-relaxed">
-        Bu yerda saytning tuzilishi (sahifalar, sektsiyalar, matn, ranglar) saqlanadi.
-        Faqat haqiqiy JSON yozing. Saqlaganingizda sayt darhol yangilanadi.
-      </p>
-      <textarea
-        value={schemaText}
-        onChange={(e) => setSchemaText(e.target.value)}
-        spellCheck={false}
-        rows={28}
-        className="w-full px-4 py-3 rounded-xl bg-zinc-950 border border-zinc-800 font-mono text-xs leading-relaxed focus:outline-none focus:border-purple-500 transition"
-      />
-      <div className="flex justify-end">
-        <motion.button
-          type="button"
-          onClick={onSave}
-          disabled={saving || !!jsonError}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-tr from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Saqlanmoqda...' : 'Saqlash'}
-        </motion.button>
-      </div>
-    </section>
   );
 }
 
