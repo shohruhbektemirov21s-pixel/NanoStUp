@@ -1,6 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
+// ── Global stillar (animatsiya, hover, soya — barcha sayt uchun) ──
+function SiteStyles({ primary, accent }: { primary: string; accent: string }) {
+  return (
+    <style>{`
+      @keyframes ns-fade-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes ns-blob { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(30px, -40px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
+      @keyframes ns-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+      .ns-fade-up { animation: ns-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+      .ns-d-1 { animation-delay: 0.05s; } .ns-d-2 { animation-delay: 0.12s; }
+      .ns-d-3 { animation-delay: 0.20s; } .ns-d-4 { animation-delay: 0.28s; }
+      .ns-d-5 { animation-delay: 0.36s; } .ns-d-6 { animation-delay: 0.44s; }
+      .ns-card { transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s, border-color 0.3s; }
+      .ns-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px -12px rgba(0,0,0,0.18), 0 4px 10px -2px rgba(0,0,0,0.06); }
+      .ns-blob { position: absolute; border-radius: 9999px; filter: blur(60px); opacity: 0.5; pointer-events: none; animation: ns-blob 22s ease-in-out infinite; }
+      .ns-btn-primary { display: inline-flex; align-items: center; gap: 0.55rem; transition: transform 0.2s, box-shadow 0.25s, opacity 0.2s; box-shadow: 0 6px 18px -4px ${primary}55, 0 2px 6px -2px rgba(0,0,0,0.1); }
+      .ns-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -6px ${primary}88, 0 4px 10px -2px rgba(0,0,0,0.12); }
+      .ns-btn-primary:active { transform: translateY(0); }
+      .ns-btn-ghost { display: inline-flex; align-items: center; gap: 0.55rem; transition: background 0.2s, transform 0.2s; }
+      .ns-btn-ghost:hover { transform: translateY(-2px); }
+      .ns-arrow { transition: transform 0.25s; display: inline-block; }
+      .ns-btn-primary:hover .ns-arrow, .ns-btn-ghost:hover .ns-arrow { transform: translateX(4px); }
+      .ns-grain { background-image: radial-gradient(circle at 1px 1px, ${primary}11 1px, transparent 0); background-size: 20px 20px; }
+      .ns-display { letter-spacing: -0.025em; line-height: 1.05; }
+      .ns-eyebrow { letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; font-size: 0.7rem; }
+      @media (prefers-reduced-motion: reduce) { .ns-fade-up, .ns-blob { animation: none !important; } .ns-card:hover { transform: none; } }
+    `}</style>
+  );
+}
+
+// Hook: navbar scroll holatini kuzatish
+function useScrolled(threshold = 24) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > threshold);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return scrolled;
+}
 
 interface SectionContent {
   [key: string]: unknown;
@@ -189,31 +230,66 @@ function Hero({ content, colors, design }: SectionProps) {
       className="inline-block mb-4 px-3 py-1 text-xs font-bold tracking-wider uppercase">{badge}</span>
   ) : null;
 
-  const CtaButtons = (cta || cta2) ? (
-    <div className="mt-8 flex flex-wrap gap-3 items-center">
-      {cta && <a href={String(content.ctaLink ?? '#contact')}
-        style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
-        className="px-7 py-3.5 font-bold text-sm shadow-lg hover:opacity-90 transition-opacity">{cta}</a>}
-      {cta2 && <a href="#"
-        style={{ border: `2px solid ${colors.primary}`, color: colors.primary, borderRadius: r }}
-        className="px-7 py-3.5 font-bold text-sm hover:opacity-80 transition-opacity bg-transparent">{cta2}</a>}
-    </div>
+  // CTA tugmalar — strelka bilan, soya bilan
+  const Arrow = <span className="ns-arrow">→</span>;
+  const PrimaryBtn = cta ? (
+    <a href={String(content.ctaLink ?? '#contact')}
+      style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+      className="ns-btn-primary px-7 py-3.5 font-bold text-sm">
+      {cta} {Arrow}
+    </a>
+  ) : null;
+  const GhostBtn = cta2 ? (
+    <a href="#"
+      style={{ border: `1.5px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r, background: 'transparent' }}
+      className="ns-btn-ghost px-7 py-3.5 font-bold text-sm">
+      {cta2}
+    </a>
+  ) : null;
+  const RichCtas = (cta || cta2) ? (
+    <div className="mt-9 flex flex-wrap gap-3 items-center">{PrimaryBtn}{GhostBtn}</div>
   ) : null;
 
+  // Gradient mesh fon (har Hero uchun foydalanish mumkin)
+  const MeshBg = (
+    <>
+      <div className="ns-blob" style={{ background: colors.primary, width: '420px', height: '420px', top: '-120px', left: '-120px' }} />
+      <div className="ns-blob" style={{ background: colors.accent, width: '380px', height: '380px', bottom: '-100px', right: '-80px', animationDelay: '7s' }} />
+      <div className="absolute inset-0 ns-grain opacity-50" />
+    </>
+  );
+
   if (v === 'split') {
+    // Vizual blok — 3 qatlamli abstrakt: katta gradient doira + kichik card + accent halqa
+    const VisualBlock = (
+      <div className="relative aspect-square md:aspect-[4/5] w-full">
+        <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, borderRadius: r }}
+          className="absolute inset-0 ns-fade-up ns-d-2" />
+        <div style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r, boxShadow: '0 20px 50px -10px rgba(0,0,0,0.18)' }}
+          className="absolute bottom-6 left-6 right-12 p-5 ns-fade-up ns-d-3">
+          <div style={{ color: colors.mutedText }} className="text-[10px] font-bold uppercase tracking-widest">★★★★★</div>
+          <p style={{ color: colors.text }} className="mt-1.5 text-sm font-semibold leading-snug">
+            {subtitle || "Mijozlarimiz biz bilan ishonchli xizmat oladilar"}
+          </p>
+        </div>
+        <div style={{ border: `2px solid ${colors.bg}`, background: colors.accent, borderRadius: '9999px' }}
+          className="absolute top-4 right-4 w-16 h-16 flex items-center justify-center text-2xl shadow-lg ns-fade-up ns-d-4">
+          ✨
+        </div>
+      </div>
+    );
     return (
-      <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
-          <div>
+      <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        {MeshBg}
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center relative">
+          <div className="ns-fade-up">
             {Badge}
-            <h1 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight">{title}</h1>
-            {subtitle && <p style={{ color: colors.primary }} className="mt-3 text-base sm:text-lg font-semibold">{subtitle}</p>}
-            {desc && <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base leading-relaxed max-w-lg">{desc}</p>}
-            {CtaButtons}
+            <h1 style={{ color: colors.text }} className="ns-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black">{title}</h1>
+            {subtitle && <p style={{ color: colors.primary }} className="mt-4 text-lg sm:text-xl font-semibold">{subtitle}</p>}
+            {desc && <p style={{ color: colors.mutedText }} className="mt-5 text-base sm:text-lg leading-relaxed max-w-xl">{desc}</p>}
+            {RichCtas}
           </div>
-          <div style={{ background: colors.primary + '18', borderRadius: r }} className="aspect-square md:aspect-video flex items-center justify-center">
-            <div style={{ color: colors.primary }} className="text-6xl md:text-8xl opacity-60">✦</div>
-          </div>
+          {VisualBlock}
         </div>
       </section>
     );
@@ -223,23 +299,28 @@ function Hero({ content, colors, design }: SectionProps) {
     return (
       <section style={{ background: colors.primary, fontFamily: colors.font }}
         className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
-        <div className="absolute inset-0 opacity-10" style={{ background: `radial-gradient(circle at 70% 30%, ${colors.accent}, transparent 60%)` }} />
-        <div className="relative z-10 max-w-4xl mx-auto">
+        {/* Mesh blobs (oq tomonida) */}
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 75% 25%, ${colors.accent}55, transparent 50%), radial-gradient(circle at 20% 80%, ${colors.onPrimary}22, transparent 45%)` }} />
+        <div className="absolute inset-0 ns-grain opacity-30" />
+        <div className="relative z-10 max-w-5xl mx-auto">
           {badge && (
-            <span style={{ background: 'rgba(255,255,255,0.15)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)', borderRadius: r }}
-              className="inline-block mb-4 px-3 py-1 text-xs font-bold tracking-wider uppercase">{badge}</span>
+            <span style={{ background: 'rgba(255,255,255,0.15)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)', borderRadius: r, backdropFilter: 'blur(8px)' }}
+              className="ns-fade-up inline-flex items-center gap-2 mb-6 px-4 py-1.5 text-xs font-bold tracking-wider uppercase">
+              <span style={{ background: colors.onPrimary }} className="w-1.5 h-1.5 rounded-full animate-pulse" />
+              {badge}
+            </span>
           )}
-          <h1 style={{ color: colors.onPrimary }} className="text-4xl sm:text-5xl md:text-7xl font-black leading-none tracking-tight">{title}</h1>
-          {subtitle && <p style={{ color: colors.onPrimary, opacity: 0.8 }} className="mt-4 text-lg sm:text-xl font-semibold">{subtitle}</p>}
-          {desc && <p style={{ color: colors.onPrimary, opacity: 0.65 }} className="mt-4 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">{desc}</p>}
+          <h1 style={{ color: colors.onPrimary }} className="ns-display ns-fade-up ns-d-1 text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black">{title}</h1>
+          {subtitle && <p style={{ color: colors.onPrimary, opacity: 0.85 }} className="ns-fade-up ns-d-2 mt-6 text-xl sm:text-2xl font-semibold">{subtitle}</p>}
+          {desc && <p style={{ color: colors.onPrimary, opacity: 0.7 }} className="ns-fade-up ns-d-3 mt-5 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto">{desc}</p>}
           {(cta || cta2) && (
-            <div className="mt-8 flex flex-wrap gap-3 justify-center">
+            <div className="ns-fade-up ns-d-4 mt-10 flex flex-wrap gap-4 justify-center">
               {cta && <a href={String(content.ctaLink ?? '#contact')}
-                style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r }}
-                className="px-8 py-4 font-black text-sm hover:opacity-90 transition-opacity">{cta}</a>}
+                style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r, boxShadow: '0 12px 30px -8px rgba(0,0,0,0.4)' }}
+                className="ns-btn-primary px-9 py-4 font-black text-sm">{cta} <span className="ns-arrow">→</span></a>}
               {cta2 && <a href="#"
-                style={{ border: `2px solid ${colors.onPrimary}`, color: colors.onPrimary, borderRadius: r }}
-                className="px-8 py-4 font-bold text-sm hover:opacity-80 transition-opacity bg-transparent">{cta2}</a>}
+                style={{ border: `1.5px solid ${colors.onPrimary}66`, color: colors.onPrimary, borderRadius: r, backdropFilter: 'blur(8px)' }}
+                className="ns-btn-ghost px-9 py-4 font-bold text-sm bg-transparent">{cta2}</a>}
             </div>
           )}
         </div>
@@ -247,17 +328,21 @@ function Hero({ content, colors, design }: SectionProps) {
     );
   }
 
+  // Centered variant
   return (
     <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }}
-      className={`${py} px-4 md:px-8 text-center`}>
-      {Badge}
-      <h1 style={{ color: colors.text }}
-        className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight max-w-4xl mx-auto leading-tight">
-        {title}
-      </h1>
-      {subtitle && <p style={{ color: colors.primary }} className="mt-3 text-base sm:text-lg font-semibold max-w-xl mx-auto">{subtitle}</p>}
-      {desc && <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">{desc}</p>}
-      <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">{CtaButtons}</div>
+      className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
+      {MeshBg}
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {Badge}
+        <h1 style={{ color: colors.text }}
+          className="ns-display ns-fade-up text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black max-w-4xl mx-auto">
+          {title}
+        </h1>
+        {subtitle && <p style={{ color: colors.primary }} className="ns-fade-up ns-d-1 mt-5 text-lg sm:text-xl font-semibold max-w-2xl mx-auto">{subtitle}</p>}
+        {desc && <p style={{ color: colors.mutedText }} className="ns-fade-up ns-d-2 mt-5 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">{desc}</p>}
+        <div className="ns-fade-up ns-d-3 flex flex-col sm:flex-row gap-3 justify-center items-center">{RichCtas}</div>
+      </div>
     </section>
   );
 }
@@ -341,12 +426,17 @@ function Features({ content, colors, design }: SectionProps) {
     <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
       <div className="max-w-6xl mx-auto">
         {Header}
-        <div className={`grid ${cols} gap-4 md:gap-6`}>
+        <div className={`grid ${cols} gap-5 md:gap-6`}>
           {items.map((item, i) => (
             <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
-              className="p-5 md:p-7">
-              {item.icon && <div className="text-2xl mb-3">{item.icon}</div>}
-              <h3 style={{ color: colors.text }} className="text-base md:text-lg font-bold">{item.title ?? item.name ?? ''}</h3>
+              className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-6 md:p-8`}>
+              {item.icon && (
+                <div style={{ background: `${colors.primary}15`, color: colors.primary, borderRadius: r }}
+                  className="w-12 h-12 flex items-center justify-center text-xl mb-4">
+                  {item.icon}
+                </div>
+              )}
+              <h3 style={{ color: colors.text }} className="text-base md:text-lg font-bold leading-snug">{item.title ?? item.name ?? ''}</h3>
               <p style={{ color: colors.mutedText }} className="mt-2 text-sm leading-relaxed">{item.desc ?? item.description ?? item.text ?? ''}</p>
               {item.price && <div style={{ color: colors.primary }} className="mt-3 font-black text-lg">{item.price}</div>}
             </div>
@@ -427,13 +517,13 @@ function Pricing({ content, colors, design }: SectionProps) {
     <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
       <div className="max-w-6xl mx-auto">
         {Header}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
           {items.map((item, i) => (
             <div key={i}
               style={item.popular
-                ? { background: colors.primary, border: `2px solid ${colors.primary}`, color: colors.onPrimary, borderRadius: r }
+                ? { background: colors.primary, border: `2px solid ${colors.primary}`, color: colors.onPrimary, borderRadius: r, boxShadow: `0 24px 50px -12px ${colors.primary}50` }
                 : { background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }}
-              className="p-6 md:p-8 flex flex-col relative">
+              className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-7 md:p-9 flex flex-col relative ${item.popular ? 'md:scale-105' : ''}`}>
               {item.popular && (
                 <div style={{ background: colors.accent, color: '#fff', borderRadius: r }}
                   className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 text-xs font-bold whitespace-nowrap">
@@ -576,13 +666,14 @@ function Testimonials({ content, colors, design }: SectionProps) {
           <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
           {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
           {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-5 md:p-6 flex flex-col">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-6 md:p-7 flex flex-col relative`}>
+              <div style={{ color: colors.primary, opacity: 0.15 }} className="absolute top-4 right-5 text-5xl font-serif leading-none select-none">“</div>
               {item.rating && <div className="text-amber-400 text-sm mb-3">{'★'.repeat(Math.min(5, item.rating))}</div>}
-              <p style={{ color: colors.text }} className="text-sm leading-relaxed flex-1 italic">&ldquo;{item.text ?? ''}&rdquo;</p>
-              <div className="mt-4 flex items-center gap-3">
-                <div style={{ background: colors.primary, color: colors.onPrimary }} className="w-9 h-9 rounded-full flex items-center justify-center font-black text-sm shrink-0">
+              <p style={{ color: colors.text }} className="text-sm md:text-[15px] leading-relaxed flex-1 relative">{item.text ?? ''}</p>
+              <div className="mt-5 pt-5 flex items-center gap-3" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+                <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, color: colors.onPrimary }} className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0">
                   {(item.name ?? '?')[0].toUpperCase()}
                 </div>
                 <div>
@@ -648,12 +739,13 @@ function Faq({ content, colors, design }: SectionProps) {
         </div>
         <div className="space-y-3">
           {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden">
-              <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between p-4 md:p-5 text-left gap-4">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${open === i ? colors.primary + '55' : colors.cardBorder}`, borderRadius: r }} className={`ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden transition-colors`}>
+              <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between p-5 md:p-6 text-left gap-4">
                 <span style={{ color: colors.text }} className="font-semibold text-sm md:text-base">{item.question ?? ''}</span>
-                <span style={{ color: colors.primary }} className="text-lg shrink-0">{open === i ? '−' : '+'}</span>
+                <span style={{ background: open === i ? colors.primary : `${colors.primary}18`, color: open === i ? colors.onPrimary : colors.primary, borderRadius: '9999px' }}
+                  className="w-7 h-7 flex items-center justify-center text-base shrink-0 transition">{open === i ? '−' : '+'}</span>
               </button>
-              {open === i && <div style={{ color: colors.mutedText }} className="px-4 md:px-5 pb-4 md:pb-5 text-sm leading-relaxed">{item.answer ?? ''}</div>}
+              {open === i && <div style={{ color: colors.mutedText }} className="px-5 md:px-6 pb-5 md:pb-6 text-sm md:text-[15px] leading-relaxed">{item.answer ?? ''}</div>}
             </div>
           ))}
         </div>
@@ -772,8 +864,8 @@ function Blog({ content, colors, design }: SectionProps) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((it, i) => (
-            <article key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden flex flex-col">
-              {(it.image || it.thumbnail) && <img src={it.image || it.thumbnail} alt={it.title ?? ''} className="w-full h-48 object-cover" />}
+            <article key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden flex flex-col group`}>
+              {(it.image || it.thumbnail) && <div className="overflow-hidden"><img src={it.image || it.thumbnail} alt={it.title ?? ''} className="w-full h-52 object-cover transition-transform duration-700 group-hover:scale-110" /></div>}
               <div className="p-5 flex-1 flex flex-col">
                 {it.category && <span style={{ background: `${colors.accent}22`, color: colors.accent }} className="self-start mb-2 px-2 py-0.5 text-[10px] rounded-md font-semibold">{it.category}</span>}
                 <h3 style={{ color: colors.text }} className="font-bold text-base md:text-lg mb-2">{it.title}</h3>
@@ -807,10 +899,10 @@ function Products({ content, colors, design }: SectionProps) {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((it, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden flex flex-col">
-              <div className="relative">
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden flex flex-col group`}>
+              <div className="relative overflow-hidden">
                 {it.image
-                  ? <img src={it.image} alt={String(it.name ?? '')} className="w-full h-48 object-cover" />
+                  ? <img src={it.image} alt={String(it.name ?? '')} className="w-full h-52 object-cover transition-transform duration-700 group-hover:scale-110" />
                   : <div style={{ background: `${colors.accent}22` }} className="w-full h-48" />}
                 {(it.badge || it.oldPrice) && <span style={{ background: colors.primary, color: colors.onPrimary }} className="absolute top-3 left-3 px-2 py-1 text-[10px] rounded-md font-bold">{it.badge ?? 'YANGI'}</span>}
               </div>
@@ -881,10 +973,12 @@ function Properties({ content, colors, design }: SectionProps) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map((it, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden">
-              {it.image
-                ? <img src={it.image} alt={it.title ?? ''} className="w-full h-52 object-cover" />
-                : <div style={{ background: `${colors.accent}22` }} className="w-full h-52" />}
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden group`}>
+              <div className="overflow-hidden">
+                {it.image
+                  ? <img src={it.image} alt={it.title ?? ''} className="w-full h-52 object-cover transition-transform duration-700 group-hover:scale-110" />
+                  : <div style={{ background: `linear-gradient(135deg, ${colors.primary}22, ${colors.accent}33)` }} className="w-full h-52" />}
+              </div>
               <div className="p-5">
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <span style={{ color: colors.primary }} className="font-black text-lg md:text-xl">{String(it.price ?? '')}</span>
@@ -1157,6 +1251,7 @@ export const SiteRenderer = React.memo(function SiteRenderer({
     allSectionTypes,
   );
   const design = schema ? resolveDesign(schema) : {} as SiteDesign;
+  const scrolled = useScrolled(40);
 
   if (!schema) return null;
 
@@ -1181,35 +1276,58 @@ export const SiteRenderer = React.memo(function SiteRenderer({
     ? pages.map((p, idx) => ({ label: pageLabel(p, idx), onClick: () => { setActiveSlug(p.slug ?? `page-${idx}`); setMobileMenuOpen(false); }, active: p.slug === activePage.slug }))
     : sections.filter(s => s.id).map(s => ({ label: s.type, href: `#${s.id}`, onClick: () => setMobileMenuOpen(false), active: false }));
 
+  // Aloqa ma'lumotlari (footer + navbar uchun)
+  const contactSection = pages.flatMap(p => p.sections ?? []).find(s => s.type === 'contact');
+  const contactContent = (contactSection?.content as { phone?: string; email?: string; address?: string }) ?? {};
+
   return (
     <div style={{ background: colors.bg, fontFamily: colors.font }} className="w-full">
+      <SiteStyles primary={colors.primary} accent={colors.accent} />
       {/* ── Responsive Navbar ───────────────────────────────── */}
       {(siteName || navLinks.length > 0) && (
-        <nav style={{ background: colors.bg + 'f0', borderBottom: `1px solid ${colors.cardBorder}` }}
-          className="sticky top-0 z-20 backdrop-blur-md">
-          <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-14 md:h-16">
-            {/* Brand */}
-            <span style={{ color: colors.text }} className="font-black text-base md:text-lg tracking-tight">{siteName}</span>
+        <nav style={{
+          background: scrolled ? colors.bg + 'ee' : colors.bg + '00',
+          borderBottom: scrolled ? `1px solid ${colors.cardBorder}` : '1px solid transparent',
+          boxShadow: scrolled ? '0 4px 20px -6px rgba(0,0,0,0.08)' : 'none',
+        }}
+          className="sticky top-0 z-20 backdrop-blur-md transition-all duration-300">
+          <div className={`max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between transition-all duration-300 ${scrolled ? 'h-14 md:h-16' : 'h-16 md:h-20'}`}>
+            {/* Brand — logo dot + sayt nomi */}
+            <a href={`#${pages[0]?.slug ?? 'home'}`} className="flex items-center gap-2.5" onClick={(e) => { e.preventDefault(); setActiveSlug(pages[0]?.slug ?? 'home'); }}>
+              <span style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, borderRadius: '8px' }}
+                className="w-8 h-8 flex items-center justify-center font-black text-sm shadow-md"
+                aria-hidden="true">
+                <span style={{ color: colors.onPrimary }}>{(siteName[0] ?? 'N').toUpperCase()}</span>
+              </span>
+              <span style={{ color: colors.text }} className="font-black text-base md:text-lg tracking-tight ns-display">{siteName}</span>
+            </a>
 
             {/* Desktop nav */}
             <div className="hidden md:flex items-center gap-1">
               {navLinks.map((link, i) => (
                 link.href ? (
                   <a key={i} href={link.href} onClick={link.onClick}
-                    style={{ color: link.active ? colors.primary : colors.mutedText }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity capitalize">
+                    style={{ color: link.active ? colors.primary : colors.text, opacity: link.active ? 1 : 0.7 }}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-100 transition-opacity capitalize">
                     {link.label}
                   </a>
                 ) : (
                   <button key={i} type="button" onClick={link.onClick}
                     style={link.active
-                      ? { background: colors.primary, color: colors.onPrimary }
-                      : { color: colors.mutedText }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity capitalize">
+                      ? { background: colors.primary + '15', color: colors.primary }
+                      : { color: colors.text, opacity: 0.7 }}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-100 transition capitalize">
                     {link.label}
                   </button>
                 )
               ))}
+              {contactContent.phone && (
+                <a href={`tel:${contactContent.phone}`}
+                  style={{ background: colors.primary, color: colors.onPrimary, borderRadius: getRadius(design) }}
+                  className="ns-btn-primary ml-3 px-4 py-2 text-xs font-bold">
+                  📞 {contactContent.phone}
+                </a>
+              )}
             </div>
 
             {/* Mobile hamburger */}
@@ -1266,14 +1384,77 @@ export const SiteRenderer = React.memo(function SiteRenderer({
         );
       })}
 
-      {/* ── Footer ──────────────────────────────────────────── */}
-      <footer style={{ background: colors.primary, color: colors.onPrimary, fontFamily: colors.font }} className="py-8 px-4 text-center text-sm opacity-90">
-        © {new Date().getFullYear()} {siteName || ''}
-        {siteName && (
-          <div style={{ opacity: 0.55 }} className="mt-1 text-xs">
-            Barcha huquqlar himoyalangan
+      {/* ── Footer (multi-column) ─────────────────────────── */}
+      <footer style={{ background: colors.isDarkBg ? '#0a0a0a' : colors.text, color: '#ffffff', fontFamily: colors.font }} className="px-4 md:px-8 pt-14 md:pt-20 pb-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-10">
+            {/* Brand kolonkasi */}
+            <div className="md:col-span-5">
+              <div className="flex items-center gap-2.5 mb-4">
+                <span style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, borderRadius: '8px' }}
+                  className="w-9 h-9 flex items-center justify-center font-black">
+                  <span style={{ color: colors.onPrimary }}>{(siteName[0] ?? 'N').toUpperCase()}</span>
+                </span>
+                <span className="font-black text-lg ns-display">{siteName || 'Brand'}</span>
+              </div>
+              <p className="text-sm leading-relaxed max-w-md" style={{ opacity: 0.7 }}>
+                {String(schema?.description ?? '') || `${siteName} — ishonchli xizmat va sifat kafolati bilan.`}
+              </p>
+              <div className="mt-5 flex gap-2">
+                {['📘','📷','✈️','▶'].map((icon, i) => (
+                  <a key={i} href="#" style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '10px' }}
+                    className="w-9 h-9 flex items-center justify-center text-sm hover:bg-white/15 transition">
+                    {icon}
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Sahifalar kolonkasi */}
+            {pages.length > 1 && (
+              <div className="md:col-span-3">
+                <h4 className="ns-eyebrow mb-4" style={{ opacity: 0.6 }}>Sahifalar</h4>
+                <ul className="space-y-2">
+                  {pages.slice(0, 6).map((p, idx) => (
+                    <li key={idx}>
+                      <button onClick={() => setActiveSlug(p.slug ?? `p-${idx}`)}
+                        className="text-sm font-medium hover:opacity-100 transition capitalize"
+                        style={{ opacity: 0.7 }}>
+                        {pageLabel(p, idx)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Kontakt kolonkasi */}
+            <div className={pages.length > 1 ? 'md:col-span-4' : 'md:col-span-7'}>
+              <h4 className="ns-eyebrow mb-4" style={{ opacity: 0.6 }}>Aloqa</h4>
+              <ul className="space-y-2.5 text-sm" style={{ opacity: 0.85 }}>
+                {contactContent.phone && (
+                  <li><a href={`tel:${contactContent.phone}`} className="hover:opacity-70 transition">📞 {contactContent.phone}</a></li>
+                )}
+                {contactContent.email && (
+                  <li><a href={`mailto:${contactContent.email}`} className="hover:opacity-70 transition break-all">✉️ {contactContent.email}</a></li>
+                )}
+                {contactContent.address && (
+                  <li className="flex items-start gap-1.5">📍 <span>{contactContent.address}</span></li>
+                )}
+                {!contactContent.phone && !contactContent.email && !contactContent.address && (
+                  <li className="italic opacity-60">Aloqa ma&apos;lumotlari tez orada qo&apos;shiladi</li>
+                )}
+              </ul>
+            </div>
           </div>
-        )}
+
+          {/* Pastki qator */}
+          <div className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.08)', opacity: 0.6 }}>
+            <span>© {new Date().getFullYear()} {siteName || 'Brand'}. Barcha huquqlar himoyalangan.</span>
+            <span>Powered by <a href="https://nanostup.uz" target="_blank" rel="noreferrer" className="hover:opacity-80 underline">NanoStUp</a></span>
+          </div>
+        </div>
       </footer>
     </div>
   );
