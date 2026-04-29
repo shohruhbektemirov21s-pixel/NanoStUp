@@ -144,21 +144,31 @@ function pricingVariant(d: SiteDesign): 'cards' | 'minimal' {
 }
 
 // ── Predefined palettes ─────────────────────────────────────────
+// Tartib muhim: aniqroq nichelar (news, pharmacy, wedding) — avval; umumiylar — oxirida.
 const PALETTES = [
-  { keys: ['restoran','cafe','kafe','food','taom','oshxona','pizza','burger','sushi'], primary:'#e85d04', accent:'#f48c06', bg:'#fff8f0', text:'#1a0a00', font:'Poppins' },
-  { keys: ['salon','spa','beauty','go\'zallik','gozallik','kosmetik','nail','barber','soch'], primary:'#c9184a', accent:'#ff4d6d', bg:'#fff0f3', text:'#1a0005', font:'Playfair Display' },
-  { keys: ['gym','fitness','sport','trener','bodybuilding','crossfit','yoga'], primary:'#e63946', accent:'#f4a261', bg:'#0d0d0d', text:'#ffffff', font:'Montserrat' },
-  { keys: ['klinika','clinic','tibbiy','doktor','shifokor','hospital','health'], primary:'#0077b6', accent:'#00b4d8', bg:'#f0f8ff', text:'#023e8a', font:'Inter' },
-  { keys: ['tech','saas','startup','software','it','dastur','ilovа','app','digital'], primary:'#6366f1', accent:'#8b5cf6', bg:'#0f0f1a', text:'#ffffff', font:'Space Grotesk' },
-  { keys: ['real','estate','uy','kvartira','property','ko\'chmas'], primary:'#1d4e89', accent:'#f4a261', bg:'#f8f9fa', text:'#1a1a2e', font:'Raleway' },
-  { keys: ['ta\'lim','talim','kurs','maktab','akademiya','school','academy','edu'], primary:'#2d6a4f', accent:'#52b788', bg:'#f0fff4', text:'#081c15', font:'Poppins' },
-  { keys: ['agentlik','agency','kreativ','creative','dizayn','design','studio'], primary:'#7209b7', accent:'#f72585', bg:'#10002b', text:'#ffffff', font:'Space Grotesk' },
-  { keys: ['shop','do\'kon','dokon','market','mahsulot','store','ecommerce'], primary:'#e63946', accent:'#457b9d', bg:'#ffffff', text:'#1d3557', font:'Inter' },
-  { keys: ['hotel','mehmonxona','turizm','travel','tourism','resort'], primary:'#b5838d', accent:'#e5989b', bg:'#fff4e6', text:'#2d1b1e', font:'Playfair Display' },
-  { keys: ['avto','auto','mashina','car','transport','taxi'], primary:'#212529', accent:'#ffd60a', bg:'#0a0a0a', text:'#ffffff', font:'Montserrat' },
-  { keys: ['portfolio','freelancer','portfolio','shaxsiy','personal'], primary:'#4361ee', accent:'#4cc9f0', bg:'#0d1b2a', text:'#ffffff', font:'Space Grotesk' },
+  // Specifik nichelar — avval
+  { keys: ['yangilik','news','gazeta','akhbor','axborot','jurnal','jurnalistika','media','axborotnoma'], primary:'#dc2626', accent:'#1f2937', bg:'#fafafa', text:'#111827', font:'Playfair Display' },
+  { keys: ['dorixona','pharmacy','dori','apteka','medikament'], primary:'#16a34a', accent:'#0ea5e9', bg:'#f0fdf4', text:'#052e16', font:'Inter' },
+  { keys: ['to\'y','toy','wedding','nikoh','marriage','kelin','kuyov','to\'yxona'], primary:'#c8a880', accent:'#e8c5a0', bg:'#fff8f0', text:'#2a1810', font:'Playfair Display' },
+  { keys: ['musiqa','music','konsert','concert','festival','dj','club','klub','event','tadbir'], primary:'#a855f7', accent:'#ec4899', bg:'#0a0a0a', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['fotograf','photography','suratchi','surat olish','video studio'], primary:'#0a0a0a', accent:'#fbbf24', bg:'#fafafa', text:'#0a0a0a', font:'Playfair Display' },
+  { keys: ['bank','moliya','finance','kredit','sug\'urta','insurance','invest'], primary:'#1e3a8a', accent:'#fbbf24', bg:'#f8fafc', text:'#0f172a', font:'Inter' },
+  { keys: ['xayriya','fond','charity','non-profit','foundation','volunteer','yordam'], primary:'#2d6a4f', accent:'#95d5b2', bg:'#f0fff4', text:'#1b4332', font:'Poppins' },
+  // Mavjud nichelar
+  { keys: ['restoran','cafe','kafe','food','taom','oshxona','pizza','burger','sushi','choyxona'], primary:'#e85d04', accent:'#f48c06', bg:'#fff8f0', text:'#1a0a00', font:'Poppins' },
+  { keys: ['salon','spa','beauty','go\'zallik','gozallik','kosmetik','nail','barber','soch','manikur'], primary:'#c9184a', accent:'#ff4d6d', bg:'#fff0f3', text:'#1a0005', font:'Playfair Display' },
+  { keys: ['gym','fitness','sport','trener','bodybuilding','crossfit','yoga','jismoniy'], primary:'#e63946', accent:'#f4a261', bg:'#0d0d0d', text:'#ffffff', font:'Montserrat' },
+  { keys: ['klinika','clinic','tibbiy','doktor','shifokor','hospital','health','sog\'liq','stomatolog','shifoxona'], primary:'#0077b6', accent:'#00b4d8', bg:'#f0f8ff', text:'#023e8a', font:'Inter' },
+  { keys: ['tech','saas','startup','software','dastur','ilova','digital','texnologiya','web studio'], primary:'#6366f1', accent:'#8b5cf6', bg:'#0f0f1a', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['real estate','uy sotish','kvartira','property','ko\'chmas','realtor','ijara'], primary:'#1d4e89', accent:'#f4a261', bg:'#f8f9fa', text:'#1a1a2e', font:'Raleway' },
+  { keys: ['ta\'lim','talim','kurs','maktab','akademiya','school','academy','edu','o\'quv','trening'], primary:'#2d6a4f', accent:'#52b788', bg:'#f0fff4', text:'#081c15', font:'Poppins' },
+  { keys: ['agentlik','agency','kreativ','creative','dizayn','design studio','marketing','reklama','smm','branding'], primary:'#7209b7', accent:'#f72585', bg:'#10002b', text:'#ffffff', font:'Space Grotesk' },
+  { keys: ['shop','do\'kon','dokon','market','mahsulot','store','ecommerce','savdo','sotish'], primary:'#e63946', accent:'#457b9d', bg:'#ffffff', text:'#1d3557', font:'Inter' },
+  { keys: ['hotel','mehmonxona','turizm','travel','tourism','resort','sayohat','hostel','otel'], primary:'#b5838d', accent:'#e5989b', bg:'#fff4e6', text:'#2d1b1e', font:'Playfair Display' },
+  { keys: ['avto','auto','mashina','transport','taxi','avtomobil','servis stansiya','ehtiyot qism'], primary:'#212529', accent:'#ffd60a', bg:'#0a0a0a', text:'#ffffff', font:'Montserrat' },
+  { keys: ['portfolio','freelancer','shaxsiy','personal','resume'], primary:'#4361ee', accent:'#4cc9f0', bg:'#0d1b2a', text:'#ffffff', font:'Space Grotesk' },
   { keys: ['qurilish','construction','arxitektura','architect','building'], primary:'#3a405a', accent:'#f4a261', bg:'#f5f5f0', text:'#1a1a2a', font:'Raleway' },
-  { keys: ['yuridik','lawyer','advokat','legal','huquq'], primary:'#1b2a4a', accent:'#c9a84c', bg:'#f5f0e8', text:'#1b2a4a', font:'Playfair Display' },
+  { keys: ['yuridik','lawyer','advokat','legal','huquq','sud','notarius'], primary:'#1b2a4a', accent:'#c9a84c', bg:'#f5f0e8', text:'#1b2a4a', font:'Playfair Display' },
 ];
 
 function smartPalette(siteName: string, sections: string[]) {

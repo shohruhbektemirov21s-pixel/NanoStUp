@@ -429,51 +429,184 @@ Each section:
 - logos: title, subtitle, items:[{name,logo,alt,url}]
 - video: title, subtitle, videoUrl, thumbnail, description, ctaText
 
-## Pages strategy — ALWAYS MULTI-PAGE (minimum 4 pages):
-EVERY website MUST have at least these 4 pages (NO EXCEPTIONS):
-1. **home**    → hero + features/services-preview + testimonials + cta
-2. **about**   → about + stats + team
-3. **services** → services + pricing (if relevant) + faq
-4. **contact** → contact
+## Pages strategy — NICHE-AWARE MULTI-PAGE:
+EVERY website MUST have a **home** page + **contact** page (minimum 2 pages).
+Most sites: 4-5 pages. NEVER return just 1 page.
 
-Additionally, based on business type, ADD relevant pages:
-- Restaurant/cafe/bar   → add **menu** page: menu sections with categories
-- Hotel/resort/tourism  → add **gallery** page: gallery sections  
-- SaaS/tech/startup     → add **pricing** page: pricing + features comparison
-- Portfolio/freelancer  → add **portfolio** page: gallery + stats
-- Education/academy     → add **courses** page: services + pricing
-- Agency/studio         → add **work** page: gallery + testimonials
-- Medical/clinic        → add **doctors** page: team + services
-- Rich business (5+ pages) → add **blog** or **faq** standalone page
+## CRITICAL: niche dictates which sections appear — DO NOT add irrelevant sections
+NICHE-SPECIFIC RECIPES (use exactly these section combinations — do not invent):
 
-Result examples:
-- Cafe → ["home","menu","about","contact"]
-- Agency → ["home","services","work","about","contact"]
-- SaaS → ["home","features","pricing","about","contact"]
-- Clinic → ["home","services","doctors","about","contact"]
-- Hotel → ["home","gallery","about","contact"]
+📰 **News/Yangilik/Media** → 4-5 pages:
+   - home: hero + stats(4) + blog(6-9 posts) + features("Why us" 4 items) + cta(newsletter)
+   - articles: blog(12-18 posts grouped by category)
+   - about: about + stats + team(editors) + timeline
+   - contact: contact
+   ❌ NEVER add: pricing, services, products, menu, booking, properties
 
-NEVER return just 1 page — always build a complete multi-page website.
+🍽️ **Restaurant/Cafe** → 4 pages:
+   - home: hero + features(4 highlights) + menu(2-3 categories preview) + testimonials + booking
+   - menu: menu(8-15 dishes in 3-5 categories)
+   - about: about + team(chefs) + gallery + stats
+   - contact: contact + booking(reservation form)
+   ❌ NEVER add: pricing, products, properties, blog (unless food blog requested)
+
+💆 **Salon/Spa/Beauty** → 4 pages:
+   - home: hero + services + pricing(packages) + gallery + testimonials + booking
+   - services: services(detailed) + pricing
+   - about: about + team + gallery
+   - contact: contact + booking
+   ❌ NEVER add: blog, products (unless retail)
+
+🏋️ **Gym/Fitness** → 4 pages:
+   - home: hero + features + pricing(membership tiers) + team(trainers) + testimonials + cta
+   - schedule/services: services(classes) + timeline(weekly schedule)
+   - about: about + stats + gallery + team
+   - contact: contact + booking(trial)
+   ❌ NEVER add: blog, properties, menu
+
+💊 **Clinic/Medical** → 4 pages:
+   - home: hero + features(specializations) + services + team(doctors) + testimonials + cta
+   - doctors: team(detailed bios) + services
+   - about: about + stats + faq
+   - contact: contact + booking(appointment)
+   ❌ NEVER add: pricing(no public pricing), products, menu
+
+💚 **Pharmacy/Dorixona** → 3-4 pages:
+   - home: hero + features(why us) + products(featured medicine) + faq + cta
+   - catalog: products(20+ items)
+   - about: about + team
+   - contact: contact
+   ❌ NEVER add: pricing, booking, menu, properties
+
+💡 **SaaS/Tech** → 5 pages:
+   - home: hero + features(6) + stats + pricing + testimonials + logos + cta
+   - features: features(detailed) + video
+   - pricing: pricing(3 tiers) + faq
+   - about: about + team + timeline
+   - contact: contact
+   ❌ NEVER add: menu, properties, booking
+
+🏠 **Real Estate** → 4 pages:
+   - home: hero + properties(featured 6) + features + stats + testimonials + cta
+   - listings: properties(12+ filtered)
+   - about: about + team(agents) + testimonials
+   - contact: contact + booking(viewing)
+   ❌ NEVER add: pricing, services, menu, products
+
+📚 **Education/Academy** → 4-5 pages:
+   - home: hero + features + services(courses) + stats + testimonials + faq + cta
+   - courses: services(detailed) + pricing(course tiers) + timeline(curriculum)
+   - about: about + team(teachers) + stats
+   - contact: contact + booking(enrollment)
+   ❌ NEVER add: products, menu, properties
+
+🎨 **Agency/Creative** → 4 pages:
+   - home: hero + portfolio(featured 6) + services + logos(clients) + testimonials + cta
+   - work: portfolio(12+ projects)
+   - about: about + team + timeline + stats
+   - contact: contact
+   ❌ NEVER add: pricing(custom quotes), menu, properties, booking
+
+🛒 **Shop/E-commerce** → 4 pages:
+   - home: hero + products(featured 8) + features(why us) + testimonials + cta
+   - catalog: products(16+) — group by category if many
+   - about: about + faq(shipping, returns)
+   - contact: contact
+   ❌ NEVER add: menu, properties, services, booking
+
+🏨 **Hotel/Tourism** → 4-5 pages:
+   - home: hero + gallery + features(amenities) + properties(rooms) + testimonials + booking
+   - rooms: properties(rooms with prices) + gallery
+   - about: about + team + gallery + timeline
+   - contact: contact + booking
+   ❌ NEVER add: pricing(use properties for rooms), menu, products
+
+🌿 **NGO/Charity** → 4 pages:
+   - home: hero + features(mission) + stats(impact) + timeline(milestones) + testimonials + cta(donate)
+   - projects: portfolio(initiatives) + stats
+   - about: about + team(volunteers) + timeline
+   - contact: contact
+   ❌ NEVER add: pricing, products, menu, booking(unless event)
+
+🚗 **Auto/Transport** → 4 pages:
+   - home: hero + services + features + products(cars/parts if shop) + testimonials + cta
+   - services: services(detailed) + pricing(packages)
+   - about: about + team(mechanics) + stats
+   - contact: contact + booking
+   ❌ NEVER add: menu, properties, blog
+
+📸 **Portfolio/Freelancer** → 3-4 pages:
+   - home: hero + portfolio(8-12 best) + about(short) + testimonials + cta
+   - work: portfolio(detailed 12+) + logos(clients)
+   - about: about + timeline + stats
+   - contact: contact
+   ❌ NEVER add: pricing(custom), menu, properties, products, booking
+
+⚖️ **Legal/Law** → 4 pages:
+   - home: hero + features(practice areas) + services + team(lawyers) + testimonials + cta
+   - practice: services(detailed) + faq
+   - about: about + team + timeline + stats
+   - contact: contact + booking(consultation)
+   ❌ NEVER add: pricing(no public pricing), products, menu
+
+🏦 **Bank/Finance** → 4-5 pages:
+   - home: hero + features(products) + stats + services + testimonials + cta
+   - services: services(loans, cards, deposits) + faq + pricing(rates)
+   - about: about + team + timeline + stats
+   - contact: contact
+   ❌ NEVER add: products(use services), menu, properties
+
+📷 **Photography Studio** → 3-4 pages:
+   - home: hero + portfolio(featured) + services(packages) + testimonials + cta
+   - gallery: portfolio(masonry 16+) + gallery
+   - about: about + team + timeline
+   - contact: contact + booking(session)
+   ❌ NEVER add: products, menu, properties, blog
+
+💍 **Wedding/To'y** → 4 pages:
+   - home: hero + gallery(romantic) + services(packages) + pricing + testimonials + cta
+   - gallery: gallery(20+ wedding photos) + portfolio(past weddings)
+   - about: about + team + timeline
+   - contact: contact + booking
+   ❌ NEVER add: products, menu, properties, blog
+
+🎵 **Music/Event/Concert** → 4 pages:
+   - home: hero + features + timeline(upcoming events) + gallery + testimonials + cta
+   - events: timeline(detailed schedule) + gallery + portfolio(past events)
+   - about: about + team(performers) + timeline
+   - contact: contact + booking(tickets)
+   ❌ NEVER add: products, menu, properties
+
+If user requests a page not in recipe — add it but keep core sections from recipe.
+If niche unclear — fall back to: home(hero+features+testimonials+cta) + about + services + contact.
 
 ## COLOR RULES (CRITICAL — NEVER use plain black/white as primaryColor):
 Pick a VIVID, professional color palette that matches the industry:
-- 🍽️ Restaurant/cafe/food   → primaryColor:#e85d04  accentColor:#f48c06  bgColor:#fff8f0  textColor:#1a0a00
-- 💆 Salon/spa/beauty       → primaryColor:#c9184a  accentColor:#ff4d6d  bgColor:#fff0f3  textColor:#1a0005
-- 🏋️ Gym/fitness/sport      → primaryColor:#e63946  accentColor:#f4a261  bgColor:#0d0d0d  textColor:#ffffff
-- 💊 Clinic/medical/health  → primaryColor:#0077b6  accentColor:#00b4d8  bgColor:#f0f8ff  textColor:#023e8a
-- 💡 SaaS/tech/startup      → primaryColor:#6366f1  accentColor:#8b5cf6  bgColor:#0f0f1a  textColor:#ffffff
-- 🏠 Real estate            → primaryColor:#1d4e89  accentColor:#f4a261  bgColor:#f8f9fa  textColor:#1a1a2e
-- 📚 Education/academy      → primaryColor:#2d6a4f  accentColor:#52b788  bgColor:#f0fff4  textColor:#081c15
-- 🎨 Agency/creative        → primaryColor:#7209b7  accentColor:#f72585  bgColor:#10002b  textColor:#ffffff
-- 🛒 E-commerce/shop        → primaryColor:#e63946  accentColor:#457b9d  bgColor:#ffffff  textColor:#1d3557
-- 🏨 Hotel/tourism          → primaryColor:#b5838d  accentColor:#e5989b  bgColor:#fff4e6  textColor:#2d1b1e
-- 🌿 NGO/eco/charity        → primaryColor:#2d6a4f  accentColor:#95d5b2  bgColor:#f0fff4  textColor:#1b4332
-- 🚗 Auto/transport         → primaryColor:#212529  accentColor:#ffd60a  bgColor:#0a0a0a  textColor:#ffffff
-- 📸 Portfolio/freelancer   → primaryColor:#4361ee  accentColor:#4cc9f0  bgColor:#0d1b2a  textColor:#ffffff
-- ⚖️ Legal/law              → primaryColor:#1b2a4a  accentColor:#c9a84c  bgColor:#f5f0e8  textColor:#1b2a4a
-- Default (other)          → primaryColor:#2563eb  accentColor:#7c3aed  bgColor:#ffffff  textColor:#111827
+- 📰 News/media/yangiliklar  → primaryColor:#dc2626  accentColor:#1f2937  bgColor:#fafafa  textColor:#111827  (Playfair Display)
+- 🍽️ Restaurant/cafe/food    → primaryColor:#e85d04  accentColor:#f48c06  bgColor:#fff8f0  textColor:#1a0a00
+- 💆 Salon/spa/beauty        → primaryColor:#c9184a  accentColor:#ff4d6d  bgColor:#fff0f3  textColor:#1a0005
+- 🏋️ Gym/fitness/sport       → primaryColor:#e63946  accentColor:#f4a261  bgColor:#0d0d0d  textColor:#ffffff
+- 💊 Clinic/medical/health   → primaryColor:#0077b6  accentColor:#00b4d8  bgColor:#f0f8ff  textColor:#023e8a
+- � Pharmacy/dorixona       → primaryColor:#16a34a  accentColor:#0ea5e9  bgColor:#f0fdf4  textColor:#052e16
+- �💡 SaaS/tech/startup       → primaryColor:#6366f1  accentColor:#8b5cf6  bgColor:#0f0f1a  textColor:#ffffff
+- 🏠 Real estate             → primaryColor:#1d4e89  accentColor:#f4a261  bgColor:#f8f9fa  textColor:#1a1a2e
+- 📚 Education/academy       → primaryColor:#2d6a4f  accentColor:#52b788  bgColor:#f0fff4  textColor:#081c15
+- 🎨 Agency/creative         → primaryColor:#7209b7  accentColor:#f72585  bgColor:#10002b  textColor:#ffffff
+- 🛒 E-commerce/shop         → primaryColor:#e63946  accentColor:#457b9d  bgColor:#ffffff  textColor:#1d3557
+- 🏨 Hotel/tourism           → primaryColor:#b5838d  accentColor:#e5989b  bgColor:#fff4e6  textColor:#2d1b1e
+- 🌿 NGO/eco/charity         → primaryColor:#2d6a4f  accentColor:#95d5b2  bgColor:#f0fff4  textColor:#1b4332
+- 🚗 Auto/transport          → primaryColor:#212529  accentColor:#ffd60a  bgColor:#0a0a0a  textColor:#ffffff
+- 📸 Portfolio/freelancer    → primaryColor:#4361ee  accentColor:#4cc9f0  bgColor:#0d1b2a  textColor:#ffffff
+- ⚖️ Legal/law               → primaryColor:#1b2a4a  accentColor:#c9a84c  bgColor:#f5f0e8  textColor:#1b2a4a
+- 🏦 Bank/finance            → primaryColor:#1e3a8a  accentColor:#fbbf24  bgColor:#f8fafc  textColor:#0f172a
+- 📷 Photography studio      → primaryColor:#0a0a0a  accentColor:#fbbf24  bgColor:#fafafa  textColor:#0a0a0a  (Playfair Display)
+- 💍 Wedding/to'y             → primaryColor:#c8a880  accentColor:#e8c5a0  bgColor:#fff8f0  textColor:#2a1810  (Playfair Display)
+- 🎵 Music/event/concert     → primaryColor:#a855f7  accentColor:#ec4899  bgColor:#0a0a0a  textColor:#ffffff  (Space Grotesk)
+- Default (other)           → primaryColor:#2563eb  accentColor:#7c3aed  bgColor:#ffffff  textColor:#111827
 
 Font choices: "Inter", "Poppins", "Montserrat", "Raleway", "Playfair Display", "Space Grotesk"
+- News/Wedding/Photo/Legal: PREFER serif (Playfair Display) for premium feel
+- Tech/Music/Auto: PREFER Space Grotesk or Montserrat for modern feel
 - Dark bgColor (starts dark) → always set textColor to #ffffff or near-white
 - bgColor and primaryColor MUST be visually distinct (never same value)
 
