@@ -4,6 +4,8 @@ AI services:
   - ClaudeService     — tayyor spetsdan JSON sxema generatsiyasi (Claude)
   - AIRouterService   — prompt intentini aniqlaydi
 """
+import contextlib
+import io
 import json
 import logging
 import os
@@ -16,6 +18,23 @@ from google.genai import types as genai_types
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _silence_sdk_stdout():
+    """Gemini Python SDK ba'zan Google Search grounding tool natijalarini
+    stdout'ga (print) yozib qo'yadi (masalan: 'Menu', 'Home' va h.k.).
+    Bu produksiya log'larini ifloslantiradi. Shu blok ichida stdout
+    yutiladi, lekin stderr (real xatolar) tegmaydi.
+    """
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            yield
+    finally:
+        captured = buf.getvalue().strip()
+        if captured:
+            logger.debug("Gemini SDK stdout (suppressed): %r", captured[:500])
 
 # ─────────────────────────────────────────────────────────────────
 # Arxitektor tizim yo'riqnomasi (Gemini roli)
@@ -916,7 +935,8 @@ class ArchitectService:
                 ),
                 history=gemini_history,
             )
-            response = chat_session.send_message(parts)
+            with _silence_sdk_stdout():
+                response = chat_session.send_message(parts)
             text: str = response.text or ""
         except Exception as exc:
             logger.exception("ArchitectService (Gemini) chat xatosi")
@@ -964,14 +984,15 @@ class ArchitectService:
                 "Write the English instruction for Claude now."
             )))
 
-            response = client.models.generate_content(
-                model=_get_gemini_model(),
-                contents=parts,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=REVISION_PLANNER_PROMPT,
-                    max_output_tokens=600,
-                ),
-            )
+            with _silence_sdk_stdout():
+                response = client.models.generate_content(
+                    model=_get_gemini_model(),
+                    contents=parts,
+                    config=genai_types.GenerateContentConfig(
+                        system_instruction=REVISION_PLANNER_PROMPT,
+                        max_output_tokens=600,
+                    ),
+                )
             instruction = (response.text or "").strip()
             if not instruction:
                 # Fallback — oddiy foydalanuvchi matnini qaytaramiz
