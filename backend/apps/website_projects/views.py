@@ -48,22 +48,41 @@ FREE_MAX_SITES_PER_MONTH = 1  # Obunasiz user 1 ta sayt yarata oladi
 # Multi-tab yoki tezda 2 marta yuborilganda — 2-si 429 oladi.
 # Diqqat: gunicorn workers=2 bo'lsa, lock per-worker (cross-worker race
 # nadir bo'lsa-da, bu kichik ehtimol va katta zarar yo'q).
-_active_generations: set = set()
+# user_id -> acquired_at (epoch float) — timeout uchun vaqt saqlaymiz
+_active_generations: dict = {}
 _active_generations_lock = Lock()
+_GENERATION_LOCK_TTL = 1200  # 20 daqiqa — har qanday holda lock tozalanadi
 
 
 def _acquire_generation_lock(user_id: int) -> bool:
-    """True qaytarsa — slot olindi, boshqa generatsiya yo'q. False — band."""
+    """True qaytarsa — slot olindi, boshqa generatsiya yo'q. False — hali band.
+    TTL'dan oshgan (ishlamaydigan) locklar avtomatik tozalanadi.
+    """
+    now = time.time()
     with _active_generations_lock:
-        if user_id in _active_generations:
-            return False
-        _active_generations.add(user_id)
+        acquired_at = _active_generations.get(user_id)
+        if acquired_at is not None:
+            if now - acquired_at < _GENERATION_LOCK_TTL:
+                return False
+            # TTL o'tdi — lock eskirgan, majburan ozod qilamiz
+            logger.warning("Generation lock TTL expired for user_id=%s, force-releasing", user_id)
+        _active_generations[user_id] = now
         return True
 
 
 def _release_generation_lock(user_id: int) -> None:
     with _active_generations_lock:
-        _active_generations.discard(user_id)
+        _active_generations.pop(user_id, None)
+
+
+def _force_release_generation_lock(user_id: int) -> bool:
+    """Admin / frontend cancel uchun — har qanday holatda lockni tozalaydi.
+    True qaytarsa — lock mavjud edi va tozalandi.
+    """
+    with _active_generations_lock:
+        existed = user_id in _active_generations
+        _active_generations.pop(user_id, None)
+        return existed
 
 
 def _get_active_subscription(user) -> Optional[Subscription]:
@@ -1791,6 +1810,22 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         resp = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
         resp["Content-Disposition"] = f'attachment; filename="{safe_title}.zip"'
         return resp
+
+    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+    def cancel_generation(self, request):
+        """
+        Foydalanuvchining joriy generatsiya lock'ini majburan ozod qiladi.
+        Frontend "Bekor qilish" tugmasi bosildanda chaqiriladi.
+        """
+        user_id = request.user.id
+        released = _force_release_generation_lock(user_id)
+        logger.info("cancel_generation: user_id=%s released=%s", user_id, released)
+        return Response({
+            "success": True,
+            "released": released,
+            "message": "Generatsiya bekor qilindi. Endi yangi so'rov yuborishingiz mumkin." if released
+                       else "Faol generatsiya topilmadi.",
+        })
 
     @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
     def revise_inline(self, request):

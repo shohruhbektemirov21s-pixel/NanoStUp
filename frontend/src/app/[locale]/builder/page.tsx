@@ -83,6 +83,8 @@ interface ChatMessage {
   aiError?: boolean;
   errorCode?: string;
   retryable?: boolean;
+  // Parallel so'rov xatosi — "Bekor qilish" tugmasi uchun
+  concurrent?: boolean;
 }
 
 interface DesignVariant {
@@ -422,12 +424,13 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
 // ── Chat Bubble ────────────────────────────────────────────────────
 
 function ChatBubble({
-  msg, index, onEdit, onRetry,
+  msg, index, onEdit, onRetry, onCancelRetry,
 }: {
   msg: ChatMessage;
   index: number;
   onEdit?: (index: number) => void;
   onRetry?: (index: number) => void;
+  onCancelRetry?: (index: number) => void;
 }) {
   const isUser = msg.role === 'user';
   const isDone = msg.phase === 'DONE';
@@ -456,6 +459,7 @@ function ChatBubble({
       <div className={cn('max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
         isUser ? 'bg-purple-600 text-white rounded-br-sm'
           : msg.aiError ? 'bg-red-500/10 border border-red-500/30 text-red-200 rounded-bl-sm'
+          : msg.concurrent ? 'bg-amber-500/10 border border-amber-500/30 text-amber-200 rounded-bl-sm'
           : isDone ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 rounded-bl-sm'
             : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
       )}>
@@ -516,6 +520,19 @@ function ChatBubble({
             >
               <RefreshCw className="w-3 h-3" />
               Qaytadan urinish
+            </button>
+          </div>
+        )}
+        {msg.concurrent && onCancelRetry && (
+          <div className="mt-3 pt-3 border-t border-amber-500/20 flex items-center gap-2">
+            <StopCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-[11px] text-amber-300/70 flex-1">Avvalgi so&apos;rovni bekor qilib qayta yuboring</span>
+            <button
+              onClick={() => onCancelRetry(index)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-xs font-semibold transition-all"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Bekor qilish & Qayta
             </button>
           </div>
         )}
@@ -970,6 +987,24 @@ export default function BuilderPage() {
     textareaRef.current?.focus();
   };
 
+  // "Bekor qilish va qayta urinish" — concurrent_request xatosi uchun.
+  // Backend lockni ozod qiladi, so'ng oxirgi user xabarini qayta yuboradi.
+  const handleCancelAndRetry = async (errorIndex: number) => {
+    if (isGenerating) return;
+    try {
+      await api.post('/projects/cancel_generation/', {});
+    } catch {
+      // Hatto bekor qilish muvaffaqiyatsiz bo'lsa ham retry qilamiz
+    }
+    let lastUser: ChatMessage | null = null;
+    for (let i = errorIndex - 1; i >= 0; i--) {
+      if (chatMessages[i]?.role === 'user') { lastUser = chatMessages[i]; break; }
+    }
+    setChatMessages(prev => prev.filter((_, idx) => idx !== errorIndex));
+    setErrorMsg('');
+    if (lastUser) void handleSend(lastUser.text);
+  };
+
   // AI xato xabari ostidagi "Qaytadan urinish" tugmasi — oxirgi user xabarini
   // qaytadan yuboradi va xato xabarni o'chiradi.
   const handleRetry = (errorIndex: number) => {
@@ -1091,9 +1126,13 @@ export default function BuilderPage() {
             currentNano: haveNano,
           }]);
         } else if (data.concurrent_request) {
-          // Boshqa tabda yoki avvalgi so'rov hali tugamagan
           setErrorMsg('Avvalgi so\'rov hali tugamadi');
-          addMsg('ai', `⏳ ${data.error ?? 'Avvalgi so\'rovingiz hali tugamadi. Iltimos, kuting yoki uni to\'xtatib, qayta urinib ko\'ring.'}`);
+          setChatMessages(prev => [...prev, {
+            role: 'ai',
+            text: '⏳ Avvalgi so\'rovingiz hali bajarilmoqda. Bekor qilish tugmasini bosib qayta urinib ko\'ring.',
+            concurrent: true,
+            retryable: true,
+          }]);
         } else if (data.limit_reached) {
           const cap = data.max_sites_per_month ?? 0;
           const used = data.sites_created_this_month ?? 0;
@@ -1879,6 +1918,7 @@ export default function BuilderPage() {
                 index={i}
                 onEdit={!isGenerating ? handleEditMessage : undefined}
                 onRetry={!isGenerating ? handleRetry : undefined}
+                onCancelRetry={!isGenerating ? handleCancelAndRetry : undefined}
               />
             ))}
 
