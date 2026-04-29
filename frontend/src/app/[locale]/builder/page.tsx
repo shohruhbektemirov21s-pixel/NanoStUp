@@ -85,6 +85,13 @@ interface DesignVariant {
   id: number; name: string; primary: string; accent: string;
   bg: string; text: string; mood: string; font: string;
   layout: string; description: string; icon: string;
+  // Mavzuga yarasha qo'shimcha kontent (Gemini'dan keladi, ixtiyoriy)
+  niche?: string;
+  headline?: string;
+  tagline?: string;
+  cta?: string;
+  badge?: string;
+  features?: { icon: string; label: string }[];
 }
 
 interface GenerationStats {
@@ -180,15 +187,23 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
   const textOnBg = isDarkBg ? '#ffffff' : '#0f172a';
   const mutedOnBg = isDarkBg ? '#e5e7eb' : '#475569';
 
-  // Namunaviy matnlar — biznes turiga mos keladigan neytral taklif
-  const heroHeadline = variant.mood?.split(' ')[0]
-    ? `${variant.mood.split(' ')[0]} boshlang`
-    : 'Kelajagingizni quring';
-  const features = [
-    { icon: '✨', label: 'Zamonaviy' },
-    { icon: '⚡', label: 'Tezkor' },
-    { icon: '🎯', label: 'Samarali' },
-  ];
+  // Mavzuga yarasha matnlar — Gemini'dan keladi (variant.headline/features/...)
+  // Eski variantlar uchun fallback qoldiramiz.
+  const heroHeadline =
+    variant.headline ||
+    (variant.mood?.split(',')[0]?.trim() ?? 'Kelajagingizni quring');
+  const heroTagline =
+    variant.tagline || 'Professional dizayn • Tez yuklanadi';
+  const heroCta = variant.cta || 'Hoziroq boshlash';
+  const heroBadge = variant.badge || '⭐ Yangi';
+  const features =
+    variant.features && variant.features.length > 0
+      ? variant.features.slice(0, 3)
+      : [
+          { icon: '✨', label: 'Zamonaviy' },
+          { icon: '⚡', label: 'Tezkor' },
+          { icon: '🎯', label: 'Samarali' },
+        ];
 
   return (
     <motion.button
@@ -282,13 +297,13 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
                 {heroHeadline}
               </div>
               <div className="text-[8px] leading-relaxed mb-2.5" style={{ color: mutedOnBg }}>
-                Sodda, nafis va samarali dizayn yechimi
+                {heroTagline}
               </div>
               <div className="flex gap-1.5">
                 <div
                   className="px-2 py-1 rounded-full text-[7px] font-bold"
                   style={{ backgroundColor: variant.primary, color: '#fff' }}
-                >Boshlash →</div>
+                >{heroCta} →</div>
                 <div
                   className="px-2 py-1 rounded-full text-[7px] font-bold border"
                   style={{ borderColor: variant.primary + '55', color: textOnBg }}
@@ -313,7 +328,7 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
                   color: variant.accent,
                 }}
               >
-                ⭐ Yangi
+                {heroBadge}
               </div>
               <div
                 className="text-[12px] font-black leading-tight mb-1 px-2"
@@ -325,7 +340,7 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
                 className="text-[8px] leading-snug mb-2"
                 style={{ color: mutedOnBg }}
               >
-                Professional dizayn • Tez yuklanadi
+                {heroTagline}
               </div>
               <div className="flex gap-1.5 justify-center">
                 <div
@@ -335,7 +350,7 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
                     color: '#fff',
                   }}
                 >
-                  Hoziroq boshlash
+                  {heroCta}
                 </div>
                 <div
                   className="px-2.5 py-1 rounded-lg text-[8px] font-bold border"
