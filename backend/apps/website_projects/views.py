@@ -294,6 +294,74 @@ from .serializers import WebsiteProjectSerializer
 logger = logging.getLogger(__name__)
 
 
+# ─────────────────────────────────────────────────────────────
+# AI xato turini aniqlash (foydalanuvchi tilida sodda xabar uchun)
+# ─────────────────────────────────────────────────────────────
+def _classify_ai_error(exc: BaseException) -> Dict[str, str]:
+    """
+    AI runtime xatosini turkumlaydi va foydalanuvchi uchun sodda xabar tayyorlaydi.
+    Returns: {"code": <slug>, "message": <uz user-facing>, "retryable": "yes"/"no"}
+    """
+    msg = str(exc).lower()
+
+    # Quota / rate limit
+    if any(k in msg for k in ("quota", "rate limit", "429", "too many requests", "resource exhausted")):
+        return {
+            "code": "ai_quota",
+            "message": "AI xizmati hozir band (limit). Bir necha daqiqadan so'ng qayta urinib ko'ring.",
+            "retryable": "yes",
+        }
+    # Timeout
+    if any(k in msg for k in ("timeout", "timed out", "deadline", "504")):
+        return {
+            "code": "ai_timeout",
+            "message": "AI javob bermay qoldi (vaqt tugadi). Iltimos, qayta urinib ko'ring.",
+            "retryable": "yes",
+        }
+    # API key / auth / config
+    if any(k in msg for k in ("api_key", "api key", "unauthorized", "401", "403", ".env da topilmadi")):
+        return {
+            "code": "ai_config",
+            "message": "AI xizmati sozlamalarida muammo. Administrator bilan bog'laning.",
+            "retryable": "no",
+        }
+    # Network / connection
+    if any(k in msg for k in ("connection", "network", "dns", "resolve", "unreachable")):
+        return {
+            "code": "ai_network",
+            "message": "AI serveriga ulanib bo'lmadi. Internetni tekshiring va qayta urinib ko'ring.",
+            "retryable": "yes",
+        }
+    # Server-side
+    if any(k in msg for k in ("500", "502", "503", "internal", "overload")):
+        return {
+            "code": "ai_server",
+            "message": "AI serveri vaqtincha javob bermayapti. Bir necha daqiqada qayta urinib ko'ring.",
+            "retryable": "yes",
+        }
+    # Default
+    return {
+        "code": "ai_unavailable",
+        "message": "AI xizmati hozircha ishlamayapti. Iltimos, birozdan keyin qayta urinib ko'ring.",
+        "retryable": "yes",
+    }
+
+
+def _ai_error_response(exc: BaseException, *, log_prefix: str = "AI") -> Response:
+    """RuntimeError -> 502 Response with error_code, retryable + sodda xabar."""
+    info = _classify_ai_error(exc)
+    logger.error("%s xatosi [%s]: %s", log_prefix, info["code"], exc)
+    return Response(
+        {
+            "success": False,
+            "error": info["message"],
+            "error_code": info["code"],
+            "retryable": info["retryable"] == "yes",
+        },
+        status=status.HTTP_502_BAD_GATEWAY,
+    )
+
+
 def _ensure_multipage(schema: Dict) -> Dict:
     """
     AI faqat 1 sahifa bergan bo'lsa, standart ko'p sahifali tuzilma yaratadi.
@@ -1528,11 +1596,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except RuntimeError as exc:
-            logger.error("AI runtime xatosi: %s", exc)
-            return Response(
-                {"success": False, "error": "AI xizmati hozircha ishlamayapti. Iltimos, birozdan keyin urinib ko'ring."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return _ai_error_response(exc, log_prefix="process_prompt")
         except Exception:
             logger.exception("AI router xatosi")
             return Response(
@@ -1620,11 +1684,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 "cached": False,
             })
         except RuntimeError as exc:
-            logger.error("generate_files xatosi project=%s: %s", project.id, exc)
-            return Response(
-                {"success": False, "error": "Fayl generatsiyasi hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return _ai_error_response(exc, log_prefix=f"generate_files project={project.id}")
         except Exception:
             logger.exception("generate_files kutilmagan xato")
             return Response(
@@ -1676,11 +1736,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             files = claude.generate_site_files(schema_data, language)
             return Response({"success": True, "files": files})
         except RuntimeError as exc:
-            logger.error("generate_files_inline xatosi: %s", exc)
-            return Response(
-                {"success": False, "error": "Fayl generatsiyasi hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return _ai_error_response(exc, log_prefix="generate_files_inline")
         except Exception:
             logger.exception("generate_files_inline kutilmagan xato")
             return Response(
@@ -1776,11 +1832,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 "message": "✅ Sayt yangilandi.",
             })
         except RuntimeError as exc:
-            logger.error("revise_inline xatosi: %s", exc)
-            return Response(
-                {"success": False, "error": "AI xizmati hozircha ishlamayapti. Iltimos, keyinroq urinib ko'ring."},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            return _ai_error_response(exc, log_prefix="revise_inline")
         except Exception:
             logger.exception("revise_inline kutilmagan xato")
             return Response({"success": False, "error": "AI xizmatida xatolik"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

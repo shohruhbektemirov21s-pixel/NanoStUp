@@ -79,6 +79,10 @@ interface ChatMessage {
   maxSites?: number;
   sitesCreated?: number;
   hasSubscription?: boolean;
+  // AI xato — qayta urinish tugmasi uchun
+  aiError?: boolean;
+  errorCode?: string;
+  retryable?: boolean;
 }
 
 interface DesignVariant {
@@ -149,6 +153,9 @@ interface ApiResponse {
   required_tokens?: number;
   current_tokens?: number;
   error?: string;
+  // AI xato turkumlanishi (backend `_classify_ai_error` dan)
+  error_code?: string;
+  retryable?: boolean;
   conversation_id?: string | null;
   // 🔐 Admin panel info — sayt egasiga ko'rsatiladi
   admin_panel?: {
@@ -415,11 +422,12 @@ function DesignVariantCard({ variant, onSelect }: { variant: DesignVariant; onSe
 // ── Chat Bubble ────────────────────────────────────────────────────
 
 function ChatBubble({
-  msg, index, onEdit,
+  msg, index, onEdit, onRetry,
 }: {
   msg: ChatMessage;
   index: number;
   onEdit?: (index: number) => void;
+  onRetry?: (index: number) => void;
 }) {
   const isUser = msg.role === 'user';
   const isDone = msg.phase === 'DONE';
@@ -447,6 +455,7 @@ function ChatBubble({
       )}
       <div className={cn('max-w-[84%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap',
         isUser ? 'bg-purple-600 text-white rounded-br-sm'
+          : msg.aiError ? 'bg-red-500/10 border border-red-500/30 text-red-200 rounded-bl-sm'
           : isDone ? 'bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 rounded-bl-sm'
             : 'bg-zinc-800 text-zinc-100 rounded-bl-sm'
       )}>
@@ -492,6 +501,22 @@ function ChatBubble({
             >
               🚀 {msg.hasSubscription ? 'Tarifni oshirish' : 'Obuna sotib olish'}
             </Link>
+          </div>
+        )}
+        {msg.aiError && msg.retryable && onRetry && (
+          <div className="mt-3 pt-3 border-t border-red-500/20 flex items-center justify-between gap-2">
+            {msg.errorCode && (
+              <span className="text-[10px] font-mono text-red-300/60 uppercase tracking-wider">
+                {msg.errorCode}
+              </span>
+            )}
+            <button
+              onClick={() => onRetry(index)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 text-xs font-semibold transition-all"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Qaytadan urinish
+            </button>
           </div>
         )}
       </div>
@@ -945,6 +970,25 @@ export default function BuilderPage() {
     textareaRef.current?.focus();
   };
 
+  // AI xato xabari ostidagi "Qaytadan urinish" tugmasi — oxirgi user xabarini
+  // qaytadan yuboradi va xato xabarni o'chiradi.
+  const handleRetry = (errorIndex: number) => {
+    if (isGenerating) return;
+    // errorIndex'dan oldingi oxirgi user xabarini topamiz
+    let lastUser: ChatMessage | null = null;
+    for (let i = errorIndex - 1; i >= 0; i--) {
+      if (chatMessages[i]?.role === 'user') {
+        lastUser = chatMessages[i];
+        break;
+      }
+    }
+    if (!lastUser) return;
+    // Xato xabarini olib tashlaymiz va qayta yuboramiz
+    setChatMessages(prev => prev.filter((_, idx) => idx !== errorIndex));
+    setErrorMsg('');
+    void handleSend(lastUser.text);
+  };
+
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText ?? prompt).trim();
     // Rasm(lar) biriktirilgan bo'lsa — bo'sh matn bilan ham yuborish mumkin
@@ -1071,6 +1115,16 @@ export default function BuilderPage() {
             sitesCreated: used,
             hasSubscription: !!data.has_subscription,
             pricingUrl: data.pricing_url ?? '/pricing',
+          }]);
+        } else if (data.error_code) {
+          // Backend tomonidan turkumlangan AI xatosi — retry tugmasi bilan
+          setErrorMsg(data.error ?? 'AI xizmati ishlamayapti');
+          setChatMessages(prev => [...prev, {
+            role: 'ai',
+            text: `❌ ${data.error ?? 'AI xizmati ishlamayapti.'}`,
+            aiError: true,
+            errorCode: data.error_code,
+            retryable: data.retryable !== false,
           }]);
         } else {
           setErrorMsg(data.error ?? 'Xatolik yuz berdi.');
@@ -1824,6 +1878,7 @@ export default function BuilderPage() {
                 msg={msg}
                 index={i}
                 onEdit={!isGenerating ? handleEditMessage : undefined}
+                onRetry={!isGenerating ? handleRetry : undefined}
               />
             ))}
 
