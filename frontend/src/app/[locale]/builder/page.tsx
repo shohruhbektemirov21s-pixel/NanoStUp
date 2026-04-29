@@ -136,6 +136,8 @@ interface ApiResponse {
   sites_created_this_month?: number;
   sites_remaining?: number;
   has_subscription?: boolean;
+  // Parallel so'rov (boshqa tabda generatsiya hali tugamagan)
+  concurrent_request?: boolean;
   // Eski maydonlar (orqaga moslik)
   required_tokens?: number;
   current_tokens?: number;
@@ -1029,6 +1031,10 @@ export default function BuilderPage() {
             requiredNano: needNano,
             currentNano: haveNano,
           }]);
+        } else if (data.concurrent_request) {
+          // Boshqa tabda yoki avvalgi so'rov hali tugamagan
+          setErrorMsg('Avvalgi so\'rov hali tugamadi');
+          addMsg('ai', `⏳ ${data.error ?? 'Avvalgi so\'rovingiz hali tugamadi. Iltimos, kuting yoki uni to\'xtatib, qayta urinib ko\'ring.'}`);
         } else if (data.limit_reached) {
           const cap = data.max_sites_per_month ?? 0;
           const used = data.sites_created_this_month ?? 0;

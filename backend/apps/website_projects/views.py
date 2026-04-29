@@ -43,6 +43,28 @@ FREE_MAX_PAGES = 10           # Ko'p sahifali sayt — hamma uchun ochiq (previe
 FREE_CAN_PUBLISH = True       # publik URL beramiz — bepul foydalanuvchilar uchun ham
 FREE_MAX_SITES_PER_MONTH = 1  # Obunasiz user 1 ta sayt yarata oladi
 
+# ── Generatsiya lock (parallel double-submit oldini oladi) ───────────
+# Bir foydalanuvchi bir vaqtda faqat BITTA Claude generatsiyasi qila oladi.
+# Multi-tab yoki tezda 2 marta yuborilganda — 2-si 429 oladi.
+# Diqqat: gunicorn workers=2 bo'lsa, lock per-worker (cross-worker race
+# nadir bo'lsa-da, bu kichik ehtimol va katta zarar yo'q).
+_active_generations: set = set()
+_active_generations_lock = Lock()
+
+
+def _acquire_generation_lock(user_id: int) -> bool:
+    """True qaytarsa — slot olindi, boshqa generatsiya yo'q. False — band."""
+    with _active_generations_lock:
+        if user_id in _active_generations:
+            return False
+        _active_generations.add(user_id)
+        return True
+
+
+def _release_generation_lock(user_id: int) -> None:
+    with _active_generations_lock:
+        _active_generations.discard(user_id)
+
 
 def _get_active_subscription(user) -> Optional[Subscription]:
     """Foydalanuvchining hozirda faol obunasini qaytaradi (yoki None)."""
@@ -838,6 +860,26 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             Agar foydalanuvchi yarmida to'xtatsa — faqat o'tgan vaqtga proporsional
             nano miqdori yechiladi, qolgani saqlanib qoladi.
         """
+        # ── Parallel generation guard ──────────────────────────────────
+        # Bir foydalanuvchi bir vaqtda faqat 1 ta so'rov yubora oladi.
+        # Multi-tab yoki double-click oldini oladi.
+        _user_id = request.user.id if getattr(request.user, "is_authenticated", False) else None
+        _lock_acquired = False
+        if _user_id is not None:
+            if not _acquire_generation_lock(_user_id):
+                return Response(
+                    {
+                        "success": False,
+                        "error": (
+                            "⏳ Avvalgi so'rovingiz hali tugamadi. "
+                            "Iltimos, kuting yoki uni to'xtating, keyin qayta urinib ko'ring."
+                        ),
+                        "concurrent_request": True,
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            _lock_acquired = True
+
         result_q = _queue_module.Queue()
 
         # ── Progressive billing context ────────────────────────────────
@@ -867,6 +909,9 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 result_q.put(("err", 500, {"success": False, "error": str(exc)}))
             finally:
                 billing_ctx["stopped"] = True
+                # Generatsiya tugadi (yoki crash bo'ldi) — slot ozod qilinadi.
+                if _lock_acquired and _user_id is not None:
+                    _release_generation_lock(_user_id)
 
         threading.Thread(target=_run, daemon=True).start()
 
