@@ -2,14 +2,21 @@
 
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
   Download,
   ExternalLink,
   Eye,
+  Globe,
   Layers,
   LayoutDashboard,
+  Lock,
   LogOut,
   Menu,
+  RefreshCw,
   Save,
+  Server,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -23,6 +30,7 @@ import { useParams } from 'next/navigation';
 
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
+import { calculateHealthScore, HEALTH_COLOR_CLASSES, type HealthScore } from '@/features/builder/siteHealth';
 
 interface OwnerSite {
   id: string;
@@ -32,6 +40,17 @@ interface OwnerSite {
   slug: string;
   is_published: boolean;
   updated_at: string;
+  // SaaS hosting fields
+  hosting_status?: 'ACTIVE' | 'TRIAL' | 'EXPIRED' | 'SUSPENDED' | 'ARCHIVED';
+  hosting_expires_at?: string | null;
+  days_until_expiry?: number | null;
+  needs_renewal_soon?: boolean;
+  is_locked?: boolean;
+  is_live?: boolean;
+  suspension_reason?: string;
+  custom_domain?: string;
+  custom_domain_verified?: boolean;
+  view_count?: number;
 }
 
 interface OwnerResponse {
@@ -41,11 +60,12 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'dashboard' | 'editor' | 'settings';
+type Tab = 'dashboard' | 'editor' | 'hosting' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: 'editor', label: 'Tahrirlash', icon: Wand2 },
   { key: 'dashboard', label: 'Boshqaruv', icon: LayoutDashboard },
+  { key: 'hosting', label: 'Hosting', icon: Server },
   { key: 'settings', label: 'Sozlamalar', icon: Settings },
 ];
 
@@ -206,6 +226,16 @@ export default function SiteAdminPage() {
       return { pageCount, sectionCount };
     } catch {
       return { pageCount: 0, sectionCount: 0 };
+    }
+  }, [schemaText]);
+
+  // ── Site Health Score — retention uchun ────────────────────
+  const healthScore = useMemo<HealthScore>(() => {
+    try {
+      const parsed = JSON.parse(schemaText);
+      return calculateHealthScore(parsed);
+    } catch {
+      return calculateHealthScore(null);
     }
   }, [schemaText]);
 
@@ -490,6 +520,59 @@ export default function SiteAdminPage() {
           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
           className="flex-1 p-4 md:p-6 overflow-auto max-w-6xl w-full mx-auto space-y-5"
         >
+          {/* Hosting renewal banner — top of every tab */}
+          {site?.needs_renewal_soon && site.days_until_expiry !== null && site.days_until_expiry !== undefined && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 px-4 py-3 flex items-center gap-3"
+            >
+              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-amber-200">
+                  {site.days_until_expiry === 0
+                    ? 'Hosting muddati bugun tugaydi!'
+                    : `Hosting muddati ${site.days_until_expiry} kun ichida tugaydi`}
+                </p>
+                <p className="text-xs text-amber-300/70">
+                  Saytni faol saqlash uchun obunani yangilang.
+                </p>
+              </div>
+              <a
+                href={`/${locale}/pricing`}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-900 text-xs font-black whitespace-nowrap transition"
+              >
+                Yangilash
+              </a>
+            </motion.div>
+          )}
+          {site?.is_locked && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-center gap-3"
+            >
+              <Lock className="w-5 h-5 text-red-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-red-200">
+                  {site.hosting_status === 'EXPIRED' ? 'Hosting muddati tugagan' :
+                   site.hosting_status === 'SUSPENDED' ? 'Sayt to\'xtatilgan' :
+                   'Sayt arxivlangan'}
+                </p>
+                <p className="text-xs text-red-300/70">
+                  Sayt publik URL orqali ko&apos;rinmaydi. {site.suspension_reason}
+                </p>
+              </div>
+              {site.hosting_status === 'EXPIRED' && (
+                <a
+                  href={`/${locale}/pricing`}
+                  className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-400 text-white text-xs font-black whitespace-nowrap transition"
+                >
+                  Faollashtirish
+                </a>
+              )}
+            </motion.div>
+          )}
           {error && (
             <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
               ⚠️ {error}
@@ -526,12 +609,15 @@ export default function SiteAdminPage() {
             <DashboardTab
               site={site}
               schemaStats={schemaStats}
+              healthScore={healthScore}
               locale={locale}
               onEditSettings={() => setTab('settings')}
               onEditVisual={() => setTab('editor')}
               onDownload={handleDownload}
               downloading={downloading}
             />
+          ) : tab === 'hosting' ? (
+            <HostingTab site={site} locale={locale} />
           ) : (
             <SettingsTab
               site={site}
@@ -590,6 +676,7 @@ function KpiCard({
 function DashboardTab({
   site,
   schemaStats,
+  healthScore,
   locale,
   onEditSettings,
   onEditVisual,
@@ -598,6 +685,7 @@ function DashboardTab({
 }: {
   site: OwnerSite;
   schemaStats: { pageCount: number; sectionCount: number };
+  healthScore: HealthScore;
   locale: string;
   onEditSettings: () => void;
   onEditVisual: () => void;
@@ -607,7 +695,7 @@ function DashboardTab({
   const updated = new Date(site.updated_at).toLocaleString(locale);
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           index={0}
           label="Sahifalar"
@@ -626,13 +714,24 @@ function DashboardTab({
         />
         <KpiCard
           index={2}
-          label="Holat"
-          value={site.is_published ? 'Publik' : 'Privat'}
-          sub={`Til: ${site.language?.toUpperCase() ?? '—'}`}
+          label="Ko'rishlar"
+          value={site.view_count ?? 0}
+          sub="Hozirgacha"
           icon={Eye}
           color="bg-emerald-500"
         />
+        <KpiCard
+          index={3}
+          label="Holat"
+          value={site.is_published ? 'Publik' : 'Privat'}
+          sub={`Til: ${site.language?.toUpperCase() ?? '—'}`}
+          icon={Server}
+          color="bg-amber-500"
+        />
       </div>
+
+      {/* Health Score card — retention */}
+      <HealthScoreCard healthScore={healthScore} onImprove={onEditVisual} locale={locale} />
 
       <div className="grid lg:grid-cols-2 gap-4">
         <motion.div
@@ -684,6 +783,317 @@ function DashboardTab({
           </div>
         </motion.div>
       </div>
+    </div>
+  );
+}
+
+// ── Health Score Card (retention) ──────────────────────────────
+
+function HealthScoreCard({
+  healthScore,
+  onImprove,
+  locale,
+}: {
+  healthScore: HealthScore;
+  onImprove: () => void;
+  locale: string;
+}) {
+  const c = HEALTH_COLOR_CLASSES[healthScore.color];
+  const passedCount = healthScore.checks.filter((x) => x.passed).length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.25 }}
+      className={`relative overflow-hidden rounded-2xl border ${c.border} bg-zinc-900 p-5 md:p-6`}
+    >
+      <div className={`absolute top-0 right-0 w-64 h-64 ${c.bg} blur-3xl rounded-full -translate-y-32 translate-x-20 pointer-events-none`} />
+
+      <div className="relative flex items-start gap-5 flex-wrap md:flex-nowrap">
+        {/* Score circle */}
+        <div className="shrink-0">
+          <div className={`relative w-24 h-24 rounded-full ${c.bg} border-4 ${c.border} flex items-center justify-center`}>
+            <div className="text-center">
+              <div className={`text-3xl font-black ${c.text}`}>{healthScore.total}</div>
+              <div className="text-[9px] font-bold uppercase tracking-wider text-zinc-500">/ 100</div>
+            </div>
+          </div>
+          <div className="text-center mt-2">
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${c.bg} ${c.text} border ${c.border}`}>
+              {healthScore.label} ({healthScore.grade})
+            </span>
+          </div>
+        </div>
+
+        {/* Recommendations */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <h3 className="text-base md:text-lg font-black text-white">Sayt sog&apos;liq bahosi</h3>
+            <span className="text-xs text-zinc-500">
+              ({passedCount}/{healthScore.checks.length} bajarildi)
+            </span>
+          </div>
+
+          {healthScore.recommendations.length > 0 ? (
+            <>
+              <p className="text-xs text-zinc-400 mb-3">
+                💡 Saytni yaxshilash uchun {healthScore.recommendations.length} ta tavsiya:
+              </p>
+              <ul className="space-y-2 mb-4">
+                {healthScore.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs text-zinc-300">
+                    <span className={`w-1 h-1 rounded-full mt-2 shrink-0 ${c.bg.replace('/10', '')}`} />
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-sm text-emerald-300 mb-3">
+              🎉 Saytingiz a&apos;lo darajada! Barcha tavsiyalar bajarilgan.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={onImprove}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:scale-[1.02] text-white text-xs font-black shadow-lg shadow-purple-500/30 transition"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            AI bilan yaxshilash
+          </button>
+        </div>
+      </div>
+
+      {/* Checklist (collapsible-style) */}
+      <details className="mt-5 group">
+        <summary className="cursor-pointer text-xs font-bold text-zinc-400 hover:text-white transition flex items-center gap-2 select-none">
+          <span className="group-open:rotate-90 transition">▶</span>
+          Barcha tekshiruvlarni ko&apos;rish ({healthScore.checks.length})
+        </summary>
+        <div className="mt-3 grid sm:grid-cols-2 gap-2">
+          {healthScore.checks.map((check) => (
+            <div
+              key={check.key}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border ${
+                check.passed
+                  ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
+                  : 'bg-zinc-800/40 border-zinc-700/40 text-zinc-500'
+              }`}
+            >
+              {check.passed ? (
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              ) : (
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+              )}
+              <span className="truncate">{check.label}</span>
+              <span className="ml-auto text-[10px] opacity-60">+{check.weight}</span>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      {/* Locale: just a hint, ignored otherwise */}
+      <span className="hidden">{locale}</span>
+    </motion.div>
+  );
+}
+
+// ── Hosting Tab ────────────────────────────────────────────────
+
+const HOSTING_STATUS_VIEW: Record<NonNullable<OwnerSite['hosting_status']>, {
+  label: string;
+  desc: string;
+  Icon: typeof CheckCircle2;
+  className: string;
+  ring: string;
+}> = {
+  ACTIVE: {
+    label: 'Faol', desc: 'Sayt publik URL orqali to\'liq ishlayapti',
+    Icon: CheckCircle2,
+    className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
+    ring: 'ring-emerald-500/40',
+  },
+  TRIAL: {
+    label: 'Sinov', desc: 'Bepul sinov muddatida',
+    Icon: Clock,
+    className: 'bg-blue-500/10 text-blue-300 border-blue-500/30',
+    ring: 'ring-blue-500/40',
+  },
+  EXPIRED: {
+    label: 'Tugagan', desc: 'Hosting muddati tugagan, obunani yangilang',
+    Icon: AlertTriangle,
+    className: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
+    ring: 'ring-amber-500/40',
+  },
+  SUSPENDED: {
+    label: 'To\'xtatilgan', desc: 'Admin tomonidan to\'xtatilgan',
+    Icon: Lock,
+    className: 'bg-red-500/10 text-red-300 border-red-500/30',
+    ring: 'ring-red-500/40',
+  },
+  ARCHIVED: {
+    label: 'Arxivlangan', desc: 'Sayt arxivga olingan, publik ko\'rinmaydi',
+    Icon: Lock,
+    className: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30',
+    ring: 'ring-zinc-500/40',
+  },
+};
+
+function HostingTab({ site, locale }: { site: OwnerSite; locale: string }) {
+  const status = site.hosting_status ?? 'TRIAL';
+  const cfg = HOSTING_STATUS_VIEW[status];
+  const Icon = cfg.Icon;
+  const expires = site.hosting_expires_at
+    ? new Date(site.hosting_expires_at).toLocaleDateString(locale === 'ru' ? 'ru-RU' : locale === 'en' ? 'en-US' : 'uz-UZ', {
+        day: '2-digit', month: 'long', year: 'numeric',
+      })
+    : '—';
+
+  return (
+    <div className="space-y-6">
+      {/* Status card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`rounded-2xl border bg-zinc-900 p-6 ${cfg.className.split(' ').filter(c => c.startsWith('border-')).join(' ')}`}
+      >
+        <div className="flex items-start gap-4">
+          <div className={`w-14 h-14 rounded-2xl ${cfg.className} border flex items-center justify-center shrink-0`}>
+            <Icon className="w-7 h-7" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg font-black text-white">Hosting holati</h2>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${cfg.className}`}>
+                {cfg.label}
+              </span>
+            </div>
+            <p className="text-sm text-zinc-400 mt-1">{cfg.desc}</p>
+          </div>
+          {(status === 'EXPIRED' || status === 'TRIAL') && (
+            <a
+              href={`/${locale}/pricing`}
+              className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 hover:scale-[1.02] text-white text-xs font-black shadow-lg shadow-purple-500/30 transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              {status === 'EXPIRED' ? 'Faollashtirish' : 'Tarif tanlash'}
+            </a>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Muddati</p>
+            <p className="text-sm font-bold text-white mt-1 truncate">{expires}</p>
+          </div>
+          <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Qoldi</p>
+            <p className="text-sm font-bold text-white mt-1">
+              {site.days_until_expiry !== null && site.days_until_expiry !== undefined
+                ? `${site.days_until_expiry} kun`
+                : '∞'}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Ko&apos;rishlar</p>
+            <p className="text-sm font-bold text-white mt-1">{site.view_count ?? 0}</p>
+          </div>
+          <div className="rounded-xl bg-white/5 border border-white/5 p-3">
+            <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Holat</p>
+            <p className="text-sm font-bold text-white mt-1">
+              {site.is_live ? 'Online' : 'Offline'}
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Domain card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl border border-white/5 bg-zinc-900 p-6"
+      >
+        <h3 className="font-black text-white text-base flex items-center gap-2 mb-4">
+          <Globe className="w-4 h-4 text-blue-400" />
+          Domen
+        </h3>
+
+        {/* NanoStUp subdomain */}
+        <div className="mb-4 p-4 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">NanoStUp subdomain</p>
+              <p className="text-sm font-bold text-white mt-1 break-all">
+                nanostup.uz/{locale}/s/{site.slug}
+              </p>
+            </div>
+            <a
+              href={`/${locale}/s/${site.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition shrink-0"
+            >
+              <ExternalLink className="w-3 h-3" />
+              Ochish
+            </a>
+          </div>
+        </div>
+
+        {/* Custom domain */}
+        <div className="p-4 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div>
+              <p className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Custom domen</p>
+              <p className="text-xs text-zinc-400 mt-1">Pro va Business tariflar uchun</p>
+            </div>
+            {site.custom_domain ? (
+              <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${
+                site.custom_domain_verified
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+              }`}>
+                {site.custom_domain_verified ? '✓ Tasdiqlangan' : '⏱ Tasdiqlanmoqda'}
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-zinc-700/40 text-zinc-400 border border-zinc-600/40">
+                Ulanmagan
+              </span>
+            )}
+          </div>
+          {site.custom_domain ? (
+            <p className="text-sm font-mono text-white break-all">{site.custom_domain}</p>
+          ) : (
+            <a
+              href={`/${locale}/pricing`}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-400 hover:text-purple-300 transition"
+            >
+              <Sparkles className="w-3 h-3" />
+              Pro tarifni tanlang
+            </a>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Help */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5"
+      >
+        <h3 className="font-bold text-blue-200 text-sm flex items-center gap-2 mb-2">
+          <ShieldCheck className="w-4 h-4" />
+          Sayt ma&apos;lumotlari saqlanadi
+        </h3>
+        <p className="text-xs text-blue-300/80 leading-relaxed">
+          Hosting muddati tugasa ham, sayt ma&apos;lumotlari (matn, rasm, sozlamalar) NanoStUp serverlarida xavfsiz saqlanadi.
+          Obunani yangilashingiz bilanoq, sayt avtomatik qaytadan ishga tushadi.
+        </p>
+      </motion.div>
     </div>
   );
 }

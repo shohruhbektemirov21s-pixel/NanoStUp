@@ -179,6 +179,69 @@ function smartPalette(siteName: string, sections: string[]) {
   return { primary:'#2563eb', accent:'#7c3aed', bg:'#ffffff', text:'#111827', font:'Inter' };
 }
 
+// ── Niche category detector ────────────────────────────────────
+// Site Renderer'ga vizual variantlar tanlash uchun.
+// Returns: 'news' | 'wedding' | 'music' | 'photo' | 'restaurant' | 'tech'
+// | 'realestate' | 'fitness' | 'medical' | 'beauty' | 'auto' | 'shop'
+// | 'agency' | 'finance' | 'legal' | 'hotel' | 'education' | 'default'
+export type NicheCategory =
+  | 'news' | 'wedding' | 'music' | 'photo' | 'restaurant'
+  | 'tech' | 'realestate' | 'fitness' | 'medical' | 'beauty'
+  | 'auto' | 'shop' | 'agency' | 'finance' | 'legal'
+  | 'hotel' | 'education' | 'default';
+
+const NICHE_KEYWORDS: Record<Exclude<NicheCategory, 'default'>, string[]> = {
+  news:        ['yangilik','news','gazeta','akhbor','axborot','jurnal','jurnalistika','media','axborotnoma'],
+  wedding:     ['to\'y','toy','wedding','nikoh','marriage','kelin','kuyov','to\'yxona'],
+  music:       ['musiqa','music','konsert','concert','festival','dj','club','klub','event','tadbir'],
+  photo:       ['fotograf','photography','suratchi','surat olish','video studio','foto'],
+  restaurant:  ['restoran','cafe','kafe','food','taom','oshxona','pizza','burger','sushi','choyxona'],
+  tech:        ['tech','saas','startup','software','dastur','ilova','digital','texnologiya','web studio'],
+  realestate:  ['real estate','uy sotish','kvartira','property','ko\'chmas','realtor','ijara'],
+  fitness:     ['gym','fitness','sport','trener','bodybuilding','crossfit','yoga','jismoniy'],
+  medical:     ['klinika','clinic','tibbiy','doktor','shifokor','hospital','health','sog\'liq','stomatolog','shifoxona','dorixona','pharmacy','dori','apteka'],
+  beauty:      ['salon','spa','beauty','go\'zallik','gozallik','kosmetik','nail','barber','soch','manikur'],
+  auto:        ['avto','auto','mashina','transport','taxi','avtomobil','servis stansiya','ehtiyot qism'],
+  shop:        ['shop','do\'kon','dokon','market','mahsulot','store','ecommerce','savdo','sotish'],
+  agency:      ['agentlik','agency','kreativ','creative','dizayn','design studio','marketing','reklama','smm','branding'],
+  finance:     ['bank','moliya','finance','kredit','sug\'urta','insurance','invest'],
+  legal:       ['yuridik','lawyer','advokat','legal','huquq','sud','notarius'],
+  hotel:       ['hotel','mehmonxona','turizm','travel','tourism','resort','sayohat','hostel','otel'],
+  education:   ['ta\'lim','talim','kurs','maktab','akademiya','school','academy','edu','o\'quv','trening'],
+};
+
+export function detectNiche(siteName?: string, sectionTypes: string[] = []): NicheCategory {
+  const hay = ((siteName ?? '') + ' ' + sectionTypes.join(' ')).toLowerCase();
+  for (const [niche, keys] of Object.entries(NICHE_KEYWORDS)) {
+    if (keys.some(k => hay.includes(k))) return niche as NicheCategory;
+  }
+  return 'default';
+}
+
+// Niche → preferred Hero variant
+function nicheHeroVariant(niche: NicheCategory): 'centered' | 'split' | 'fullscreen' | null {
+  const map: Partial<Record<NicheCategory, 'centered' | 'split' | 'fullscreen'>> = {
+    news: 'split',         // Magazine-style: title left, ribbon visual right
+    wedding: 'centered',   // Romantic centered with ornaments
+    music: 'fullscreen',   // Dark dramatic
+    photo: 'fullscreen',   // Bold minimalist
+    restaurant: 'split',   // Photo + text
+    tech: 'fullscreen',    // Bold modern
+    realestate: 'split',   // Property visual
+    fitness: 'fullscreen', // Energetic dark
+    medical: 'split',      // Trust + clean
+    beauty: 'split',       // Visual luxury
+    auto: 'fullscreen',    // Bold dark
+    shop: 'split',         // Product showcase
+    agency: 'fullscreen',  // Bold creative
+    finance: 'split',      // Trust + clean
+    legal: 'split',        // Authority
+    hotel: 'fullscreen',   // Premium image
+    education: 'centered', // Welcoming
+  };
+  return map[niche] ?? null;
+}
+
 function isPlain(color?: string) {
   if (!color) return true;
   const c = color.toLowerCase().replace('#','');
@@ -221,17 +284,173 @@ function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: st
 
 // ── Shared props type ───────────────────────────────────────────
 type Colors = ReturnType<typeof useColors>;
-type SectionProps = { content: SectionContent; colors: Colors; design: SiteDesign };
+type SectionProps = { content: SectionContent; colors: Colors; design: SiteDesign; niche?: NicheCategory };
+
+// ── Niche-specific decorative elements for Hero ─────────────────
+// Har niche uchun: floating cards, ribbons, ornaments, badges
+function NicheHeroDecor({ niche, colors }: { niche: NicheCategory; colors: Colors }) {
+  if (niche === 'news') {
+    // Breaking news ribbon (top-right)
+    return (
+      <div className="absolute top-6 right-6 z-20 pointer-events-none ns-fade-up ns-d-1">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest"
+          style={{ background: colors.primary, color: colors.onPrimary, boxShadow: '0 6px 20px -4px rgba(0,0,0,0.3)' }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: colors.onPrimary }} />
+          Live
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'wedding') {
+    // Romantic ornament — flower divider
+    return (
+      <div className="absolute top-1/2 -translate-y-1/2 left-4 right-4 z-0 pointer-events-none flex justify-center opacity-20">
+        <div className="w-full max-w-md flex items-center gap-3">
+          <div className="flex-1 h-px" style={{ background: colors.primary }} />
+          <span className="text-2xl" style={{ color: colors.primary }}>❦</span>
+          <div className="flex-1 h-px" style={{ background: colors.primary }} />
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'music') {
+    // Lightning streaks
+    return (
+      <>
+        <div className="absolute top-8 left-10 z-0 pointer-events-none opacity-40 ns-fade-up text-4xl">⚡</div>
+        <div className="absolute bottom-12 right-12 z-0 pointer-events-none opacity-30 ns-fade-up ns-d-2 text-4xl">🎵</div>
+      </>
+    );
+  }
+  if (niche === 'photo') {
+    // Aperture ring
+    return (
+      <div className="absolute top-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-1">
+        <div className="w-20 h-20 rounded-full border-4 flex items-center justify-center"
+          style={{ borderColor: colors.accent, background: 'transparent' }}>
+          <div className="w-3 h-3 rounded-full" style={{ background: colors.accent }} />
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'restaurant') {
+    // Floating opening hours card
+    return (
+      <div className="absolute bottom-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-3 hidden lg:block">
+        <div className="px-4 py-3 rounded-xl shadow-2xl"
+          style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}` }}>
+          <div className="text-[10px] font-bold uppercase tracking-widest" style={{ color: colors.mutedText }}>
+            Bugun ochiq
+          </div>
+          <div className="text-sm font-black mt-0.5" style={{ color: colors.primary }}>
+            10:00 — 23:00
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'tech' || niche === 'agency') {
+    // Floating "trusted by" mini stat card
+    return (
+      <div className="absolute bottom-8 left-8 z-10 pointer-events-none ns-fade-up ns-d-3 hidden md:block">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md"
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
+          <div className="flex -space-x-1.5">
+            {[1,2,3].map(i => (
+              <div key={i} className="w-6 h-6 rounded-full border-2"
+                style={{ background: colors.accent, borderColor: colors.bg }} />
+            ))}
+          </div>
+          <span className="text-[11px] font-bold" style={{ color: colors.onPrimary }}>+500 mijoz</span>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'fitness') {
+    // Energetic flame badge
+    return (
+      <div className="absolute top-1/3 right-8 z-10 pointer-events-none ns-fade-up ns-d-1 hidden md:block">
+        <div className="px-3 py-1.5 rounded-full flex items-center gap-1.5"
+          style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)' }}>
+          <span className="text-base">🔥</span>
+          <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.onPrimary }}>
+            +250 trener
+          </span>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'medical') {
+    // Trust badge (24/7)
+    return (
+      <div className="absolute bottom-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-3 hidden md:block">
+        <div className="px-4 py-2 rounded-xl shadow-lg"
+          style={{ background: colors.bg, border: `2px solid ${colors.primary}33` }}>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">🏥</span>
+            <div>
+              <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.mutedText }}>24/7</div>
+              <div className="text-xs font-black" style={{ color: colors.primary }}>Tez yordam</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'realestate') {
+    // Floating property stat
+    return (
+      <div className="absolute bottom-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-3 hidden md:block">
+        <div className="grid grid-cols-3 gap-3 px-4 py-3 rounded-xl shadow-2xl"
+          style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}` }}>
+          <div className="text-center"><div className="text-base font-black" style={{ color: colors.primary }}>150+</div><div className="text-[9px]" style={{ color: colors.mutedText }}>Obyekt</div></div>
+          <div className="text-center"><div className="text-base font-black" style={{ color: colors.primary }}>10+</div><div className="text-[9px]" style={{ color: colors.mutedText }}>Yil</div></div>
+          <div className="text-center"><div className="text-base font-black" style={{ color: colors.primary }}>★★★★★</div><div className="text-[9px]" style={{ color: colors.mutedText }}>Reyting</div></div>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'finance' || niche === 'legal') {
+    // Trust seal
+    return (
+      <div className="absolute top-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-1 hidden md:block">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+          style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}` }}>
+          <span className="text-lg">{niche === 'legal' ? '⚖️' : '🏦'}</span>
+          <div>
+            <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.mutedText }}>Litsenziyalangan</div>
+            <div className="text-xs font-black" style={{ color: colors.text }}>O'zbekiston</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (niche === 'hotel') {
+    // Star rating badge
+    return (
+      <div className="absolute top-8 right-8 z-10 pointer-events-none ns-fade-up ns-d-1">
+        <div className="px-3 py-1.5 rounded-full flex items-center gap-1.5"
+          style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.3)' }}>
+          <span className="text-sm">★★★★★</span>
+          <span className="text-[10px] font-black uppercase tracking-wider" style={{ color: colors.onPrimary }}>5 yulduz</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
 
 // ── Section: Hero (3 variants: centered | split | fullscreen) ────────
-function Hero({ content, colors, design }: SectionProps) {
+function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
   const title    = String(content.title    ?? content.heading  ?? 'Xush kelibsiz');
   const subtitle = String(content.subtitle ?? '');
   const desc     = String(content.description ?? '');
   const cta      = String(content.ctaText  ?? content.cta ?? content.button ?? '');
   const cta2     = String(content.cta2Text ?? content.secondaryCta ?? '');
   const badge    = content.badge ? String(content.badge) : '';
-  const v        = heroVariant(design);
+  // Niche bo'yicha smart variant tanlash (agar design ma'lum bo'lmasa)
+  const nicheV   = nicheHeroVariant(niche);
+  const v        = nicheV ?? heroVariant(design);
   const r        = getRadius(design);
   const py       = getDensityPy(design);
 
@@ -291,6 +510,7 @@ function Hero({ content, colors, design }: SectionProps) {
     return (
       <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
         {MeshBg}
+        <NicheHeroDecor niche={niche} colors={colors} />
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center relative">
           <div className="ns-fade-up">
             {Badge}
@@ -312,6 +532,7 @@ function Hero({ content, colors, design }: SectionProps) {
         {/* Mesh blobs (oq tomonida) */}
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 75% 25%, ${colors.accent}55, transparent 50%), radial-gradient(circle at 20% 80%, ${colors.onPrimary}22, transparent 45%)` }} />
         <div className="absolute inset-0 ns-grain opacity-30" />
+        <NicheHeroDecor niche={niche} colors={colors} />
         <div className="relative z-10 max-w-5xl mx-auto">
           {badge && (
             <span style={{ background: 'rgba(255,255,255,0.15)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)', borderRadius: r, backdropFilter: 'blur(8px)' }}
@@ -343,6 +564,7 @@ function Hero({ content, colors, design }: SectionProps) {
     <section style={{ background: colors.bg, color: colors.text, fontFamily: colors.font }}
       className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
       {MeshBg}
+      <NicheHeroDecor niche={niche} colors={colors} />
       <div className="relative z-10 max-w-5xl mx-auto">
         {Badge}
         <h1 style={{ color: colors.text }}
@@ -1262,6 +1484,9 @@ export const SiteRenderer = React.memo(function SiteRenderer({
   );
   const design = schema ? resolveDesign(schema) : {} as SiteDesign;
   const scrolled = useScrolled(40);
+  // Niche detector: sayt nomi va seksiya turlari bo'yicha biznes turini aniqlaydi.
+  // Hero komponentiga uzatiladi — har niche uchun maxsus dekorativ elementlar.
+  const niche = detectNiche(siteName, allSectionTypes);
 
   if (!schema) return null;
 
@@ -1389,7 +1614,7 @@ export const SiteRenderer = React.memo(function SiteRenderer({
         }
         return (
           <div key={key} id={section.id}>
-            <Component content={content} colors={colors} design={design} />
+            <Component content={content} colors={colors} design={design} niche={niche} />
           </div>
         );
       })}
