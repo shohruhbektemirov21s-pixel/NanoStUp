@@ -17,28 +17,41 @@ const _rawBase =
 // Normalize: ensure exactly one /api suffix
 const API_BASE = _rawBase.replace(/\/api\/?$/, '') + '/api';
 
+export interface LockInfo {
+  status: 'EXPIRED' | 'SUSPENDED' | 'ARCHIVED';
+  title: string;
+  description: string;
+  cta: string;
+  days_until_expiry: number | null;
+  expires_at: string | null;
+}
+
 interface PublicSiteResponse {
   success: boolean;
+  locked?: boolean;
   site?: {
     title: string;
-    schema_data: Record<string, unknown> | null;
+    schema_data?: Record<string, unknown> | null;
     language: string;
     slug: string;
-    view_count: number;
+    view_count?: number;
     updated_at: string;
+    hosting_status?: string;
+    needs_renewal_soon?: boolean;
+    days_until_expiry?: number | null;
   };
+  lock_info?: LockInfo;
   error?: string;
 }
 
-async function fetchPublicSite(slug: string): Promise<PublicSiteResponse['site'] | null> {
+async function fetchPublicSite(slug: string): Promise<PublicSiteResponse | null> {
   try {
     const res = await fetch(`${API_BASE}/public/sites/${encodeURIComponent(slug)}/`, {
-      // Har so'rovda view_count inkrement bo'lishi uchun cache yo'q
       cache: 'no-store',
     });
     if (!res.ok) return null;
     const data: PublicSiteResponse = await res.json();
-    return data.site ?? null;
+    return data;
   } catch {
     return null;
   }
@@ -50,10 +63,10 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string; locale: string }> },
 ): Promise<Metadata> {
   const { slug, locale } = await params;
-  const site = await fetchPublicSite(slug);
+  const data = await fetchPublicSite(slug);
   const t = await getTranslations({ locale, namespace: 'PublicSite' });
-  if (!site) return { title: t('notFound') };
-  const title = site.title || 'AI Sayt';
+  if (!data || !data.site) return { title: t('notFound') };
+  const title = data.site.title || 'AI Sayt';
   const description = `${title} — AI yordamida yaratilgan sayt.`;
   return {
     title,
@@ -69,18 +82,34 @@ export default async function PublicSitePage(
   { params }: { params: Promise<{ slug: string; locale: string }> },
 ) {
   const { slug, locale } = await params;
-  const site = await fetchPublicSite(slug);
-  if (!site || !site.schema_data) notFound();
+  const data = await fetchPublicSite(slug);
+  if (!data || !data.site) notFound();
 
   const t = await getTranslations({ locale, namespace: 'PublicSite' });
 
+  // SaaS soft-lock: agar sayt EXPIRED/SUSPENDED bo'lsa overlay ko'rsatamiz
+  if (data.locked && data.lock_info) {
+    const { SiteLockOverlay } = await import('@/features/builder/SiteLockOverlay');
+    return (
+      <SiteLockOverlay
+        siteTitle={data.site.title || 'AI Sayt'}
+        lockInfo={data.lock_info}
+        locale={locale}
+      />
+    );
+  }
+
+  if (!data.site.schema_data) notFound();
+
   return (
     <PublicSiteView
-      schema={site.schema_data as Parameters<typeof PublicSiteView>[0]['schema']}
-      siteTitle={site.title || 'AI Sayt'}
-      updatedAt={site.updated_at}
+      schema={data.site.schema_data as Parameters<typeof PublicSiteView>[0]['schema']}
+      siteTitle={data.site.title || 'AI Sayt'}
+      updatedAt={data.site.updated_at}
       locale={locale}
       generatedByLabel={t('generatedBy')}
+      needsRenewalSoon={data.site.needs_renewal_soon}
+      daysUntilExpiry={data.site.days_until_expiry ?? null}
     />
   );
 }

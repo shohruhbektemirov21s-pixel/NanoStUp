@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 import uuid
 
@@ -8,6 +9,23 @@ class ProjectStatus(models.TextChoices):
     GENERATING = 'GENERATING', _('Generating')
     COMPLETED = 'COMPLETED', _('Completed')
     FAILED = 'FAILED', _('Failed')
+
+
+class HostingStatus(models.TextChoices):
+    """
+    Sayt hosting holati (SaaS soft-lock tizimi):
+      - ACTIVE     — to'liq ishlayapti (obuna faol yoki bepul plan ruxsat etilgan)
+      - TRIAL      — sinov muddati (yangi user, free demo)
+      - EXPIRED    — obuna muddati tugagan (soft-lock, ma'lumot saqlanadi)
+      - SUSPENDED  — admin qo'lda to'xtatgan (ToS buzilishi va h.k.)
+      - ARCHIVED   — user qo'lda arxivga olgan (vaqtinchalik ko'rinmaydi)
+    """
+    ACTIVE = 'ACTIVE', _('Faol')
+    TRIAL = 'TRIAL', _('Sinov')
+    EXPIRED = 'EXPIRED', _('Muddati tugagan')
+    SUSPENDED = 'SUSPENDED', _('To\'xtatilgan')
+    ARCHIVED = 'ARCHIVED', _('Arxivlangan')
+
 
 class WebsiteProject(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -43,11 +61,38 @@ class WebsiteProject(models.Model):
     view_count = models.PositiveIntegerField(default=0)
 
     # ── Hosting kontroli ───────────────────────────────────────
-    # is_active=False bo'lsa publik URL inactive qaytaradi (admin manual o'chirishi mumkin).
+    # SaaS hosting status (ACTIVE/TRIAL/EXPIRED/SUSPENDED/ARCHIVED)
+    hosting_status = models.CharField(
+        "Hosting holati", max_length=20,
+        choices=HostingStatus.choices,
+        default=HostingStatus.TRIAL,
+        db_index=True,
+        help_text="Sayt hosting holati. Subscription tugaganda EXPIRED bo'ladi (soft-lock).",
+    )
+    # Hosting muddati tugash sanasi (subscription bilan sinxronlanadi)
+    hosting_expires_at = models.DateTimeField(
+        "Hosting tugash sanasi", null=True, blank=True, db_index=True,
+        help_text="Sayt hosting muddati. NULL bo'lsa cheksiz (TRIAL/ARCHIVED).",
+    )
+    # Soft-lock sababi (admin yoki avto)
+    suspension_reason = models.CharField(
+        "To'xtatish sababi", max_length=255, blank=True,
+        help_text="EXPIRED yoki SUSPENDED holatda foydalanuvchiga ko'rsatiladigan xabar.",
+    )
+    # Custom domain (Pro+ tarif uchun)
+    custom_domain = models.CharField(
+        "Custom domen", max_length=253, blank=True, db_index=True,
+        help_text="Misol: mysite.com. Pro+ tarif uchun. DNS A-record nanostup-api'ga yo'naltirilishi kerak.",
+    )
+    custom_domain_verified = models.BooleanField(
+        "Domen tasdiqlangan", default=False,
+        help_text="DNS to'g'ri sozlanganmi? Avto-tekshiriladi.",
+    )
+    # Backward compatibility: eski is_active hali ishlatilayotgan joylar uchun saqlanadi.
+    # Hozir bu hosting_status'dan derived bo'ladi (property orqali).
     is_active = models.BooleanField(
-        "Faol", default=True,
-        help_text="Sayt publik URL orqali ko'rinadimi? Obuna tugaganda yoki "
-                  "admin tomonidan bloklanganda False qilinadi.",
+        "Faol (deprecated)", default=True,
+        help_text="ESKI: hosting_status orqali ishlash kerak. False = SUSPENDED ekvivalent.",
     )
     # Sayt faqat NanoStUp infrastrukturasida hosting bo'ladi.
     hosted_on_platform = models.BooleanField(
@@ -64,6 +109,138 @@ class WebsiteProject(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['hosting_status', '-updated_at']),
+            models.Index(fields=['user', 'hosting_status']),
+        ]
+
+    # ── Helper methodlar (SaaS soft-lock) ──────────────────────
+
+    @property
+    def is_locked(self) -> bool:
+        """Sayt publik URL orqali ko'rinmaydigan holatdami?"""
+        return self.hosting_status in (
+            HostingStatus.EXPIRED,
+            HostingStatus.SUSPENDED,
+            HostingStatus.ARCHIVED,
+        )
+
+    @property
+    def is_live(self) -> bool:
+        """Sayt to'liq publik ko'rinadigan holatdami?"""
+        return (
+            self.is_published
+            and self.hosting_status in (HostingStatus.ACTIVE, HostingStatus.TRIAL)
+            and self.is_active  # backward compat
+        )
+
+    @property
+    def days_until_expiry(self) -> int | None:
+        """Hosting tugashiga qancha kun qolgan? None = cheksiz."""
+        if not self.hosting_expires_at:
+            return None
+        delta = self.hosting_expires_at - timezone.now()
+        return max(0, delta.days)
+
+    @property
+    def needs_renewal_soon(self) -> bool:
+        """7 kun yoki kamroq qoldi — renewal banner ko'rsatish kerak."""
+        days = self.days_until_expiry
+        return days is not None and days <= 7 and self.hosting_status == HostingStatus.ACTIVE
+
+    def lock_message(self, language: str = 'uz') -> dict:
+        """Soft-lock overlay uchun chiroyli xabar."""
+        messages = {
+            HostingStatus.EXPIRED: {
+                'uz': {
+                    'title': 'Hosting muddati tugagan',
+                    'description': 'Bu saytning hosting muddati tugagan. Saytni qayta faollashtirish uchun obunani yangilang.',
+                    'cta': 'Obunani yangilash',
+                },
+                'ru': {
+                    'title': 'Срок хостинга истёк',
+                    'description': 'Срок хостинга этого сайта истёк. Чтобы снова сделать сайт доступным, обновите подписку.',
+                    'cta': 'Обновить подписку',
+                },
+                'en': {
+                    'title': 'Hosting expired',
+                    'description': 'This site\'s hosting has expired. Renew your subscription to bring it back online.',
+                    'cta': 'Renew subscription',
+                },
+            },
+            HostingStatus.SUSPENDED: {
+                'uz': {
+                    'title': 'Sayt vaqtinchalik to\'xtatilgan',
+                    'description': self.suspension_reason or 'Bu sayt administrator tomonidan vaqtinchalik to\'xtatilgan. Batafsil ma\'lumot uchun support bilan bog\'laning.',
+                    'cta': 'Support bilan bog\'lanish',
+                },
+                'ru': {
+                    'title': 'Сайт временно приостановлен',
+                    'description': self.suspension_reason or 'Этот сайт временно приостановлен администратором. Свяжитесь с поддержкой для подробностей.',
+                    'cta': 'Связаться с поддержкой',
+                },
+                'en': {
+                    'title': 'Site temporarily suspended',
+                    'description': self.suspension_reason or 'This site has been suspended by the administrator. Contact support for details.',
+                    'cta': 'Contact support',
+                },
+            },
+            HostingStatus.ARCHIVED: {
+                'uz': {
+                    'title': 'Sayt arxivlangan',
+                    'description': 'Bu sayt egasi tomonidan arxivga olingan.',
+                    'cta': 'Bosh sahifaga',
+                },
+                'ru': {
+                    'title': 'Сайт архивирован',
+                    'description': 'Этот сайт был архивирован владельцем.',
+                    'cta': 'На главную',
+                },
+                'en': {
+                    'title': 'Site archived',
+                    'description': 'This site has been archived by the owner.',
+                    'cta': 'Back to home',
+                },
+            },
+        }
+        return messages.get(self.hosting_status, {}).get(language) or messages.get(self.hosting_status, {}).get('uz', {
+            'title': 'Sayt mavjud emas', 'description': '', 'cta': '',
+        })
+
+    def sync_hosting_with_subscription(self, save: bool = True) -> bool:
+        """
+        Egasi obunasiga qarab hosting_status va expires_at ni yangilaydi.
+        SUSPENDED va ARCHIVED holatlari avto-yangilanmaydi (admin/user qo'lda qiladi).
+        Returns: o'zgartirildi/yo'q.
+        """
+        if self.hosting_status in (HostingStatus.SUSPENDED, HostingStatus.ARCHIVED):
+            return False
+
+        from apps.subscriptions.models import Subscription, SubscriptionStatus
+        sub = Subscription.objects.filter(
+            user=self.user, status=SubscriptionStatus.ACTIVE,
+        ).order_by('-end_date').first()
+
+        old_status = self.hosting_status
+        old_expires = self.hosting_expires_at
+
+        if sub and sub.end_date and sub.end_date > timezone.now():
+            self.hosting_status = HostingStatus.ACTIVE
+            self.hosting_expires_at = sub.end_date
+            self.suspension_reason = ''
+        else:
+            # Faol obuna yo'q yoki muddati o'tgan
+            if self.hosting_status == HostingStatus.ACTIVE:
+                self.hosting_status = HostingStatus.EXPIRED
+                self.suspension_reason = 'Obuna muddati tugagan'
+            elif self.hosting_status == HostingStatus.TRIAL and self.hosting_expires_at and self.hosting_expires_at < timezone.now():
+                self.hosting_status = HostingStatus.EXPIRED
+                self.suspension_reason = 'Sinov muddati tugagan'
+
+        changed = (old_status != self.hosting_status) or (old_expires != self.hosting_expires_at)
+        if changed and save:
+            self.save(update_fields=['hosting_status', 'hosting_expires_at', 'suspension_reason', 'updated_at'])
+        return changed
 
 class ProjectVersion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

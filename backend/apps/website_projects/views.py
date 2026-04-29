@@ -190,7 +190,10 @@ TOKEN_LIMITS_DISABLED = False
 
 
 def _auto_publish(project) -> None:
-    """Loyihani avtomatik publik qiladi — slug beradi va is_published=True."""
+    """
+    Loyihani avtomatik publik qiladi — slug beradi va is_published=True.
+    SaaS soft-lock: hosting_status'ni subscription bo'yicha sinxronlaydi.
+    """
     updates = []
     if not project.slug:
         project.slug = _generate_unique_slug(project.title)
@@ -199,6 +202,16 @@ def _auto_publish(project) -> None:
         project.is_published = True
         project.published_at = timezone.now()
         updates += ["is_published", "published_at"]
+    # Yangi publik sayt → hosting_status sinxronlash (faqat TRIAL'da bo'lsa)
+    if updates and project.hosting_status not in ('SUSPENDED', 'ARCHIVED'):
+        try:
+            # sync_hosting_with_subscription'ni save'siz chaqirib qo'shimcha update'larga qo'shamiz
+            project.sync_hosting_with_subscription(save=False)
+            for f in ('hosting_status', 'hosting_expires_at', 'suspension_reason'):
+                if f not in updates:
+                    updates.append(f)
+        except Exception:
+            pass
     if updates:
         updates.append("updated_at")
         project.save(update_fields=updates)
@@ -2010,47 +2023,81 @@ def public_site(request, slug: str):
     """
     /api/public/sites/<slug>/ — Publik URL uchun sayt sxemasini qaytaradi.
 
-    Sayt ko'rinishi shartlari:
-      1. `is_published=True`     — sayt publish qilingan
-      2. `is_active=True`         — sayt admin/obuna tomonidan bloklanmagan
-      3. Egasining obunasi faol  — obunasi tugagan bo'lsa sayt inactive
+    Sayt ko'rinishi shartlari (SaaS soft-lock tizimi):
+      1. is_published=True — sayt publish qilingan
+      2. hosting_status:
+         - ACTIVE/TRIAL → to'liq sayt qaytariladi (200)
+         - EXPIRED/SUSPENDED → 200 + lock_info (frontend overlay ko'rsatadi)
+         - ARCHIVED → 410 GONE (umuman ko'rinmaydi)
+      3. Egasining obunasi tugagan bo'lsa hosting_status avtomatik
+         EXPIRED'ga aylanadi (sync_hosting_with_subscription).
+
+    Eski mantiq (is_active=False) backward compat sifatida saqlanadi:
+    is_active=False → SUSPENDED ekvivalent.
     """
+    from .models import HostingStatus  # avoid circular
+
     try:
-        project = WebsiteProject.objects.select_related("user").only(
-            "id", "title", "schema_data", "language",
-            "slug", "is_published", "is_active", "view_count", "updated_at",
-            "user__id",
-        ).get(slug=slug, is_published=True)
+        project = WebsiteProject.objects.select_related("user").get(
+            slug=slug, is_published=True,
+        )
     except WebsiteProject.DoesNotExist:
         return Response(
             {"success": False, "error": "Sayt topilmadi yoki o'chirilgan."},
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # 2-shart: admin tomonidan bloklangan
-    if not project.is_active:
-        return Response({
-            "success": False,
-            "site_inactive": True,
-            "error": "Bu sayt vaqtinchalik o'chirilgan.",
-        }, status=status.HTTP_410_GONE)
+    # Lazy sync: agar ACTIVE bo'lsa-yu obuna allaqachon tugagan bo'lsa,
+    # bu yerda EXPIRED'ga aylantiramiz (har request'da emas, faqat ACTIVE'da).
+    if project.hosting_status == HostingStatus.ACTIVE:
+        if project.hosting_expires_at and project.hosting_expires_at < timezone.now():
+            project.sync_hosting_with_subscription(save=True)
 
-    # 3-shart: egasining obunasi tugaganmi?
-    owner_sub = _get_active_subscription(project.user)
-    if not owner_sub and not FREE_CAN_PUBLISH:
-        # Obunasi yo'q va bepul publish ruxsat berilmagan — sayt yopiq
-        return Response({
-            "success": False,
-            "subscription_required": True,
-            "site_inactive": True,
-            "error": "Sayt egasining obunasi muddati tugagan. Sayt vaqtinchalik ishlamayapti.",
-        }, status=status.HTTP_410_GONE)
+    # ARCHIVED — to'liq yashirin
+    if project.hosting_status == HostingStatus.ARCHIVED:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki o'chirilgan."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
-    # View counter — atomik inkrement
+    # Eski is_active=False holati → SUSPENDED ekvivalent
+    if not project.is_active and project.hosting_status not in (
+        HostingStatus.SUSPENDED, HostingStatus.EXPIRED,
+    ):
+        project.hosting_status = HostingStatus.SUSPENDED
+        project.suspension_reason = project.suspension_reason or 'Admin tomonidan to\'xtatilgan'
+        project.save(update_fields=['hosting_status', 'suspension_reason'])
+
+    locale = (request.GET.get("lang") or project.language or "uz").lower()
+    if locale not in ("uz", "ru", "en"):
+        locale = "uz"
+
+    # SOFT-LOCK: EXPIRED yoki SUSPENDED → schema'siz lock_info qaytar
+    if project.hosting_status in (HostingStatus.EXPIRED, HostingStatus.SUSPENDED):
+        days_left = project.days_until_expiry
+        return Response({
+            "success": True,
+            "locked": True,
+            "site": {
+                "title": project.title,
+                "language": project.language,
+                "slug": project.slug,
+                "updated_at": project.updated_at,
+            },
+            "lock_info": {
+                "status": project.hosting_status,
+                "days_until_expiry": days_left,
+                "expires_at": project.hosting_expires_at,
+                **project.lock_message(locale),
+            },
+        })
+
+    # ACTIVE/TRIAL → view counter inkrement va to'liq schema
     WebsiteProject.objects.filter(pk=project.pk).update(view_count=F("view_count") + 1)
 
     return Response({
         "success": True,
+        "locked": False,
         "site": {
             "title": project.title,
             "schema_data": project.schema_data,
@@ -2058,6 +2105,9 @@ def public_site(request, slug: str):
             "slug": project.slug,
             "view_count": project.view_count + 1,
             "updated_at": project.updated_at,
+            "hosting_status": project.hosting_status,
+            "needs_renewal_soon": project.needs_renewal_soon,
+            "days_until_expiry": project.days_until_expiry,
         },
     })
 
@@ -2090,6 +2140,17 @@ def owner_get_by_slug(request, slug: str):
             "slug": project.slug,
             "is_published": project.is_published,
             "updated_at": project.updated_at,
+            # SaaS soft-lock fields
+            "hosting_status": project.hosting_status,
+            "hosting_expires_at": project.hosting_expires_at,
+            "days_until_expiry": project.days_until_expiry,
+            "needs_renewal_soon": project.needs_renewal_soon,
+            "is_locked": project.is_locked,
+            "is_live": project.is_live,
+            "suspension_reason": project.suspension_reason,
+            "custom_domain": project.custom_domain,
+            "custom_domain_verified": project.custom_domain_verified,
+            "view_count": project.view_count,
         },
     })
 
@@ -2245,3 +2306,167 @@ def verify_domain(request):
     # For custom domains pointing to us, we could check if any project uses this domain.
     # For now, if they are on an external domain, we disallow.
     return Response({"allowed": False})
+
+
+# ─────────────────────────────────────────────────────────────
+# SaaS Dashboard endpoints — sites overview + status management
+# ─────────────────────────────────────────────────────────────
+
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def dashboard_sites(request):
+    """
+    /api/projects/dashboard/sites/ — Foydalanuvchining barcha saytlari
+    dashboard kartochkasi uchun (status, expiry, view_count, va h.k.).
+
+    Query params:
+      - status: ACTIVE|TRIAL|EXPIRED|SUSPENDED|ARCHIVED (filter)
+      - search: title bo'yicha qidiruv
+    """
+    from .models import HostingStatus
+
+    qs = WebsiteProject.objects.filter(user=request.user).only(
+        'id', 'title', 'slug', 'language', 'business_type',
+        'hosting_status', 'hosting_expires_at', 'suspension_reason',
+        'custom_domain', 'custom_domain_verified',
+        'is_published', 'is_active', 'view_count',
+        'created_at', 'updated_at',
+    )
+
+    status_filter = request.GET.get('status', '').upper()
+    if status_filter in HostingStatus.values:
+        qs = qs.filter(hosting_status=status_filter)
+
+    search = (request.GET.get('search') or '').strip()
+    if search:
+        qs = qs.filter(title__icontains=search)
+
+    sites = []
+    summary = {'total': 0, 'active': 0, 'trial': 0, 'expired': 0, 'suspended': 0, 'archived': 0}
+    for p in qs.order_by('-updated_at')[:200]:
+        days = p.days_until_expiry
+        sites.append({
+            'id': str(p.id),
+            'title': p.title,
+            'slug': p.slug,
+            'language': p.language,
+            'business_type': p.business_type,
+            'hosting_status': p.hosting_status,
+            'hosting_expires_at': p.hosting_expires_at,
+            'days_until_expiry': days,
+            'needs_renewal_soon': p.needs_renewal_soon,
+            'is_locked': p.is_locked,
+            'is_live': p.is_live,
+            'is_published': p.is_published,
+            'custom_domain': p.custom_domain,
+            'custom_domain_verified': p.custom_domain_verified,
+            'view_count': p.view_count,
+            'updated_at': p.updated_at,
+            'created_at': p.created_at,
+            'suspension_reason': p.suspension_reason,
+        })
+        summary['total'] += 1
+        key = p.hosting_status.lower()
+        if key in summary:
+            summary[key] += 1
+
+    return Response({
+        'success': True,
+        'sites': sites,
+        'summary': summary,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def owner_set_site_status(request, slug: str):
+    """
+    /api/projects/owner/by_slug/<slug>/status/ — Sayt egasi qo'lda
+    status o'zgartirishi (faqat ARCHIVED ↔ TRIAL/ACTIVE).
+
+    Body: { "status": "ARCHIVED" | "ACTIVE" }
+    User EXPIRED yoki SUSPENDED qilolmaydi (faqat admin).
+    """
+    from .models import HostingStatus
+
+    try:
+        project = WebsiteProject.objects.get(slug=slug, user=request.user)
+    except WebsiteProject.DoesNotExist:
+        return Response(
+            {"success": False, "error": "Sayt topilmadi yoki sizniki emas."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    new_status = (request.data.get('status') or '').upper()
+    allowed_user_status = {HostingStatus.ARCHIVED, HostingStatus.ACTIVE, HostingStatus.TRIAL}
+    if new_status not in allowed_user_status:
+        return Response({
+            'success': False,
+            'error': "Status faqat ARCHIVED, ACTIVE yoki TRIAL bo'lishi mumkin.",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # ARCHIVED'dan chiqishda subscription bilan sinxronlash
+    if new_status in (HostingStatus.ACTIVE, HostingStatus.TRIAL):
+        project.hosting_status = new_status
+        project.suspension_reason = ''
+        project.save(update_fields=['hosting_status', 'suspension_reason', 'updated_at'])
+        # Aniq status'ni subscription bo'yicha aniqlaymiz
+        project.sync_hosting_with_subscription(save=True)
+    else:
+        project.hosting_status = HostingStatus.ARCHIVED
+        project.save(update_fields=['hosting_status', 'updated_at'])
+
+    return Response({
+        'success': True,
+        'site': {
+            'slug': project.slug,
+            'hosting_status': project.hosting_status,
+            'is_locked': project.is_locked,
+            'is_live': project.is_live,
+        },
+    })
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAdminUser])
+def admin_set_site_status(request):
+    """
+    /api/projects/admin/set-status/ — Admin sayt status'ini o'zgartiradi.
+    Body: { "site_id": "uuid", "status": "ACTIVE|EXPIRED|SUSPENDED|ARCHIVED", "reason"?: "..." }
+    """
+    from .models import HostingStatus
+
+    site_id = request.data.get('site_id')
+    new_status = (request.data.get('status') or '').upper()
+    reason = (request.data.get('reason') or '').strip()[:255]
+
+    if not site_id or new_status not in HostingStatus.values:
+        return Response({
+            'success': False,
+            'error': "site_id va to'g'ri status majburiy.",
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        project = WebsiteProject.objects.get(pk=site_id)
+    except (WebsiteProject.DoesNotExist, ValueError):
+        return Response({"success": False, "error": "Sayt topilmadi."},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    project.hosting_status = new_status
+    if new_status == HostingStatus.SUSPENDED:
+        project.is_active = False  # backward compat
+        project.suspension_reason = reason or 'Admin tomonidan to\'xtatilgan'
+    elif new_status == HostingStatus.EXPIRED:
+        project.suspension_reason = reason or 'Hosting muddati tugagan'
+    elif new_status == HostingStatus.ACTIVE:
+        project.is_active = True  # backward compat
+        project.suspension_reason = ''
+        # ACTIVE qilganda subscription bo'yicha expiry'ni sinxronlash
+        project.save(update_fields=['hosting_status', 'is_active', 'suspension_reason', 'updated_at'])
+        project.sync_hosting_with_subscription(save=True)
+        return Response({'success': True, 'hosting_status': project.hosting_status})
+    elif new_status == HostingStatus.ARCHIVED:
+        project.suspension_reason = reason
+
+    project.save(update_fields=['hosting_status', 'is_active', 'suspension_reason', 'updated_at'])
+    return Response({'success': True, 'hosting_status': project.hosting_status})

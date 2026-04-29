@@ -35,15 +35,43 @@ class SubscriptionService:
             month_reset_date=reset_date,
         )
 
-        # 4. Foydalanuvchining oldin yaratgan saytlari (obuna tugaganda is_active=False
+        # 4. Foydalanuvchining oldin yaratgan saytlari (obuna tugaganda EXPIRED
         # bo'lib qolgan bo'lishi mumkin) — yangidan faollashtiramiz.
+        # SaaS soft-lock: hosting_status = ACTIVE va expires_at = subscription end_date.
         try:
-            from apps.website_projects.models import WebsiteProject
-            WebsiteProject.objects.filter(user=user, is_active=False).update(is_active=True)
+            from apps.website_projects.models import WebsiteProject, HostingStatus
+            # SUSPENDED va ARCHIVED saytlarga tegmaymiz (admin yoki user qo'lda chiqaradi)
+            WebsiteProject.objects.filter(user=user).exclude(
+                hosting_status__in=[HostingStatus.SUSPENDED, HostingStatus.ARCHIVED]
+            ).update(
+                hosting_status=HostingStatus.ACTIVE,
+                hosting_expires_at=end_date,
+                suspension_reason='',
+                is_active=True,  # backward compat
+            )
         except Exception:
             pass
 
         return subscription
+
+    @staticmethod
+    def expire_user_sites(user):
+        """
+        Foydalanuvchi obunasi tugaganda chaqiriladi: barcha ACTIVE/TRIAL
+        saytlarni EXPIRED qiladi (soft-lock). SUSPENDED/ARCHIVED tegmaydi.
+        Cron yoki signal'dan chaqiriladi.
+        """
+        try:
+            from apps.website_projects.models import WebsiteProject, HostingStatus
+            WebsiteProject.objects.filter(
+                user=user,
+                hosting_status__in=[HostingStatus.ACTIVE, HostingStatus.TRIAL],
+            ).update(
+                hosting_status=HostingStatus.EXPIRED,
+                suspension_reason='Obuna muddati tugagan',
+            )
+        except Exception:
+            pass
 
     @staticmethod
     def check_user_limits(user, feature_name):
