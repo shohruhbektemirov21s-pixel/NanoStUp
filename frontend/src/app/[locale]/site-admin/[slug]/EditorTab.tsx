@@ -1,21 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  FilePlus2,
-  GripVertical,
-  Image as ImageIcon,
-  Palette,
-  Plus,
-  Save,
-  Trash2,
-} from 'lucide-react';
-import { useState } from 'react';
+import { Image as ImageIcon, Save } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -35,46 +21,30 @@ interface Page {
   [key: string]: unknown;
 }
 
-interface Settings {
-  primaryColor?: string;
-  accentColor?: string;
-  bgColor?: string;
-  textColor?: string;
-  font?: string;
-  [key: string]: unknown;
-}
-
 export interface SchemaShape {
   siteName?: string;
   description?: string;
   language?: string;
-  settings?: Settings;
+  settings?: Record<string, unknown>;
   pages?: Page[];
   [key: string]: unknown;
 }
 
-// ── Helpers (immutable updates) ────────────────────────────────
-
-function clone<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v)) as T;
-}
-
-// ── Item field configs by section type ─────────────────────────
-
 interface FieldConfig {
   key: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'url' | 'image';
+  type: 'text' | 'textarea' | 'number' | 'image';
   placeholder?: string;
 }
 
+// ── Field configs (faqat matn + rasm) ──────────────────────────
+
 const ITEM_FIELDS: Record<string, FieldConfig[]> = {
-  hero: [],
   features: [
     { key: 'title', label: 'Nomi', type: 'text' },
     { key: 'description', label: 'Tavsif', type: 'textarea' },
-    { key: 'icon', label: 'Emoji ikon', type: 'text', placeholder: '🚀' },
-    { key: 'price', label: 'Narx (ixt.)', type: 'text' },
+    { key: 'icon', label: 'Emoji ikon', type: 'text' },
+    { key: 'price', label: 'Narx', type: 'text' },
   ],
   services: [
     { key: 'title', label: 'Xizmat nomi', type: 'text' },
@@ -84,20 +54,20 @@ const ITEM_FIELDS: Record<string, FieldConfig[]> = {
   ],
   menu: [
     { key: 'name', label: 'Taom nomi', type: 'text' },
-    { key: 'description', label: 'Tavsif (ingredientlar)', type: 'textarea' },
-    { key: 'price', label: 'Narx', type: 'text', placeholder: "45 000 so'm" },
+    { key: 'description', label: 'Tavsif', type: 'textarea' },
+    { key: 'price', label: 'Narx', type: 'text' },
     { key: 'category', label: 'Kategoriya', type: 'text' },
     { key: 'image', label: 'Rasm URL', type: 'image' },
   ],
   pricing: [
     { key: 'name', label: 'Tarif nomi', type: 'text' },
     { key: 'price', label: 'Narx', type: 'text' },
-    { key: 'period', label: 'Davr (oy/yil)', type: 'text' },
+    { key: 'period', label: 'Davr', type: 'text' },
     { key: 'description', label: 'Tavsif', type: 'textarea' },
   ],
   testimonials: [
     { key: 'name', label: 'Mijoz ismi', type: 'text' },
-    { key: 'role', label: 'Lavozim/Kompaniya', type: 'text' },
+    { key: 'role', label: 'Lavozim', type: 'text' },
     { key: 'text', label: 'Fikr matni', type: 'textarea' },
     { key: 'rating', label: 'Reyting (1-5)', type: 'number' },
     { key: 'image', label: 'Avatar URL', type: 'image' },
@@ -113,39 +83,36 @@ const ITEM_FIELDS: Record<string, FieldConfig[]> = {
     { key: 'answer', label: 'Javob', type: 'textarea' },
   ],
   stats: [
-    { key: 'value', label: 'Qiymat', type: 'text', placeholder: '500+' },
+    { key: 'value', label: 'Qiymat', type: 'text' },
     { key: 'label', label: 'Belgi', type: 'text' },
     { key: 'icon', label: 'Emoji', type: 'text' },
   ],
   gallery: [
-    { key: 'url', label: 'Rasm URL', type: 'image' },
+    { key: 'src', label: 'Rasm URL', type: 'image' },
     { key: 'caption', label: 'Izoh', type: 'text' },
   ],
   blog: [
     { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'excerpt', label: 'Qisqa matn', type: 'textarea' },
     { key: 'author', label: 'Muallif', type: 'text' },
-    { key: 'date', label: 'Sana', type: 'text', placeholder: '2026-04-29' },
+    { key: 'date', label: 'Sana', type: 'text' },
     { key: 'category', label: 'Kategoriya', type: 'text' },
     { key: 'image', label: 'Rasm URL', type: 'image' },
-    { key: 'readTime', label: "O'qish vaqti", type: 'text', placeholder: '5 min' },
   ],
   products: [
     { key: 'name', label: 'Mahsulot nomi', type: 'text' },
     { key: 'price', label: 'Narx', type: 'text' },
-    { key: 'oldPrice', label: 'Eski narx (chizilgan)', type: 'text' },
+    { key: 'oldPrice', label: 'Eski narx', type: 'text' },
     { key: 'image', label: 'Rasm URL', type: 'image' },
     { key: 'category', label: 'Kategoriya', type: 'text' },
-    { key: 'badge', label: 'Belgi (YANGI/CHEGIRMA)', type: 'text' },
-    { key: 'link', label: 'Havola', type: 'text' },
+    { key: 'badge', label: 'Belgi', type: 'text' },
   ],
   portfolio: [
     { key: 'title', label: 'Loyiha nomi', type: 'text' },
-    { key: 'category', label: 'Kategoriya', type: 'text', placeholder: 'Web/Mobile/Brand' },
+    { key: 'category', label: 'Kategoriya', type: 'text' },
     { key: 'image', label: 'Rasm URL', type: 'image' },
     { key: 'description', label: 'Tavsif', type: 'textarea' },
     { key: 'client', label: 'Mijoz', type: 'text' },
-    { key: 'link', label: 'Havola', type: 'text' },
   ],
   properties: [
     { key: 'title', label: 'Obyekt nomi', type: 'text' },
@@ -153,12 +120,11 @@ const ITEM_FIELDS: Record<string, FieldConfig[]> = {
     { key: 'location', label: 'Manzil', type: 'text' },
     { key: 'bedrooms', label: 'Yotoq xonalari', type: 'number' },
     { key: 'bathrooms', label: 'Hammomlar', type: 'number' },
-    { key: 'area', label: 'Maydon', type: 'text', placeholder: '85 m²' },
-    { key: 'type', label: 'Tur', type: 'text', placeholder: 'Kvartira/Uy' },
+    { key: 'area', label: 'Maydon', type: 'text' },
     { key: 'image', label: 'Rasm URL', type: 'image' },
   ],
   timeline: [
-    { key: 'year', label: 'Yil/Bosqich', type: 'text', placeholder: '2018' },
+    { key: 'year', label: 'Yil/Bosqich', type: 'text' },
     { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'description', label: 'Tavsif', type: 'textarea' },
     { key: 'icon', label: 'Emoji', type: 'text' },
@@ -166,7 +132,6 @@ const ITEM_FIELDS: Record<string, FieldConfig[]> = {
   logos: [
     { key: 'name', label: 'Kompaniya nomi', type: 'text' },
     { key: 'logo', label: 'Logo URL', type: 'image' },
-    { key: 'url', label: 'Sayt havolasi', type: 'text' },
   ],
 };
 
@@ -207,328 +172,90 @@ const TOP_FIELDS: Record<string, FieldConfig[]> = {
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   menu: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizning Menyu' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   pricing: [
     { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
-  testimonials: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: "Mijozlar fikri" },
-  ],
-  team: [{ key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizning jamoa' }],
-  faq: [{ key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Savol-javoblar' }],
-  gallery: [{ key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Galereya' }],
-  stats: [],
+  testimonials: [{ key: 'title', label: 'Sarlavha', type: 'text' }],
+  team: [{ key: 'title', label: 'Sarlavha', type: 'text' }],
+  faq: [{ key: 'title', label: 'Sarlavha', type: 'text' }],
+  gallery: [{ key: 'title', label: 'Sarlavha', type: 'text' }],
   blog: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Blog' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   products: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Mahsulotlar' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   portfolio: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Portfolio' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   properties: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: "Ko'chmas mulk" },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   booking: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bron qilish' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
-    { key: 'submitText', label: 'Tugma matni', type: 'text', placeholder: 'Bron qilish' },
-    { key: 'infoText', label: 'Qo\'shimcha matn', type: 'textarea' },
+    { key: 'submitText', label: 'Tugma matni', type: 'text' },
+    { key: 'infoText', label: "Qo'shimcha matn", type: 'textarea' },
   ],
   timeline: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizning tariximiz' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   logos: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizga ishonadi' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
   ],
   video: [
-    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Video' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
     { key: 'subtitle', label: 'Subtitr', type: 'text' },
-    { key: 'videoUrl', label: 'Video URL (YouTube yoki MP4)', type: 'text' },
-    { key: 'thumbnail', label: 'Thumbnail URL', type: 'image' },
+    { key: 'videoUrl', label: 'Video URL', type: 'text' },
     { key: 'description', label: 'Tavsif', type: 'textarea' },
-    { key: 'ctaText', label: 'CTA tugma matni', type: 'text' },
-    { key: 'ctaLink', label: 'CTA havola', type: 'text', placeholder: '#contact' },
   ],
 };
 
-// ── Section templates (Yangi section qo'shish menyusi uchun) ───
+// ── Section type label (UI uchun chiroyli nom) ─────────────────
 
-interface SectionTemplate {
-  type: string;
-  label: string;
-  emoji: string;
-  defaultContent: AnyObj;
+const TYPE_LABELS: Record<string, string> = {
+  hero: 'Bosh banner',
+  features: 'Afzalliklar',
+  services: 'Xizmatlar',
+  menu: 'Menyu',
+  pricing: 'Tariflar',
+  about: 'Biz haqimizda',
+  testimonials: 'Mijozlar fikri',
+  team: 'Jamoa',
+  faq: 'Savol-javob',
+  stats: 'Raqamlar',
+  gallery: 'Galereya',
+  cta: "Chaqiriq",
+  contact: 'Aloqa',
+  blog: 'Blog',
+  products: 'Mahsulotlar',
+  portfolio: 'Portfolio',
+  properties: "Ko'chmas mulk",
+  booking: 'Bron qilish',
+  timeline: 'Tarix/jarayon',
+  logos: 'Mijoz brendlar',
+  video: 'Video',
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+
+function clone<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v)) as T;
 }
 
-const SECTION_TEMPLATES: SectionTemplate[] = [
-  {
-    type: 'hero',
-    label: 'Hero (bosh banner)',
-    emoji: '🎯',
-    defaultContent: {
-      title: 'Yangi sarlavha',
-      subtitle: 'Qisqa subtitr',
-      description: 'Bu yerda saytingiz haqida 1-2 jumla yozing.',
-      ctaText: "Boshlash",
-      ctaLink: '#contact',
-    },
-  },
-  {
-    type: 'about',
-    label: 'About (biz haqimizda)',
-    emoji: '📖',
-    defaultContent: {
-      title: 'Biz haqimizda',
-      description: 'Kompaniyamiz tarixi va missiyasi haqida.',
-      mission: 'Bizning maqsadimiz...',
-      values: [],
-    },
-  },
-  {
-    type: 'features',
-    label: 'Features (afzalliklar)',
-    emoji: '⭐',
-    defaultContent: {
-      title: 'Afzalliklarimiz',
-      subtitle: 'Nega aynan biz?',
-      items: [
-        { title: 'Tez', description: 'Tez xizmat', icon: '⚡' },
-        { title: 'Sifatli', description: 'Yuqori sifat', icon: '✨' },
-        { title: 'Arzon', description: 'Hamyonbop narx', icon: '💰' },
-      ],
-    },
-  },
-  {
-    type: 'services',
-    label: 'Services (xizmatlar)',
-    emoji: '🛠️',
-    defaultContent: {
-      title: 'Xizmatlarimiz',
-      items: [
-        { title: 'Xizmat 1', description: 'Tavsif', price: '100 000' },
-        { title: 'Xizmat 2', description: 'Tavsif', price: '200 000' },
-      ],
-    },
-  },
-  {
-    type: 'menu',
-    label: 'Menu (taom menyusi)',
-    emoji: '🍽️',
-    defaultContent: {
-      title: 'Bizning Menyu',
-      items: [
-        { name: 'Plov', description: 'Toshkent oshi', price: "45 000 so'm", category: 'Asosiy' },
-        { name: "Lag'mon", description: 'Issiq taom', price: "35 000 so'm", category: 'Asosiy' },
-      ],
-    },
-  },
-  {
-    type: 'pricing',
-    label: 'Pricing (narxlar)',
-    emoji: '💎',
-    defaultContent: {
-      title: 'Tariflar',
-      items: [
-        { name: 'Boshlang\'ich', price: '$9', period: 'oy', description: 'Yangi boshlovchilarga' },
-        { name: 'Pro', price: '$29', period: 'oy', description: 'Eng mashhur', popular: true },
-        { name: 'Biznes', price: '$99', period: 'oy', description: 'Kompaniyalar uchun' },
-      ],
-    },
-  },
-  {
-    type: 'stats',
-    label: 'Stats (raqamlar)',
-    emoji: '📊',
-    defaultContent: {
-      items: [
-        { value: '500+', label: 'Mijozlar' },
-        { value: '10+', label: 'Yillar' },
-        { value: '99%', label: 'Mamnunlik' },
-        { value: '24/7', label: 'Qo\'llab-quvvatlash' },
-      ],
-    },
-  },
-  {
-    type: 'testimonials',
-    label: 'Testimonials (sharhlar)',
-    emoji: '💬',
-    defaultContent: {
-      title: 'Mijozlar fikri',
-      items: [
-        { name: 'Ali', role: 'Mijoz', text: 'Ajoyib xizmat!', rating: 5 },
-      ],
-    },
-  },
-  {
-    type: 'team',
-    label: 'Team (jamoa)',
-    emoji: '👥',
-    defaultContent: {
-      title: 'Bizning jamoa',
-      items: [
-        { name: 'Ali Valiyev', role: 'Direktor', bio: 'Tajribali rahbar' },
-      ],
-    },
-  },
-  {
-    type: 'faq',
-    label: 'FAQ (savol-javob)',
-    emoji: '❓',
-    defaultContent: {
-      title: 'Tez-tez beriladigan savollar',
-      items: [
-        { question: 'Qanday buyurtma berish mumkin?', answer: 'Bizga qo\'ng\'iroq qiling.' },
-      ],
-    },
-  },
-  {
-    type: 'gallery',
-    label: 'Gallery (galereya)',
-    emoji: '🖼️',
-    defaultContent: {
-      title: 'Galereya',
-      items: [],
-    },
-  },
-  {
-    type: 'blog',
-    label: 'Blog (maqolalar)',
-    emoji: '📰',
-    defaultContent: {
-      title: 'Bizning blog',
-      subtitle: 'Yangi maqolalar va yangiliklar',
-      items: [
-        { title: 'Birinchi maqola', excerpt: 'Maqola haqida qisqa matn...', author: 'Mualif', date: '2026-04-29', category: 'Yangiliklar', readTime: '5 min' },
-      ],
-    },
-  },
-  {
-    type: 'products',
-    label: 'Products (mahsulotlar)',
-    emoji: '🛍️',
-    defaultContent: {
-      title: 'Mahsulotlar',
-      subtitle: 'Eng sara tanlovlar',
-      items: [
-        { name: 'Mahsulot 1', price: "120 000 so'm", category: 'Yangi' },
-        { name: 'Mahsulot 2', price: "85 000 so'm", oldPrice: "100 000 so'm", category: 'Chegirma' },
-      ],
-    },
-  },
-  {
-    type: 'portfolio',
-    label: 'Portfolio (loyihalar)',
-    emoji: '💼',
-    defaultContent: {
-      title: 'Bizning ishlarimiz',
-      subtitle: 'Muvaffaqiyatli loyihalarimiz',
-      items: [
-        { title: 'Loyiha 1', category: 'Web', description: 'Tijorat sayti', client: 'ABC LLC' },
-      ],
-    },
-  },
-  {
-    type: 'properties',
-    label: "Properties (ko'chmas mulk)",
-    emoji: '🏠',
-    defaultContent: {
-      title: 'Sotuvdagi obyektlar',
-      items: [
-        { title: '2 xonali kvartira', price: '$45 000', location: 'Yunusobod', bedrooms: 2, bathrooms: 1, area: '52 m²', type: 'Kvartira' },
-      ],
-    },
-  },
-  {
-    type: 'booking',
-    label: 'Booking (bron qilish)',
-    emoji: '📅',
-    defaultContent: {
-      title: 'Bron qilish',
-      subtitle: 'Stol/xona/vaqt tanlang',
-      submitText: 'Bron qilish',
-      infoText: 'Tasdiqni 24 soat ichida olasiz.',
-      fields: [
-        { name: 'name', label: 'Ism', type: 'text' },
-        { name: 'phone', label: 'Telefon', type: 'tel' },
-        { name: 'date', label: 'Sana', type: 'date' },
-        { name: 'time', label: 'Vaqt', type: 'time' },
-        { name: 'guests', label: 'Mehmonlar soni', type: 'number' },
-      ],
-    },
-  },
-  {
-    type: 'timeline',
-    label: 'Timeline (jarayon/tarix)',
-    emoji: '📅',
-    defaultContent: {
-      title: 'Bizning tariximiz',
-      items: [
-        { year: '2020', title: 'Tashkil etilish', description: 'Kompaniyamiz boshlandi.', icon: '🚀' },
-        { year: '2023', title: 'Birinchi 1000 mijoz', description: 'Birinchi 1000 ta mijozga xizmat ko\'rsatdik.', icon: '🎉' },
-      ],
-    },
-  },
-  {
-    type: 'logos',
-    label: 'Logos (mijozlar)',
-    emoji: '🏢',
-    defaultContent: {
-      title: 'Bizga ishonadi',
-      subtitle: 'Hamkor brendlar',
-      items: [],
-    },
-  },
-  {
-    type: 'video',
-    label: 'Video (YouTube/MP4)',
-    emoji: '🎬',
-    defaultContent: {
-      title: 'Biz haqimizda video',
-      subtitle: '',
-      videoUrl: '',
-      description: 'Video yordamida saytimizni tanishtirish.',
-      ctaText: 'Bog\'lanish',
-      ctaLink: '#contact',
-    },
-  },
-  {
-    type: 'cta',
-    label: 'CTA (chaqiriq)',
-    emoji: '📣',
-    defaultContent: {
-      title: 'Bizga qo\'shiling',
-      description: 'Bugun boshlang!',
-      ctaText: "Boshlash",
-      ctaLink: '#contact',
-    },
-  },
-  {
-    type: 'contact',
-    label: 'Contact (aloqa)',
-    emoji: '📧',
-    defaultContent: {
-      title: "Bog'lanish",
-      email: 'info@example.com',
-      phone: '+998 90 123 45 67',
-      address: 'Toshkent shahri',
-      workingHours: 'Du-Sha: 9:00 — 18:00',
-    },
-  },
-];
-
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10);
+function asStr(v: unknown): string {
+  if (v == null) return '';
+  return String(v);
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -544,586 +271,215 @@ export function EditorTab({
   saving: boolean;
   onSave: () => void;
 }) {
-  const pages = Array.isArray(schema.pages) ? schema.pages : [];
-  const settings = schema.settings ?? {};
+  const pages: Page[] = Array.isArray(schema?.pages) ? (schema.pages as Page[]) : [];
+
+  const updateSection = (
+    pageIdx: number,
+    sectionIdx: number,
+    field: 'top' | 'item',
+    key: string,
+    value: unknown,
+    itemIdx?: number,
+  ) => {
+    const next = clone(schema);
+    const sec = next.pages?.[pageIdx]?.sections?.[sectionIdx];
+    if (!sec) return;
+    if (!sec.content || typeof sec.content !== 'object') sec.content = {};
+    const content = sec.content as AnyObj;
+    if (field === 'top') {
+      content[key] = value;
+    } else if (field === 'item' && itemIdx != null) {
+      const items = Array.isArray(content.items) ? (content.items as AnyObj[]) : [];
+      if (!items[itemIdx]) return;
+      items[itemIdx] = { ...items[itemIdx], [key]: value };
+      content.items = items;
+    }
+    setSchema(next);
+  };
+
+  const updateSiteName = (v: string) => {
+    const next = clone(schema);
+    next.siteName = v;
+    setSchema(next);
+  };
+
+  if (pages.length === 0) {
+    return (
+      <div className="rounded-2xl border border-white/5 bg-zinc-900 p-10 text-center text-zinc-500 text-sm">
+        Sayt hali yaratilmagan.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
-      {/* Site basics */}
-      <SiteBasicsCard schema={schema} setSchema={setSchema} settings={settings} />
-
-      {/* Pages */}
-      {pages.length === 0 && (
-        <div className="rounded-2xl border border-white/5 bg-zinc-900 p-10 text-center text-zinc-500 text-sm">
-          Sahifalar topilmadi.
-        </div>
-      )}
-      {pages.map((page, pi) => (
-        <PageCard
-          key={page.slug ?? `page-${pi}`}
-          page={page}
-          pageIndex={pi}
-          totalPages={pages.length}
-          schema={schema}
-          setSchema={setSchema}
+      {/* Sayt nomi */}
+      <section className="rounded-2xl border border-white/5 bg-zinc-900 p-5">
+        <h2 className="text-sm font-bold mb-3">Sayt nomi</h2>
+        <Field
+          label="Nomi"
+          value={asStr(schema.siteName)}
+          onChange={updateSiteName}
+          placeholder="Mening saytim"
         />
-      ))}
+        <p className="mt-2 text-[11px] text-zinc-500">
+          Bu nom brauzer yorlig'ida va Google qidiruvida ko'rinadi.
+        </p>
+      </section>
 
-      {/* Add new page */}
-      <button
-        type="button"
-        onClick={() => {
-          const next = clone(schema);
-          if (!Array.isArray(next.pages)) next.pages = [];
-          const slug = `sahifa-${(next.pages?.length ?? 0) + 1}`;
-          next.pages!.push({
-            slug,
-            title: `Yangi sahifa ${(next.pages?.length ?? 0) + 1}`,
-            sections: [],
-          });
-          setSchema(next);
-        }}
-        className="w-full py-5 rounded-2xl border-2 border-dashed border-zinc-700 hover:border-purple-500 hover:bg-purple-500/5 text-zinc-500 hover:text-white text-sm font-bold transition flex items-center justify-center gap-2"
-      >
-        <FilePlus2 className="w-4 h-4" />
-        Yangi sahifa qo&apos;shish
-      </button>
+      {/* Sahifalar va sektsiyalar */}
+      {pages.map((page, pageIdx) => {
+        const sections = Array.isArray(page.sections) ? (page.sections as Section[]) : [];
+        const pageTitle = asStr(page.title) || asStr(page.slug) || `Sahifa ${pageIdx + 1}`;
+        return (
+          <section
+            key={`page-${pageIdx}`}
+            className="rounded-2xl border border-white/5 bg-zinc-900 overflow-hidden"
+          >
+            <div className="px-5 py-3 border-b border-white/5 bg-white/[0.02]">
+              <h2 className="text-sm font-bold flex items-center gap-2">
+                <span className="text-purple-400">📄</span>
+                {pageTitle}
+                <span className="text-[10px] font-normal text-zinc-500">
+                  ({sections.length} bo&apos;lim)
+                </span>
+              </h2>
+            </div>
 
-      {/* Sticky save */}
-      <div className="sticky bottom-4 flex justify-end">
+            <div className="p-5 space-y-5">
+              {sections.map((section, sIdx) => (
+                <SectionEditor
+                  key={section.id ?? `s-${sIdx}`}
+                  section={section}
+                  pageIdx={pageIdx}
+                  sectionIdx={sIdx}
+                  onChange={updateSection}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+
+      {/* Pastki saqlash paneli */}
+      <div className="sticky bottom-0 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-zinc-950/95 backdrop-blur border-t border-white/5 flex items-center justify-between gap-3">
+        <p className="text-[11px] text-zinc-500">
+          O&apos;zgarishlar avtomatik saqlanmaydi. Tugmani bosing.
+        </p>
         <motion.button
           type="button"
           onClick={onSave}
           disabled={saving}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm bg-gradient-to-tr from-purple-600 to-blue-500 text-white shadow-2xl shadow-purple-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-tr from-purple-600 to-blue-500 text-white shadow-lg shadow-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           <Save className="w-4 h-4" />
-          {saving ? 'Saqlanmoqda...' : 'Barcha o\'zgarishlarni saqlash'}
+          {saving ? 'Saqlanmoqda...' : 'Saqlash'}
         </motion.button>
       </div>
     </div>
   );
 }
 
-// ── Site Basics (siteName + colors + font) ─────────────────────
-
-function SiteBasicsCard({
-  schema,
-  setSchema,
-  settings,
-}: {
-  schema: SchemaShape;
-  setSchema: (s: SchemaShape) => void;
-  settings: Settings;
-}) {
-  const update = (path: string, value: unknown) => {
-    const next = clone(schema);
-    if (path === 'siteName' || path === 'description' || path === 'language') {
-      (next as AnyObj)[path] = value;
-    } else {
-      next.settings = { ...(next.settings ?? {}), [path]: value };
-    }
-    setSchema(next);
-  };
-
-  return (
-    <section className="rounded-2xl border border-white/5 bg-zinc-900 p-5 space-y-4">
-      <h2 className="text-sm font-bold flex items-center gap-2">
-        <Palette className="w-4 h-4 text-purple-400" />
-        Sayt asoslari
-      </h2>
-
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field
-          label="Sayt nomi"
-          value={String(schema.siteName ?? '')}
-          onChange={(v) => update('siteName', v)}
-        />
-        <Field
-          label="Til (uz/ru/en)"
-          value={String(schema.language ?? 'uz')}
-          onChange={(v) => update('language', v)}
-        />
-      </div>
-      <FieldArea
-        label="Sayt tavsifi (SEO)"
-        value={String(schema.description ?? '')}
-        onChange={(v) => update('description', v)}
-      />
-
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <ColorField
-          label="Asosiy rang"
-          value={String(settings.primaryColor ?? '#2563eb')}
-          onChange={(v) => update('primaryColor', v)}
-        />
-        <ColorField
-          label="Aksent"
-          value={String(settings.accentColor ?? '#7c3aed')}
-          onChange={(v) => update('accentColor', v)}
-        />
-        <ColorField
-          label="Fon"
-          value={String(settings.bgColor ?? '#ffffff')}
-          onChange={(v) => update('bgColor', v)}
-        />
-        <ColorField
-          label="Matn"
-          value={String(settings.textColor ?? '#111827')}
-          onChange={(v) => update('textColor', v)}
-        />
-      </div>
-      <Field
-        label="Shrift (Google Font nomi)"
-        value={String(settings.font ?? 'Inter')}
-        onChange={(v) => update('font', v)}
-        placeholder="Inter / Poppins / Playfair Display"
-      />
-    </section>
-  );
-}
-
-// ── Page Card ──────────────────────────────────────────────────
-
-function PageCard({
-  page,
-  pageIndex,
-  totalPages,
-  schema,
-  setSchema,
-}: {
-  page: Page;
-  pageIndex: number;
-  totalPages: number;
-  schema: SchemaShape;
-  setSchema: (s: SchemaShape) => void;
-}) {
-  const [open, setOpen] = useState(pageIndex === 0);
-  const [showAddMenu, setShowAddMenu] = useState(false);
-  const sections = Array.isArray(page.sections) ? page.sections : [];
-  const isHome = page.slug === 'home' || pageIndex === 0;
-
-  const updatePage = (mut: (p: Page) => void) => {
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    if (!pages[pageIndex]) return;
-    mut(pages[pageIndex]);
-    setSchema(next);
-  };
-
-  const movePage = (dir: -1 | 1) => {
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    const j = pageIndex + dir;
-    if (j < 0 || j >= pages.length) return;
-    [pages[pageIndex], pages[j]] = [pages[j], pages[pageIndex]];
-    setSchema(next);
-  };
-
-  const deletePage = () => {
-    if (!confirm(`"${page.title || page.slug}" sahifasini o'chirishni xohlaysizmi?`)) return;
-    const next = clone(schema);
-    next.pages = (next.pages ?? []).filter((_, i) => i !== pageIndex);
-    setSchema(next);
-  };
-
-  const addSection = (template: SectionTemplate) => {
-    updatePage((p) => {
-      if (!Array.isArray(p.sections)) p.sections = [];
-      p.sections.push({
-        id: `${template.type}-${uid()}`,
-        type: template.type,
-        content: clone(template.defaultContent),
-      });
-    });
-    setShowAddMenu(false);
-  };
-
-  return (
-    <section className="rounded-2xl border border-white/5 bg-zinc-900 overflow-hidden">
-      <div className="flex items-center gap-2 p-4 border-b border-white/5">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex-1 flex items-center gap-3 hover:bg-white/5 -m-2 p-2 rounded-lg transition text-left"
-        >
-          {open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          <div className="flex-1 min-w-0">
-            <div className="font-bold text-sm flex items-center gap-2">
-              {page.title || page.slug || `Sahifa ${pageIndex + 1}`}
-              {isHome && (
-                <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded-md bg-amber-500/20 text-amber-300">
-                  Bosh
-                </span>
-              )}
-            </div>
-            <div className="text-xs text-zinc-500 truncate">
-              /{page.slug || '?'} · {sections.length} ta bo&apos;lim
-            </div>
-          </div>
-        </button>
-
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => movePage(-1)}
-            disabled={pageIndex === 0}
-            className="p-1.5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Yuqoriga"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => movePage(1)}
-            disabled={pageIndex === totalPages - 1}
-            className="p-1.5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Pastga"
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
-          {!isHome && (
-            <button
-              type="button"
-              onClick={deletePage}
-              className="p-1.5 text-red-400 hover:text-red-300"
-              title="Sahifani o'chirish"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {open && (
-        <div className="p-4 space-y-4">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field
-              label="Sahifa sarlavhasi"
-              value={String(page.title ?? '')}
-              onChange={(v) => updatePage((p) => { p.title = v; })}
-            />
-            <Field
-              label="Slug (URL)"
-              value={String(page.slug ?? '')}
-              onChange={(v) => updatePage((p) => { p.slug = v.toLowerCase().replace(/\s+/g, '-'); })}
-            />
-          </div>
-
-          {sections.map((section, si) => (
-            <SectionEditor
-              key={section.id ?? `sec-${si}`}
-              section={section}
-              sectionIndex={si}
-              pageIndex={pageIndex}
-              totalSections={sections.length}
-              schema={schema}
-              setSchema={setSchema}
-            />
-          ))}
-
-          {/* Add section */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowAddMenu((s) => !s)}
-              className="w-full py-4 rounded-xl border-2 border-dashed border-zinc-700 hover:border-purple-500 hover:bg-purple-500/5 text-zinc-500 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              {showAddMenu ? 'Yopish' : "Yangi bo'lim qo'shish"}
-            </button>
-            {showAddMenu && (
-              <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 rounded-xl bg-zinc-950 border border-zinc-800">
-                {SECTION_TEMPLATES.map((t) => (
-                  <button
-                    key={t.type}
-                    type="button"
-                    onClick={() => addSection(t)}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-zinc-900 hover:bg-purple-500/15 hover:text-purple-300 border border-white/5 text-left transition"
-                  >
-                    <span className="text-base">{t.emoji}</span>
-                    <span className="text-xs font-semibold truncate">{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-// ── Section Editor ─────────────────────────────────────────────
+// ── SectionEditor ──────────────────────────────────────────────
 
 function SectionEditor({
   section,
-  sectionIndex,
-  pageIndex,
-  totalSections,
-  schema,
-  setSchema,
+  pageIdx,
+  sectionIdx,
+  onChange,
 }: {
   section: Section;
-  sectionIndex: number;
-  pageIndex: number;
-  totalSections: number;
-  schema: SchemaShape;
-  setSchema: (s: SchemaShape) => void;
+  pageIdx: number;
+  sectionIdx: number;
+  onChange: (
+    pageIdx: number,
+    sectionIdx: number,
+    field: 'top' | 'item',
+    key: string,
+    value: unknown,
+    itemIdx?: number,
+  ) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const type = String(section.type ?? '').toLowerCase();
-  const content = (section.content as AnyObj | undefined) ?? {};
-  const topFields = TOP_FIELDS[type] ?? [
-    { key: 'title', label: 'Sarlavha', type: 'text' as const },
-  ];
-  const itemFields = ITEM_FIELDS[type];
-  const items = Array.isArray(content.items) ? (content.items as AnyObj[]) : null;
-
-  const updateContent = (mut: (c: AnyObj) => void) => {
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    const sections = Array.isArray(pages[pageIndex]?.sections) ? pages[pageIndex]!.sections! : [];
-    const target = sections[sectionIndex];
-    if (!target) return;
-    target.content = target.content ?? {};
-    mut(target.content as AnyObj);
-    setSchema(next);
-  };
-
-  const moveSection = (dir: -1 | 1) => {
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    const sections = Array.isArray(pages[pageIndex]?.sections) ? pages[pageIndex]!.sections! : [];
-    const j = sectionIndex + dir;
-    if (j < 0 || j >= sections.length) return;
-    [sections[sectionIndex], sections[j]] = [sections[j], sections[sectionIndex]];
-    setSchema(next);
-  };
-
-  const deleteSection = () => {
-    if (!confirm(`Bu "${type}" bo'limini o'chirishni xohlaysizmi?`)) return;
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    if (!pages[pageIndex]?.sections) return;
-    pages[pageIndex]!.sections = pages[pageIndex]!.sections!.filter((_, i) => i !== sectionIndex);
-    setSchema(next);
-  };
-
-  const duplicateSection = () => {
-    const next = clone(schema);
-    const pages = Array.isArray(next.pages) ? next.pages : [];
-    const sections = Array.isArray(pages[pageIndex]?.sections) ? pages[pageIndex]!.sections! : [];
-    const original = sections[sectionIndex];
-    if (!original) return;
-    const copy = clone(original);
-    copy.id = `${type}-${uid()}`;
-    sections.splice(sectionIndex + 1, 0, copy);
-    setSchema(next);
-  };
+  const type = section.type ?? 'unknown';
+  const label = TYPE_LABELS[type] ?? type;
+  const content = (section.content && typeof section.content === 'object' ? section.content : {}) as AnyObj;
+  const topFields = TOP_FIELDS[type] ?? [{ key: 'title', label: 'Sarlavha', type: 'text' as const }];
+  const itemFields = ITEM_FIELDS[type] ?? [];
+  const items = Array.isArray(content.items) ? (content.items as AnyObj[]) : [];
 
   return (
-    <div className="rounded-xl border border-white/5 bg-zinc-950/50 overflow-hidden">
-      <div className="flex items-center gap-1 p-3 hover:bg-white/5 transition">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          className="flex-1 flex items-center gap-3 text-left min-w-0"
-        >
-          <GripVertical className="w-4 h-4 text-zinc-600 shrink-0" />
-          {open ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-xs uppercase tracking-wider text-purple-400">
-              {type}
-            </div>
-            <div className="text-xs text-zinc-400 truncate">
-              {String(content.title ?? content.heading ?? section.id ?? '—')}
-            </div>
-          </div>
-        </button>
-
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button type="button" onClick={() => moveSection(-1)} disabled={sectionIndex === 0}
-            className="p-1.5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" title="Yuqoriga">
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={() => moveSection(1)} disabled={sectionIndex === totalSections - 1}
-            className="p-1.5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" title="Pastga">
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={duplicateSection}
-            className="p-1.5 text-zinc-500 hover:text-white" title="Nusxalash">
-            <Copy className="w-3.5 h-3.5" />
-          </button>
-          <button type="button" onClick={deleteSection}
-            className="p-1.5 text-red-400 hover:text-red-300" title="O'chirish">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+    <div className="rounded-xl border border-white/5 bg-zinc-950/40">
+      <div className="px-4 py-2.5 border-b border-white/5 flex items-center justify-between">
+        <h3 className="text-xs font-bold text-white">{label}</h3>
+        <span className="text-[10px] text-zinc-600 font-mono">{type}</span>
       </div>
+      <div className="p-4 space-y-3">
+        {topFields.map((f) => (
+          <FieldByType
+            key={f.key}
+            field={f}
+            value={asStr(content[f.key])}
+            onChange={(v) => onChange(pageIdx, sectionIdx, 'top', f.key, v)}
+          />
+        ))}
 
-      {open && (
-        <div className="border-t border-white/5 p-4 space-y-3">
-          {topFields.map((f) =>
-            f.type === 'textarea' ? (
-              <FieldArea
-                key={f.key}
-                label={f.label}
-                value={String(content[f.key] ?? '')}
-                onChange={(v) => updateContent((c) => { c[f.key] = v; })}
-                placeholder={f.placeholder}
-              />
-            ) : (
-              <Field
-                key={f.key}
-                label={f.label}
-                value={String(content[f.key] ?? '')}
-                onChange={(v) => updateContent((c) => { c[f.key] = v; })}
-                placeholder={f.placeholder}
-              />
-            )
-          )}
-
-          {itemFields && (
-            <ItemsEditor
-              items={items ?? []}
-              fields={itemFields}
-              onChange={(newItems) => updateContent((c) => { c.items = newItems; })}
-            />
-          )}
-        </div>
-      )}
+        {itemFields.length > 0 && items.length > 0 && (
+          <div className="pt-3 border-t border-white/5 space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              Elementlar ({items.length})
+            </p>
+            {items.map((item, itemIdx) => (
+              <div
+                key={itemIdx}
+                className="rounded-lg border border-white/5 bg-white/[0.02] p-3 space-y-2"
+              >
+                <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wider">
+                  #{itemIdx + 1}
+                </p>
+                {itemFields.map((f) => (
+                  <FieldByType
+                    key={f.key}
+                    field={f}
+                    value={asStr(item[f.key])}
+                    onChange={(v) => onChange(pageIdx, sectionIdx, 'item', f.key, v, itemIdx)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ── Items Editor (add/remove/reorder) ──────────────────────────
+// ── Field by type ──────────────────────────────────────────────
 
-function ItemsEditor({
-  items,
-  fields,
+function FieldByType({
+  field,
+  value,
   onChange,
 }: {
-  items: AnyObj[];
-  fields: FieldConfig[];
-  onChange: (next: AnyObj[]) => void;
+  field: FieldConfig;
+  value: string;
+  onChange: (v: string) => void;
 }) {
-  const add = () => {
-    const blank: AnyObj = {};
-    fields.forEach((f) => { blank[f.key] = ''; });
-    onChange([...items, blank]);
-  };
-  const remove = (i: number) => {
-    onChange(items.filter((_, idx) => idx !== i));
-  };
-  const move = (i: number, dir: -1 | 1) => {
-    const next = [...items];
-    const j = i + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[i], next[j]] = [next[j], next[i]];
-    onChange(next);
-  };
-  const update = (i: number, key: string, value: string) => {
-    const next = [...items];
-    next[i] = { ...next[i], [key]: value };
-    onChange(next);
-  };
-
+  if (field.type === 'textarea') {
+    return <FieldArea label={field.label} value={value} onChange={onChange} placeholder={field.placeholder} />;
+  }
+  if (field.type === 'image') {
+    return <ImageField label={field.label} value={value} onChange={onChange} />;
+  }
   return (
-    <div className="space-y-3 pt-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-          Elementlar ({items.length})
-        </span>
-        <button
-          type="button"
-          onClick={add}
-          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 font-semibold transition"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Qo&apos;shish
-        </button>
-      </div>
-
-      {items.map((item, i) => (
-        <div
-          key={i}
-          className="rounded-xl border border-white/5 bg-zinc-900 p-3 space-y-2"
-        >
-          <div className="flex items-center justify-between gap-2 pb-1 border-b border-white/5">
-            <span className="text-[10px] font-bold text-zinc-500">#{i + 1}</span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => move(i, -1)}
-                disabled={i === 0}
-                className="text-zinc-500 hover:text-white p-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Yuqoriga"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => move(i, 1)}
-                disabled={i === items.length - 1}
-                className="text-zinc-500 hover:text-white p-1 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Pastga"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => remove(i)}
-                className="text-red-400 hover:text-red-300 p-1"
-                title="O'chirish"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {fields.map((f) =>
-            f.type === 'textarea' ? (
-              <FieldArea
-                key={f.key}
-                label={f.label}
-                value={String(item[f.key] ?? '')}
-                onChange={(v) => update(i, f.key, v)}
-                placeholder={f.placeholder}
-              />
-            ) : f.type === 'image' ? (
-              <ImageField
-                key={f.key}
-                label={f.label}
-                value={String(item[f.key] ?? '')}
-                onChange={(v) => update(i, f.key, v)}
-              />
-            ) : (
-              <Field
-                key={f.key}
-                label={f.label}
-                value={String(item[f.key] ?? '')}
-                onChange={(v) => update(i, f.key, v)}
-                placeholder={f.placeholder}
-                type={f.type === 'number' ? 'number' : 'text'}
-              />
-            )
-          )}
-        </div>
-      ))}
-
-      {items.length === 0 && (
-        <button
-          type="button"
-          onClick={add}
-          className="w-full py-6 rounded-xl border border-dashed border-zinc-700 text-zinc-500 hover:text-white hover:border-zinc-500 text-xs font-semibold transition"
-        >
-          + Birinchi element qo&apos;shish
-        </button>
-      )}
-    </div>
+    <Field
+      label={field.label}
+      value={value}
+      onChange={onChange}
+      placeholder={field.placeholder}
+      type={field.type === 'number' ? 'number' : 'text'}
+    />
   );
 }
 
@@ -1185,38 +541,6 @@ function FieldArea({
   );
 }
 
-function ColorField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-        {label}
-      </span>
-      <div className="mt-1 flex items-center gap-2">
-        <input
-          type="color"
-          value={value || '#000000'}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border border-zinc-800"
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex-1 min-w-0 px-2 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-xs font-mono focus:outline-none focus:border-purple-500 transition"
-        />
-      </div>
-    </label>
-  );
-}
-
 function ImageField({
   label,
   value,
@@ -1246,7 +570,9 @@ function ImageField({
             src={value}
             alt="preview"
             className="w-10 h-10 rounded-lg object-cover border border-zinc-800 bg-zinc-900"
-            onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.2'; }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.opacity = '0.2';
+            }}
           />
         )}
       </div>
