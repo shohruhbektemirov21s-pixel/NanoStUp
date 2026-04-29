@@ -519,6 +519,270 @@ def _r_gallery(c: Dict[str, Any], col: Dict[str, Any]) -> str:
 """.strip()
 
 
+def _r_blog(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Blog")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "posts", "articles")
+    cards = "\n".join(
+        f'''<article class="rounded-2xl overflow-hidden flex flex-col" style="background:{col["card_bg"]};border:1px solid {col["card_border"]}">
+      {f'<img src="{_raw(it.get("image") or it.get("thumbnail"))}" alt="{_txt(it.get("title"))}" class="w-full h-48 object-cover">' if (it.get("image") or it.get("thumbnail")) else ''}
+      <div class="p-5 flex-1 flex flex-col">
+        {f'<span class="inline-block self-start mb-2 px-2 py-0.5 text-[10px] rounded-md font-semibold" style="background:{col["accent"]}22;color:{col["accent"]}">{_txt(it.get("category"))}</span>' if it.get("category") else ''}
+        <h3 class="font-bold text-base md:text-lg mb-2" style="color:{col["text"]}">{_txt(it.get("title"))}</h3>
+        <p class="text-sm leading-relaxed mb-4 flex-1" style="color:{col["muted_text"]}">{_txt(it.get("excerpt") or it.get("description"))}</p>
+        <div class="flex items-center justify-between text-xs" style="color:{col["muted_text"]}">
+          <span>{_txt(it.get("author"))}</span>
+          <span>{_txt(it.get("date"))}{(" · " + _txt(it.get("readTime"))) if it.get("readTime") else ""}</span>
+        </div>
+      </div>
+    </article>'''
+        for it in items
+    )
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{cards}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_products(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Mahsulotlar")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "products", "goods")
+    cards = "\n".join(
+        f'''<div class="rounded-2xl overflow-hidden flex flex-col" style="background:{col["card_bg"]};border:1px solid {col["card_border"]}">
+      <div class="relative">
+        {f'<img src="{_raw(it.get("image"))}" alt="{_txt(it.get("name"))}" class="w-full h-48 object-cover">' if it.get("image") else f'<div class="w-full h-48" style="background:{col["accent"]}22"></div>'}
+        {f'<span class="absolute top-3 left-3 px-2 py-1 text-[10px] rounded-md font-bold" style="background:{col["primary"]};color:{col["on_primary"]}">{_txt(it.get("badge") or "YANGI")}</span>' if it.get("badge") or it.get("oldPrice") else ''}
+      </div>
+      <div class="p-4 flex-1 flex flex-col">
+        {f'<span class="text-[11px] mb-1" style="color:{col["muted_text"]}">{_txt(it.get("category"))}</span>' if it.get("category") else ''}
+        <h3 class="font-bold text-sm md:text-base mb-1" style="color:{col["text"]}">{_txt(it.get("name") or it.get("title"))}</h3>
+        <div class="flex items-baseline gap-2 mb-3">
+          <span class="font-black text-base md:text-lg" style="color:{col["primary"]}">{_txt(it.get("price"))}</span>
+          {f'<span class="text-xs line-through" style="color:{col["muted_text"]}">{_txt(it.get("oldPrice"))}</span>' if it.get("oldPrice") else ''}
+        </div>
+        <a href="{_raw(it.get("link") or "#contact")}" class="mt-auto block text-center px-3 py-2 rounded-lg text-xs font-bold transition hover:opacity-90" style="background:{col["primary"]};color:{col["on_primary"]}">Savatga</a>
+      </div>
+    </div>'''
+        for it in items
+    )
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{cards}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_portfolio(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Portfolio")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "projects", "works")
+    cards = "\n".join(
+        f'''<a href="{_raw(it.get("link") or "#contact")}" class="group block rounded-2xl overflow-hidden relative" style="background:{col["card_bg"]}">
+      {f'<img src="{_raw(it.get("image"))}" alt="{_txt(it.get("title"))}" class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500">' if it.get("image") else f'<div class="w-full h-64" style="background:{col["accent"]}33"></div>'}
+      <div class="absolute inset-0 flex flex-col justify-end p-5" style="background:linear-gradient(to top, {col["text"]}cc, transparent)">
+        {f'<span class="inline-block self-start mb-2 px-2 py-0.5 text-[10px] rounded-md font-semibold" style="background:{col["accent"]};color:{col["on_primary"]}">{_txt(it.get("category"))}</span>' if it.get("category") else ''}
+        <h3 class="font-bold text-base md:text-lg mb-1" style="color:{col["card_bg"]}">{_txt(it.get("title"))}</h3>
+        {f'<p class="text-xs sm:text-sm" style="color:{col["card_bg"]};opacity:0.85">{_txt(it.get("description"))}</p>' if it.get("description") else ''}
+        {f'<span class="mt-1 text-[11px]" style="color:{col["card_bg"]};opacity:0.7">{_txt(it.get("client"))}</span>' if it.get("client") else ''}
+      </div>
+    </a>'''
+        for it in items
+    )
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{cards}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_properties(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Ko'chmas mulk")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "properties", "listings")
+    cards = "\n".join(
+        f'''<div class="rounded-2xl overflow-hidden" style="background:{col["card_bg"]};border:1px solid {col["card_border"]}">
+      {f'<img src="{_raw(it.get("image"))}" alt="{_txt(it.get("title"))}" class="w-full h-52 object-cover">' if it.get("image") else f'<div class="w-full h-52" style="background:{col["accent"]}22"></div>'}
+      <div class="p-5">
+        <div class="flex items-baseline justify-between gap-2 mb-2">
+          <span class="font-black text-lg md:text-xl" style="color:{col["primary"]}">{_txt(it.get("price"))}</span>
+          {f'<span class="text-[11px] px-2 py-0.5 rounded-md font-semibold" style="background:{col["accent"]}22;color:{col["accent"]}">{_txt(it.get("type"))}</span>' if it.get("type") else ''}
+        </div>
+        <h3 class="font-bold text-sm md:text-base mb-1" style="color:{col["text"]}">{_txt(it.get("title"))}</h3>
+        <p class="text-xs mb-3" style="color:{col["muted_text"]}">📍 {_txt(it.get("location"))}</p>
+        <div class="flex items-center gap-3 text-xs" style="color:{col["muted_text"]}">
+          {f'<span>🛏 {_txt(it.get("bedrooms"))}</span>' if it.get("bedrooms") is not None else ''}
+          {f'<span>🛁 {_txt(it.get("bathrooms"))}</span>' if it.get("bathrooms") is not None else ''}
+          {f'<span>📐 {_txt(it.get("area"))}</span>' if it.get("area") else ''}
+        </div>
+      </div>
+    </div>'''
+        for it in items
+    )
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">{cards}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_booking(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Bron qilish")
+    subtitle = _txt(c.get("subtitle"))
+    submit_text = _txt(c.get("submitText") or c.get("cta"), "Bron qilish")
+    info_text = _txt(c.get("infoText") or c.get("description"))
+    fields = c.get("fields") or [
+        {"name": "name", "label": "Ism", "type": "text"},
+        {"name": "phone", "label": "Telefon", "type": "tel"},
+        {"name": "date", "label": "Sana", "type": "date"},
+        {"name": "time", "label": "Vaqt", "type": "time"},
+    ]
+    if not isinstance(fields, list):
+        fields = []
+    inputs = []
+    for f in fields:
+        if not isinstance(f, dict):
+            continue
+        f_label = _txt(f.get("label") or f.get("name"))
+        f_name = _raw(f.get("name") or f.get("label") or "field")
+        f_type = _raw(f.get("type") or "text")
+        if f_type == "select" and isinstance(f.get("options"), list):
+            opts = "".join(f'<option>{_txt(o)}</option>' for o in f["options"])
+            inputs.append(f'<div><label class="block text-xs font-semibold mb-1" style="color:{col["muted_text"]}">{f_label}</label><select name="{f_name}" class="w-full px-3 py-2 rounded-lg text-sm" style="background:{col["card_bg"]};border:1px solid {col["card_border"]};color:{col["text"]}">{opts}</select></div>')
+        elif f_type == "textarea":
+            inputs.append(f'<div class="md:col-span-2"><label class="block text-xs font-semibold mb-1" style="color:{col["muted_text"]}">{f_label}</label><textarea name="{f_name}" rows="3" class="w-full px-3 py-2 rounded-lg text-sm" style="background:{col["card_bg"]};border:1px solid {col["card_border"]};color:{col["text"]}"></textarea></div>')
+        else:
+            inputs.append(f'<div><label class="block text-xs font-semibold mb-1" style="color:{col["muted_text"]}">{f_label}</label><input type="{f_type}" name="{f_name}" class="w-full px-3 py-2 rounded-lg text-sm" style="background:{col["card_bg"]};border:1px solid {col["card_border"]};color:{col["text"]}"></div>')
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <form class="grid grid-cols-1 md:grid-cols-2 gap-4 p-6 rounded-2xl" style="background:{col["card_bg"]};border:1px solid {col["card_border"]}" onsubmit="event.preventDefault(); alert('Murojaatingiz qabul qilindi.')">
+      {"".join(inputs)}
+      <button type="submit" class="md:col-span-2 mt-2 px-6 py-3 rounded-xl font-black text-sm hover:opacity-90 transition" style="background:{col["primary"]};color:{col["on_primary"]}">{submit_text}</button>
+      {f'<p class="md:col-span-2 text-xs text-center" style="color:{col["muted_text"]}">{info_text}</p>' if info_text else ''}
+    </form>
+  </div>
+</section>
+""".strip()
+
+
+def _r_timeline(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Bizning tariximiz")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "events", "steps")
+    rows = "\n".join(
+        f'''<div class="relative pl-12 pb-8 last:pb-0">
+      <span class="absolute left-0 top-0 w-9 h-9 rounded-full flex items-center justify-center font-black text-sm" style="background:{col["primary"]};color:{col["on_primary"]}">{_txt(it.get("icon") or it.get("year") or it.get("step") or "•")}</span>
+      <span class="absolute left-[1.05rem] top-9 bottom-0 w-px" style="background:{col["card_border"]}"></span>
+      <div class="text-[11px] font-bold mb-1" style="color:{col["accent"]}">{_txt(it.get("year"))}</div>
+      <h3 class="font-bold text-base md:text-lg mb-1" style="color:{col["text"]}">{_txt(it.get("title"))}</h3>
+      <p class="text-sm leading-relaxed" style="color:{col["muted_text"]}">{_txt(it.get("description") or it.get("text"))}</p>
+    </div>'''
+        for it in items
+    )
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-3xl mx-auto">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div>{rows}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_logos(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Bizga ishonadi")
+    subtitle = _txt(c.get("subtitle"))
+    items = _items(c, "items", "logos", "brands", "clients")
+    cards = "\n".join(
+        f'''<div class="flex items-center justify-center p-4 rounded-xl h-20" style="background:{col["card_bg"]};border:1px solid {col["card_border"]}">
+      {f'<img src="{_raw(it.get("logo") or it.get("image") or it.get("src"))}" alt="{_txt(it.get("alt") or it.get("name"))}" class="max-h-12 max-w-full object-contain opacity-70 hover:opacity-100 transition">' if (it.get("logo") or it.get("image") or it.get("src")) else f'<span class="font-bold text-sm" style="color:{col["muted_text"]}">{_txt(it.get("name"))}</span>'}
+    </div>'''
+        for it in items
+    )
+    return f"""
+<section class="py-12 md:py-16 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-6xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="text-base md:text-xl font-bold uppercase tracking-wide" style="color:{col["muted_text"]}">{title}</h2>
+      {f'<p class="mt-2 text-xs" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">{cards}</div>
+  </div>
+</section>
+""".strip()
+
+
+def _r_video(c: Dict[str, Any], col: Dict[str, Any]) -> str:
+    title = _txt(c.get("title"), "Video")
+    subtitle = _txt(c.get("subtitle"))
+    description = _txt(c.get("description"))
+    cta_text = _txt(c.get("ctaText") or c.get("cta"))
+    cta_link = _raw(c.get("ctaLink") or "#contact")
+    video_url = _raw(c.get("videoUrl") or c.get("url") or "")
+    thumbnail = _raw(c.get("thumbnail") or c.get("poster") or "")
+    embed_html = ""
+    if "youtube.com/watch" in video_url or "youtu.be/" in video_url:
+        # YouTube embed URL'ga aylantiramiz
+        vid = ""
+        if "v=" in video_url:
+            vid = video_url.split("v=", 1)[1].split("&", 1)[0]
+        elif "youtu.be/" in video_url:
+            vid = video_url.split("youtu.be/", 1)[1].split("?", 1)[0]
+        if vid:
+            embed_html = f'<iframe src="https://www.youtube.com/embed/{escape(vid)}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen class="w-full aspect-video rounded-2xl"></iframe>'
+    elif video_url.endswith(".mp4") or video_url.endswith(".webm"):
+        poster_attr = f' poster="{thumbnail}"' if thumbnail else ""
+        embed_html = f'<video controls{poster_attr} class="w-full aspect-video rounded-2xl"><source src="{video_url}"></video>'
+    if not embed_html:
+        embed_html = f'<div class="w-full aspect-video rounded-2xl flex items-center justify-center text-4xl" style="background:{col["card_bg"]};border:1px solid {col["card_border"]};color:{col["primary"]}">▶</div>'
+    return f"""
+<section class="py-16 md:py-24 px-4 md:px-8" style="background:{col["bg"]}">
+  <div class="max-w-4xl mx-auto">
+    <div class="text-center mb-8">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-black" style="color:{col["text"]}">{title}</h2>
+      {f'<p class="mt-3 text-sm sm:text-base" style="color:{col["muted_text"]}">{subtitle}</p>' if subtitle else ''}
+    </div>
+    {embed_html}
+    {f'<p class="mt-6 text-center text-sm leading-relaxed" style="color:{col["muted_text"]}">{description}</p>' if description else ''}
+    {f'<div class="mt-6 text-center"><a href="{cta_link}" class="inline-block px-6 py-3 rounded-xl font-black text-sm transition hover:opacity-90" style="background:{col["primary"]};color:{col["on_primary"]}">{cta_text}</a></div>' if cta_text else ''}
+  </div>
+</section>
+""".strip()
+
+
 # Section type → renderer
 _RENDERERS = {
     "hero": _r_hero,
@@ -535,6 +799,22 @@ _RENDERERS = {
     "menu": _r_menu,
     "cta": _r_cta,
     "gallery": _r_gallery,
+    "blog": _r_blog,
+    "news": _r_blog,
+    "products": _r_products,
+    "shop": _r_products,
+    "portfolio": _r_portfolio,
+    "works": _r_portfolio,
+    "properties": _r_properties,
+    "listings": _r_properties,
+    "booking": _r_booking,
+    "reservation": _r_booking,
+    "timeline": _r_timeline,
+    "history": _r_timeline,
+    "logos": _r_logos,
+    "clients": _r_logos,
+    "brands": _r_logos,
+    "video": _r_video,
 }
 
 

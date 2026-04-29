@@ -756,6 +756,308 @@ function Gallery({ content, colors, design }: SectionProps) {
   );
 }
 
+// ── Section: Blog ───────────────────────────────────────────────
+interface BlogPost { title?: string; excerpt?: string; description?: string; author?: string; date?: string; category?: string; image?: string; thumbnail?: string; readTime?: string; link?: string; }
+function Blog({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Blog');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as BlogPost[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {items.map((it, i) => (
+            <article key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden flex flex-col">
+              {(it.image || it.thumbnail) && <img src={it.image || it.thumbnail} alt={it.title ?? ''} className="w-full h-48 object-cover" />}
+              <div className="p-5 flex-1 flex flex-col">
+                {it.category && <span style={{ background: `${colors.accent}22`, color: colors.accent }} className="self-start mb-2 px-2 py-0.5 text-[10px] rounded-md font-semibold">{it.category}</span>}
+                <h3 style={{ color: colors.text }} className="font-bold text-base md:text-lg mb-2">{it.title}</h3>
+                <p style={{ color: colors.mutedText }} className="text-sm leading-relaxed mb-4 flex-1">{it.excerpt || it.description}</p>
+                <div style={{ color: colors.mutedText }} className="flex items-center justify-between text-xs">
+                  <span>{it.author}</span>
+                  <span>{it.date}{it.readTime ? ` · ${it.readTime}` : ''}</span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Products (e-commerce) ──────────────────────────────
+interface Product { name?: string; title?: string; price?: string | number; oldPrice?: string | number; image?: string; category?: string; rating?: number; inStock?: boolean; link?: string; badge?: string; }
+function Products({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Mahsulotlar');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as Product[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {items.map((it, i) => (
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden flex flex-col">
+              <div className="relative">
+                {it.image
+                  ? <img src={it.image} alt={String(it.name ?? '')} className="w-full h-48 object-cover" />
+                  : <div style={{ background: `${colors.accent}22` }} className="w-full h-48" />}
+                {(it.badge || it.oldPrice) && <span style={{ background: colors.primary, color: colors.onPrimary }} className="absolute top-3 left-3 px-2 py-1 text-[10px] rounded-md font-bold">{it.badge ?? 'YANGI'}</span>}
+              </div>
+              <div className="p-4 flex-1 flex flex-col">
+                {it.category && <span style={{ color: colors.mutedText }} className="text-[11px] mb-1">{it.category}</span>}
+                <h3 style={{ color: colors.text }} className="font-bold text-sm md:text-base mb-1">{it.name || it.title}</h3>
+                <div className="flex items-baseline gap-2 mb-3">
+                  <span style={{ color: colors.primary }} className="font-black text-base md:text-lg">{String(it.price ?? '')}</span>
+                  {it.oldPrice && <span style={{ color: colors.mutedText }} className="text-xs line-through">{String(it.oldPrice)}</span>}
+                </div>
+                <a href={it.link ?? '#contact'} style={{ background: colors.primary, color: colors.onPrimary }} className="mt-auto block text-center px-3 py-2 rounded-lg text-xs font-bold transition hover:opacity-90">Savatga</a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Portfolio ──────────────────────────────────────────
+interface PortfolioItem { title?: string; category?: string; image?: string; description?: string; link?: string; client?: string; }
+function Portfolio({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Portfolio');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as PortfolioItem[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((it, i) => (
+            <a key={i} href={it.link ?? '#contact'} style={{ background: colors.cardBg, borderRadius: r }} className="group block overflow-hidden relative">
+              {it.image
+                ? <img src={it.image} alt={it.title ?? ''} className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" />
+                : <div style={{ background: `${colors.accent}33` }} className="w-full h-64" />}
+              <div style={{ background: `linear-gradient(to top, ${colors.text}cc, transparent)` }} className="absolute inset-0 flex flex-col justify-end p-5">
+                {it.category && <span style={{ background: colors.accent, color: colors.onPrimary }} className="self-start mb-2 px-2 py-0.5 text-[10px] rounded-md font-semibold">{it.category}</span>}
+                <h3 style={{ color: colors.cardBg }} className="font-bold text-base md:text-lg mb-1">{it.title}</h3>
+                {it.description && <p style={{ color: colors.cardBg, opacity: 0.85 }} className="text-xs sm:text-sm">{it.description}</p>}
+                {it.client && <span style={{ color: colors.cardBg, opacity: 0.7 }} className="mt-1 text-[11px]">{it.client}</span>}
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Properties (real estate) ───────────────────────────
+interface PropertyItem { title?: string; price?: string | number; location?: string; bedrooms?: number; bathrooms?: number; area?: string; image?: string; type?: string; link?: string; }
+function Properties({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? "Ko'chmas mulk");
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as PropertyItem[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {items.map((it, i) => (
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="overflow-hidden">
+              {it.image
+                ? <img src={it.image} alt={it.title ?? ''} className="w-full h-52 object-cover" />
+                : <div style={{ background: `${colors.accent}22` }} className="w-full h-52" />}
+              <div className="p-5">
+                <div className="flex items-baseline justify-between gap-2 mb-2">
+                  <span style={{ color: colors.primary }} className="font-black text-lg md:text-xl">{String(it.price ?? '')}</span>
+                  {it.type && <span style={{ background: `${colors.accent}22`, color: colors.accent }} className="text-[11px] px-2 py-0.5 rounded-md font-semibold">{it.type}</span>}
+                </div>
+                <h3 style={{ color: colors.text }} className="font-bold text-sm md:text-base mb-1">{it.title}</h3>
+                <p style={{ color: colors.mutedText }} className="text-xs mb-3">📍 {it.location}</p>
+                <div style={{ color: colors.mutedText }} className="flex items-center gap-3 text-xs">
+                  {it.bedrooms != null && <span>🛏 {it.bedrooms}</span>}
+                  {it.bathrooms != null && <span>🛁 {it.bathrooms}</span>}
+                  {it.area && <span>📐 {it.area}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Booking ────────────────────────────────────────────
+interface BookingField { name?: string; label?: string; type?: string; options?: string[]; }
+function Booking({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Bron qilish');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const submitText = String(content.submitText ?? content.cta ?? 'Bron qilish');
+  const infoText = content.infoText ? String(content.infoText) : '';
+  const fields: BookingField[] = (content.fields as BookingField[]) ?? [
+    { name: 'name', label: 'Ism', type: 'text' },
+    { name: 'phone', label: 'Telefon', type: 'tel' },
+    { name: 'date', label: 'Sana', type: 'date' },
+    { name: 'time', label: 'Vaqt', type: 'time' },
+  ];
+  const inputStyle = { background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r };
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <form style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 p-6"
+          onSubmit={(e) => { e.preventDefault(); alert('Murojaatingiz qabul qilindi.'); }}>
+          {fields.map((f, i) => {
+            const span = f.type === 'textarea' ? 'md:col-span-2' : '';
+            return (
+              <div key={i} className={span}>
+                <label style={{ color: colors.mutedText }} className="block text-xs font-semibold mb-1">{f.label || f.name}</label>
+                {f.type === 'select' && Array.isArray(f.options)
+                  ? <select name={f.name} style={inputStyle} className="w-full px-3 py-2 text-sm">{f.options.map((o, j) => <option key={j}>{o}</option>)}</select>
+                  : f.type === 'textarea'
+                    ? <textarea name={f.name} rows={3} style={inputStyle} className="w-full px-3 py-2 text-sm" />
+                    : <input type={f.type ?? 'text'} name={f.name} style={inputStyle} className="w-full px-3 py-2 text-sm" />}
+              </div>
+            );
+          })}
+          <button type="submit" style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+            className="md:col-span-2 mt-2 px-6 py-3 font-black text-sm hover:opacity-90 transition">{submitText}</button>
+          {infoText && <p style={{ color: colors.mutedText }} className="md:col-span-2 text-xs text-center">{infoText}</p>}
+        </form>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Timeline ───────────────────────────────────────────
+interface TimelineItem { year?: string; step?: string; title?: string; description?: string; text?: string; icon?: string; }
+function Timeline({ content, colors, design }: SectionProps) {
+  void design;
+  const title = String(content.title ?? 'Bizning tariximiz');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as TimelineItem[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        <div>
+          {items.map((it, i) => (
+            <div key={i} className="relative pl-12 pb-8 last:pb-0">
+              <span style={{ background: colors.primary, color: colors.onPrimary }} className="absolute left-0 top-0 w-9 h-9 rounded-full flex items-center justify-center font-black text-sm">
+                {it.icon || it.year || it.step || '•'}
+              </span>
+              {i < items.length - 1 && <span style={{ background: colors.cardBorder }} className="absolute left-[1.05rem] top-9 bottom-0 w-px" />}
+              {it.year && <div style={{ color: colors.accent }} className="text-[11px] font-bold mb-1">{it.year}</div>}
+              <h3 style={{ color: colors.text }} className="font-bold text-base md:text-lg mb-1">{it.title}</h3>
+              <p style={{ color: colors.mutedText }} className="text-sm leading-relaxed">{it.description || it.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Logos ──────────────────────────────────────────────
+interface LogoItem { name?: string; logo?: string; image?: string; src?: string; alt?: string; url?: string; }
+function Logos({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Bizga ishonadi');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const items = (content.items as LogoItem[]) ?? [];
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-12 md:py-16 px-4 md:px-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 style={{ color: colors.mutedText }} className="text-base md:text-xl font-bold uppercase tracking-wide">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-2 text-xs">{subtitle}</p>}
+        </div>
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {items.map((it, i) => {
+            const src = it.logo || it.image || it.src;
+            return (
+              <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="flex items-center justify-center p-4 h-20">
+                {src
+                  ? <img src={src} alt={it.alt || it.name || ''} className="max-h-12 max-w-full object-contain opacity-70 hover:opacity-100 transition" />
+                  : <span style={{ color: colors.mutedText }} className="font-bold text-sm">{it.name}</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Section: Video ──────────────────────────────────────────────
+function Video({ content, colors, design }: SectionProps) {
+  const r = getRadius(design);
+  const title = String(content.title ?? 'Video');
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const description = content.description ? String(content.description) : '';
+  const ctaText = content.ctaText || content.cta ? String(content.ctaText ?? content.cta) : '';
+  const ctaLink = String(content.ctaLink ?? '#contact');
+  const videoUrl = String(content.videoUrl ?? content.url ?? '');
+  const thumbnail = content.thumbnail || content.poster ? String(content.thumbnail ?? content.poster) : '';
+  let embed: React.ReactNode = (
+    <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, color: colors.primary, borderRadius: r }} className="w-full aspect-video flex items-center justify-center text-4xl">▶</div>
+  );
+  if (videoUrl.includes('youtube.com/watch') || videoUrl.includes('youtu.be/')) {
+    let vid = '';
+    if (videoUrl.includes('v=')) vid = videoUrl.split('v=')[1].split('&')[0];
+    else if (videoUrl.includes('youtu.be/')) vid = videoUrl.split('youtu.be/')[1].split('?')[0];
+    if (vid) {
+      embed = <iframe src={`https://www.youtube.com/embed/${vid}`} allow="autoplay; encrypted-media" allowFullScreen style={{ borderRadius: r }} className="w-full aspect-video border-0" />;
+    }
+  } else if (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.webm')) {
+    embed = <video controls poster={thumbnail || undefined} src={videoUrl} style={{ borderRadius: r }} className="w-full aspect-video" />;
+  }
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
+          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+        </div>
+        {embed}
+        {description && <p style={{ color: colors.mutedText }} className="mt-6 text-center text-sm leading-relaxed">{description}</p>}
+        {ctaText && (
+          <div className="mt-6 text-center">
+            <a href={ctaLink} style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }} className="inline-block px-6 py-3 font-black text-sm transition hover:opacity-90">{ctaText}</a>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // ── Fallback for unknown types ──────────────────────────────────
 function UnknownSection({ type, colors }: { type: string; colors: Colors }) {
   return (
@@ -777,11 +1079,28 @@ const SECTION_MAP: Record<string, React.FC<SectionProps>> = {
   contact: Contact,
   about: About,
   testimonials: Testimonials,
+  reviews: Testimonials,
   team: Team,
   faq: Faq,
   menu: Menu,
   cta: Cta,
   gallery: Gallery,
+  blog: Blog,
+  news: Blog,
+  products: Products,
+  shop: Products,
+  portfolio: Portfolio,
+  works: Portfolio,
+  properties: Properties,
+  listings: Properties,
+  booking: Booking,
+  reservation: Booking,
+  timeline: Timeline,
+  history: Timeline,
+  logos: Logos,
+  clients: Logos,
+  brands: Logos,
+  video: Video,
 };
 
 // ── Schema normalizer — istalgan formatni {pages: Page[]} ga keltiradi ──

@@ -401,7 +401,7 @@ Format:
 Each section:
   {"id":"hero-1","type":"hero","content":{"title":"...","subtitle":"...","description":"...","ctaText":"...","ctaLink":"#contact"},"settings":{}}
 
-## Section types (use relevant ones for the business):
+## Section types (use the relevant ones for the business — 21 types available):
 - hero: title, subtitle, description, ctaText, ctaLink, badge
 - features: title, subtitle, items:[{icon,title,description}]
 - services: title, subtitle, items:[{icon,title,description,price}]
@@ -415,6 +415,14 @@ Each section:
 - faq: title, subtitle, items:[{question,answer}]
 - menu: title, subtitle, categories:[{name,items:[{name,price,description,vegetarian}]}]
 - cta: title, description, ctaText, ctaLink, badge
+- blog: title, subtitle, items:[{title,excerpt,author,date,category,image,readTime,link}]
+- products: title, subtitle, items:[{name,price,oldPrice,image,category,rating,inStock,link}]
+- portfolio: title, subtitle, items:[{title,category,image,description,link,client}]
+- properties: title, subtitle, items:[{title,price,location,bedrooms,bathrooms,area,image,type,link}]
+- booking: title, subtitle, fields:[{name,label,type,options}], submitText, infoText
+- timeline: title, subtitle, items:[{year,title,description,icon}]
+- logos: title, subtitle, items:[{name,logo,alt,url}]
+- video: title, subtitle, videoUrl, thumbnail, description, ctaText
 
 ## Pages strategy — ALWAYS MULTI-PAGE (minimum 4 pages):
 EVERY website MUST have at least these 4 pages (NO EXCEPTIONS):
@@ -510,7 +518,27 @@ The site MUST look and read like a real, launched business — NOT a demo/templa
 - All keys: double-quoted, no single quotes
 - Section ids: UNIQUE across the entire schema (not just per page)
 - Cross-references: any ctaLink starting with # MUST point to an existing section id or page anchor
-- DO NOT invent custom section types — stick to the 13 listed above
+- DO NOT invent custom section types — stick to the 21 listed above
+
+## NEW SECTION TYPES — use them when business matches:
+- **blog**: news/blog sites, magazine, content brand, SaaS landing (post grid with date+author)
+- **products**: e-commerce, shop, marketplace (product cards with image, price, "Add to cart" CTA)
+- **portfolio**: agency, freelancer, photographer, architect (filterable project grid)
+- **properties**: real estate, rentals, hotel-listings (cards: bedrooms, area, location, price)
+- **booking**: restaurant table reservation, clinic appointment, salon, fitness class (form with date+time fields)
+- **timeline**: company history, process steps, course curriculum, project milestones (vertical timeline)
+- **logos**: trust strip — clients/partners/brands the business worked with (6-12 logos)
+- **video**: SaaS hero video, course teaser, product demo, founder message (YouTube embed or MP4)
+
+### Content depth for new sections:
+- **blog**: 3-9 posts; each: 4-8 word title + 15-30 word excerpt + author name + ISO date + category + readTime ("5 min")
+- **products**: 4-12 items; each: name + price ("450 000 so'm") + image (Unsplash) + category + rating (4-5) + inStock (true/false)
+- **portfolio**: 6-12 projects; each: title + category (Web/Mobile/Branding) + image + 1-2 sentence description + client name
+- **properties**: 4-9 listings; each: title + price + location (Tashkent district) + bedrooms (1-5) + bathrooms (1-3) + area ("85 m²") + type (Apartment/House/Office)
+- **booking**: 4-7 form fields (name, phone, date, time, guests, service, notes); submitText ("Bron qilish"); infoText (24h response)
+- **timeline**: 4-7 events; each: year ("2018") or step ("01") + title + 15-30 word description + emoji icon
+- **logos**: 6-12 logos with company name + alt text + url (use placeholder gradient or Unsplash if no real logo)
+- **video**: videoUrl (YouTube link OK) + thumbnail (Unsplash) + 30-60 word description + CTA below
 
 ## ADMIN PANEL:
 Every site automatically gets a HIDDEN admin panel at `nanostup.uz/<lang>/site-admin/<slug>` (a separate URL, NOT a path under the public site).

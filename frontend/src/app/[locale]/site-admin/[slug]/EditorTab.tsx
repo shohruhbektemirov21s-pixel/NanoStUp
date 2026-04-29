@@ -121,6 +121,53 @@ const ITEM_FIELDS: Record<string, FieldConfig[]> = {
     { key: 'url', label: 'Rasm URL', type: 'image' },
     { key: 'caption', label: 'Izoh', type: 'text' },
   ],
+  blog: [
+    { key: 'title', label: 'Sarlavha', type: 'text' },
+    { key: 'excerpt', label: 'Qisqa matn', type: 'textarea' },
+    { key: 'author', label: 'Muallif', type: 'text' },
+    { key: 'date', label: 'Sana', type: 'text', placeholder: '2026-04-29' },
+    { key: 'category', label: 'Kategoriya', type: 'text' },
+    { key: 'image', label: 'Rasm URL', type: 'image' },
+    { key: 'readTime', label: "O'qish vaqti", type: 'text', placeholder: '5 min' },
+  ],
+  products: [
+    { key: 'name', label: 'Mahsulot nomi', type: 'text' },
+    { key: 'price', label: 'Narx', type: 'text' },
+    { key: 'oldPrice', label: 'Eski narx (chizilgan)', type: 'text' },
+    { key: 'image', label: 'Rasm URL', type: 'image' },
+    { key: 'category', label: 'Kategoriya', type: 'text' },
+    { key: 'badge', label: 'Belgi (YANGI/CHEGIRMA)', type: 'text' },
+    { key: 'link', label: 'Havola', type: 'text' },
+  ],
+  portfolio: [
+    { key: 'title', label: 'Loyiha nomi', type: 'text' },
+    { key: 'category', label: 'Kategoriya', type: 'text', placeholder: 'Web/Mobile/Brand' },
+    { key: 'image', label: 'Rasm URL', type: 'image' },
+    { key: 'description', label: 'Tavsif', type: 'textarea' },
+    { key: 'client', label: 'Mijoz', type: 'text' },
+    { key: 'link', label: 'Havola', type: 'text' },
+  ],
+  properties: [
+    { key: 'title', label: 'Obyekt nomi', type: 'text' },
+    { key: 'price', label: 'Narx', type: 'text' },
+    { key: 'location', label: 'Manzil', type: 'text' },
+    { key: 'bedrooms', label: 'Yotoq xonalari', type: 'number' },
+    { key: 'bathrooms', label: 'Hammomlar', type: 'number' },
+    { key: 'area', label: 'Maydon', type: 'text', placeholder: '85 m²' },
+    { key: 'type', label: 'Tur', type: 'text', placeholder: 'Kvartira/Uy' },
+    { key: 'image', label: 'Rasm URL', type: 'image' },
+  ],
+  timeline: [
+    { key: 'year', label: 'Yil/Bosqich', type: 'text', placeholder: '2018' },
+    { key: 'title', label: 'Sarlavha', type: 'text' },
+    { key: 'description', label: 'Tavsif', type: 'textarea' },
+    { key: 'icon', label: 'Emoji', type: 'text' },
+  ],
+  logos: [
+    { key: 'name', label: 'Kompaniya nomi', type: 'text' },
+    { key: 'logo', label: 'Logo URL', type: 'image' },
+    { key: 'url', label: 'Sayt havolasi', type: 'text' },
+  ],
 };
 
 const TOP_FIELDS: Record<string, FieldConfig[]> = {
@@ -174,6 +221,45 @@ const TOP_FIELDS: Record<string, FieldConfig[]> = {
   faq: [{ key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Savol-javoblar' }],
   gallery: [{ key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Galereya' }],
   stats: [],
+  blog: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Blog' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  products: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Mahsulotlar' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  portfolio: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Portfolio' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  properties: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: "Ko'chmas mulk" },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  booking: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bron qilish' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+    { key: 'submitText', label: 'Tugma matni', type: 'text', placeholder: 'Bron qilish' },
+    { key: 'infoText', label: 'Qo\'shimcha matn', type: 'textarea' },
+  ],
+  timeline: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizning tariximiz' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  logos: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Bizga ishonadi' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+  ],
+  video: [
+    { key: 'title', label: 'Sarlavha', type: 'text', placeholder: 'Video' },
+    { key: 'subtitle', label: 'Subtitr', type: 'text' },
+    { key: 'videoUrl', label: 'Video URL (YouTube yoki MP4)', type: 'text' },
+    { key: 'thumbnail', label: 'Thumbnail URL', type: 'image' },
+    { key: 'description', label: 'Tavsif', type: 'textarea' },
+    { key: 'ctaText', label: 'CTA tugma matni', type: 'text' },
+    { key: 'ctaLink', label: 'CTA havola', type: 'text', placeholder: '#contact' },
+  ],
 };
 
 // ── Section templates (Yangi section qo'shish menyusi uchun) ───
@@ -313,6 +399,107 @@ const SECTION_TEMPLATES: SectionTemplate[] = [
     defaultContent: {
       title: 'Galereya',
       items: [],
+    },
+  },
+  {
+    type: 'blog',
+    label: 'Blog (maqolalar)',
+    emoji: '📰',
+    defaultContent: {
+      title: 'Bizning blog',
+      subtitle: 'Yangi maqolalar va yangiliklar',
+      items: [
+        { title: 'Birinchi maqola', excerpt: 'Maqola haqida qisqa matn...', author: 'Mualif', date: '2026-04-29', category: 'Yangiliklar', readTime: '5 min' },
+      ],
+    },
+  },
+  {
+    type: 'products',
+    label: 'Products (mahsulotlar)',
+    emoji: '🛍️',
+    defaultContent: {
+      title: 'Mahsulotlar',
+      subtitle: 'Eng sara tanlovlar',
+      items: [
+        { name: 'Mahsulot 1', price: "120 000 so'm", category: 'Yangi' },
+        { name: 'Mahsulot 2', price: "85 000 so'm", oldPrice: "100 000 so'm", category: 'Chegirma' },
+      ],
+    },
+  },
+  {
+    type: 'portfolio',
+    label: 'Portfolio (loyihalar)',
+    emoji: '💼',
+    defaultContent: {
+      title: 'Bizning ishlarimiz',
+      subtitle: 'Muvaffaqiyatli loyihalarimiz',
+      items: [
+        { title: 'Loyiha 1', category: 'Web', description: 'Tijorat sayti', client: 'ABC LLC' },
+      ],
+    },
+  },
+  {
+    type: 'properties',
+    label: "Properties (ko'chmas mulk)",
+    emoji: '🏠',
+    defaultContent: {
+      title: 'Sotuvdagi obyektlar',
+      items: [
+        { title: '2 xonali kvartira', price: '$45 000', location: 'Yunusobod', bedrooms: 2, bathrooms: 1, area: '52 m²', type: 'Kvartira' },
+      ],
+    },
+  },
+  {
+    type: 'booking',
+    label: 'Booking (bron qilish)',
+    emoji: '📅',
+    defaultContent: {
+      title: 'Bron qilish',
+      subtitle: 'Stol/xona/vaqt tanlang',
+      submitText: 'Bron qilish',
+      infoText: 'Tasdiqni 24 soat ichida olasiz.',
+      fields: [
+        { name: 'name', label: 'Ism', type: 'text' },
+        { name: 'phone', label: 'Telefon', type: 'tel' },
+        { name: 'date', label: 'Sana', type: 'date' },
+        { name: 'time', label: 'Vaqt', type: 'time' },
+        { name: 'guests', label: 'Mehmonlar soni', type: 'number' },
+      ],
+    },
+  },
+  {
+    type: 'timeline',
+    label: 'Timeline (jarayon/tarix)',
+    emoji: '📅',
+    defaultContent: {
+      title: 'Bizning tariximiz',
+      items: [
+        { year: '2020', title: 'Tashkil etilish', description: 'Kompaniyamiz boshlandi.', icon: '🚀' },
+        { year: '2023', title: 'Birinchi 1000 mijoz', description: 'Birinchi 1000 ta mijozga xizmat ko\'rsatdik.', icon: '🎉' },
+      ],
+    },
+  },
+  {
+    type: 'logos',
+    label: 'Logos (mijozlar)',
+    emoji: '🏢',
+    defaultContent: {
+      title: 'Bizga ishonadi',
+      subtitle: 'Hamkor brendlar',
+      items: [],
+    },
+  },
+  {
+    type: 'video',
+    label: 'Video (YouTube/MP4)',
+    emoji: '🎬',
+    defaultContent: {
+      title: 'Biz haqimizda video',
+      subtitle: '',
+      videoUrl: '',
+      description: 'Video yordamida saytimizni tanishtirish.',
+      ctaText: 'Bog\'lanish',
+      ctaLink: '#contact',
     },
   },
   {
