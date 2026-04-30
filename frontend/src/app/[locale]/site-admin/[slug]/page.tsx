@@ -10,7 +10,6 @@ import {
   Eye,
   Globe,
   Layers,
-  LayoutDashboard,
   Lock,
   LogOut,
   Menu,
@@ -681,13 +680,13 @@ function KpiCard({
   );
 }
 
-function DashboardTab({
+function ViewTab({
   site,
   schemaStats,
   healthScore,
   locale,
-  onEditSettings,
-  onEditVisual,
+  onEditText,
+  onEditDesign,
   onDownload,
   downloading,
 }: {
@@ -695,14 +694,59 @@ function DashboardTab({
   schemaStats: { pageCount: number; sectionCount: number };
   healthScore: HealthScore;
   locale: string;
-  onEditSettings: () => void;
-  onEditVisual: () => void;
+  onEditText: () => void;
+  onEditDesign: () => void;
   onDownload: () => void;
   downloading: boolean;
 }) {
   const updated = new Date(site.updated_at).toLocaleString(locale);
+  // Iframe URL: publik sayt sahifasi (cache-bypass: updated_at qo'shamiz)
+  const previewSrc = `/${locale}/s/${site.slug}?v=${encodeURIComponent(site.updated_at)}`;
+  const publicHref = `/${locale}/s/${site.slug}`;
+
   return (
     <div className="space-y-6">
+      {/* ── Live Preview ──────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+        className="rounded-2xl border border-white/5 bg-zinc-900 overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 bg-zinc-950/40">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex gap-1.5 shrink-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
+            </div>
+            <span className="ml-2 text-[11px] font-mono text-zinc-500 truncate">
+              /{locale}/s/{site.slug}
+            </span>
+          </div>
+          <a
+            href={publicHref}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400 hover:text-white transition"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Yangi oynada
+          </a>
+        </div>
+        <div className="bg-zinc-950">
+          <iframe
+            key={previewSrc}
+            src={previewSrc}
+            title={site.title}
+            loading="lazy"
+            className="w-full h-[560px] md:h-[680px] bg-white"
+            sandbox="allow-scripts allow-same-origin allow-forms"
+          />
+        </div>
+      </motion.div>
+
+      {/* ── KPI grid ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           index={0}
@@ -738,9 +782,10 @@ function DashboardTab({
         />
       </div>
 
-      {/* Health Score card — retention */}
-      <HealthScoreCard healthScore={healthScore} onImprove={onEditVisual} locale={locale} />
+      {/* ── Health Score card ────────────────────────────────── */}
+      <HealthScoreCard healthScore={healthScore} onImprove={onEditText} locale={locale} />
 
+      {/* ── Sayt ma'lumotlari + tez harakatlar ───────────────── */}
       <div className="grid lg:grid-cols-2 gap-4">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -768,28 +813,349 @@ function DashboardTab({
           <div className="grid sm:grid-cols-2 gap-3">
             <QuickAction
               icon={Wand2}
-              label="Saytni tahrirlash"
+              label="Matnni tahrirlash"
               color="text-pink-400"
               bg="bg-pink-500/10"
-              onClick={onEditVisual}
+              onClick={onEditText}
+            />
+            <QuickAction
+              icon={Sparkles}
+              label="Dizaynni ko'rish"
+              color="text-purple-400"
+              bg="bg-purple-500/10"
+              onClick={onEditDesign}
             />
             <QuickAction
               icon={Download}
-              label={downloading ? 'ZIP yuklanmoqda...' : 'Sayt kodini ZIP yuklab olish'}
+              label={downloading ? 'ZIP yuklanmoqda...' : 'Saytni ZIP holida yuklab olish'}
               color="text-emerald-400"
               bg="bg-emerald-500/10"
               onClick={onDownload}
               disabled={downloading}
             />
-            <QuickAction
-              icon={Settings}
-              label="Sozlamalar"
-              color="text-blue-400"
-              bg="bg-blue-500/10"
-              onClick={onEditSettings}
-            />
           </div>
         </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🎨 DESIGN TAB — schema.design dan template metadata ko'rsatadi
+// ══════════════════════════════════════════════════════════════
+
+interface DesignMeta {
+  template_id?: string;
+  design_seed?: string;
+  layout_variant?: string;
+  typography_variant?: string;
+  density_variant?: string;
+  niche?: string;
+  style?: string;
+  layoutPattern?: string;
+  mood?: string;
+  density?: string;
+  cornerRadius?: string;
+  animation?: string;
+  intent?: {
+    preferred_style?: string;
+    color_mood?: string;
+    business_tone?: string;
+  };
+}
+
+function DesignTab({
+  schemaText,
+  setSchemaText,
+  saving,
+  onSave,
+}: {
+  schemaText: string;
+  setSchemaText: (s: string) => void;
+  saving: boolean;
+  onSave: () => void;
+}) {
+  // schema.design'ni xavfsiz tarzda ajratib olamiz
+  const design: DesignMeta = useMemo(() => {
+    try {
+      const parsed = JSON.parse(schemaText) as { design?: DesignMeta };
+      return (parsed?.design && typeof parsed.design === 'object') ? parsed.design : {};
+    } catch {
+      return {};
+    }
+  }, [schemaText]);
+
+  const settings = useMemo(() => {
+    try {
+      const parsed = JSON.parse(schemaText) as {
+        settings?: {
+          primaryColor?: string;
+          accentColor?: string;
+          bgColor?: string;
+          textColor?: string;
+          font?: string;
+        };
+      };
+      return parsed?.settings ?? {};
+    } catch {
+      return {};
+    }
+  }, [schemaText]);
+
+  // "Boshqa template tanlash" — design_seed ni yangilab, intent saqlanadi.
+  // Frontend'da template tanlovi yo'q (backend qiladi), shu sababli faqat
+  // seedni o'zgartiramiz va saqlash orqali (schema.design yangi seed bilan
+  // saqlanadi — keyingi marta backend tomondan tanlanadi, lekin manual
+  // qayta-yaratish AI generatsiya yo'li bilan amalga oshiriladi).
+  const handleRegenerateSeed = () => {
+    try {
+      const parsed = JSON.parse(schemaText) as Record<string, unknown> & { design?: DesignMeta };
+      const newSeed = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+        ? crypto.randomUUID().replace(/-/g, '')
+        : Math.random().toString(36).slice(2) + Date.now().toString(36);
+      parsed.design = { ...(parsed.design ?? {}), design_seed: newSeed };
+      setSchemaText(JSON.stringify(parsed, null, 2));
+    } catch {
+      // ignore — JSON xato bo'lsa hech narsa qilmaymiz
+    }
+  };
+
+  const intent = design.intent ?? {};
+  const hasTemplate = Boolean(design.template_id);
+
+  return (
+    <div className="space-y-5">
+      {/* ── Header ─────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl border border-white/5 bg-gradient-to-br from-purple-500/10 via-zinc-900 to-blue-500/10 p-5 md:p-6"
+      >
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center shrink-0">
+            <Sparkles className="w-6 h-6 text-purple-300" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg md:text-xl font-black text-white">Dizayn shabloni</h2>
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+              Sayt dizayni avtomatik tarzda biznes turingizga qarab tanlanadi.
+              Har bir sayt o&apos;ziga xos ko&apos;rinishga ega — shablon, dizayn
+              urug&apos;i (seed) va bo&apos;lim variantlari aralashma orqali yaratiladi.
+            </p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── Template metadata ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl border border-white/5 bg-zinc-900 p-5 md:p-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-black text-white text-sm flex items-center gap-2">
+            <Layers className="w-4 h-4 text-purple-400" />
+            Tanlangan shablon
+          </h3>
+          {hasTemplate && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+              Faol
+            </span>
+          )}
+        </div>
+
+        {hasTemplate ? (
+          <div className="grid sm:grid-cols-2 gap-4">
+            <DesignMetaItem
+              label="Shablon ID"
+              value={design.template_id}
+              hint="Backend deterministik tanlagan."
+            />
+            <DesignMetaItem
+              label="Niche (biznes turi)"
+              value={design.niche}
+              hint="Tarif → restaurant/clinic/shop/..."
+            />
+            <DesignMetaItem
+              label="Layout variant"
+              value={design.layout_variant}
+              hint="default | classic | modern | bold | elegant"
+            />
+            <DesignMetaItem
+              label="Typography"
+              value={design.typography_variant}
+              hint="sans | serif | display | mono"
+            />
+            <DesignMetaItem
+              label="Zichlik"
+              value={design.density_variant}
+              hint="compact | comfortable | spacious"
+            />
+            <DesignMetaItem
+              label="Design Seed"
+              value={design.design_seed?.slice(0, 16) + (design.design_seed && design.design_seed.length > 16 ? '…' : '')}
+              hint="Saytni noyob qiluvchi urug'."
+              mono
+            />
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-200">
+            ⚠️ Bu sayt eski oqim bilan yaratilgan — shablon metadatasi yo&apos;q.
+            Yangi shablonni qo&apos;llash uchun pastdagi tugmani bosing.
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleRegenerateSeed}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 text-purple-300 text-xs font-bold transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Yangi seed yaratish
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-tr from-purple-600 to-blue-500 hover:scale-[1.02] disabled:opacity-50 text-white text-xs font-black shadow-lg shadow-purple-500/30 transition"
+          >
+            <Save className="w-3.5 h-3.5" />
+            {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+          </button>
+        </div>
+      </motion.div>
+
+      {/* ── AI Intent ───────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="rounded-2xl border border-white/5 bg-zinc-900 p-5 md:p-6"
+      >
+        <h3 className="font-black text-white text-sm mb-4 flex items-center gap-2">
+          <Wand2 className="w-4 h-4 text-pink-400" />
+          AI Dizayn niyati (intent)
+        </h3>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <DesignChip label="Uslub" value={intent.preferred_style} />
+          <DesignChip label="Rang kayfiyati" value={intent.color_mood} />
+          <DesignChip label="Biznes ohangi" value={intent.business_tone} />
+        </div>
+        <p className="text-[11px] text-zinc-500 mt-3 leading-relaxed">
+          AI siz so&apos;ragan promptdan ushbu niyatlarni topdi va bu —
+          shablon tanlovini aniqlashga yordam berdi.
+        </p>
+      </motion.div>
+
+      {/* ── Palette / Settings ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="rounded-2xl border border-white/5 bg-zinc-900 p-5 md:p-6"
+      >
+        <h3 className="font-black text-white text-sm mb-4 flex items-center gap-2">
+          <Eye className="w-4 h-4 text-blue-400" />
+          Rang palitrasi
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <ColorSwatch label="Asosiy" color={settings.primaryColor} />
+          <ColorSwatch label="Aksent" color={settings.accentColor} />
+          <ColorSwatch label="Fon" color={settings.bgColor} />
+          <ColorSwatch label="Matn" color={settings.textColor} />
+        </div>
+        {settings.font && (
+          <div className="mt-4 flex items-center gap-3 text-xs text-zinc-400">
+            <span className="font-bold uppercase tracking-wider text-[10px] text-zinc-500">Shrift:</span>
+            <span style={{ fontFamily: settings.font }} className="text-base text-white">
+              {settings.font}
+            </span>
+          </div>
+        )}
+      </motion.div>
+
+      {/* ── Legacy design (backward-compat) ─────────────────── */}
+      {(design.style || design.layoutPattern || design.mood) && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="rounded-2xl border border-white/5 bg-zinc-900 p-5 md:p-6"
+        >
+          <details className="group">
+            <summary className="cursor-pointer text-xs font-bold text-zinc-400 hover:text-white transition flex items-center gap-2 select-none">
+              <span className="group-open:rotate-90 transition">▶</span>
+              AI generatsiya parametrlari ({['style','layoutPattern','mood','density','cornerRadius','animation'].filter(k => design[k as keyof DesignMeta]).length})
+            </summary>
+            <div className="mt-3 grid sm:grid-cols-2 gap-3">
+              {design.style       && <DesignMetaItem label="Style"        value={design.style}        mono />}
+              {design.layoutPattern && <DesignMetaItem label="LayoutPattern" value={design.layoutPattern} mono />}
+              {design.mood        && <DesignMetaItem label="Mood"         value={design.mood}         mono />}
+              {design.density     && <DesignMetaItem label="Density"      value={design.density}      mono />}
+              {design.cornerRadius && <DesignMetaItem label="Corner"       value={design.cornerRadius} mono />}
+              {design.animation   && <DesignMetaItem label="Animation"    value={design.animation}    mono />}
+            </div>
+          </details>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function DesignMetaItem({
+  label, value, hint, mono,
+}: {
+  label: string;
+  value?: string;
+  hint?: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-zinc-950/40 border border-white/5 px-4 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1">
+        {label}
+      </div>
+      <div className={`text-sm font-semibold text-white truncate ${mono ? 'font-mono' : ''}`}>
+        {value || <span className="text-zinc-600">—</span>}
+      </div>
+      {hint && <p className="text-[10px] text-zinc-600 mt-1 truncate">{hint}</p>}
+    </div>
+  );
+}
+
+function DesignChip({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="rounded-xl bg-zinc-950/40 border border-white/5 px-4 py-3 text-center">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+        {label}
+      </div>
+      {value ? (
+        <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-pink-500/10 text-pink-300 border border-pink-500/30">
+          {value}
+        </span>
+      ) : (
+        <span className="text-xs text-zinc-600">aniqlanmagan</span>
+      )}
+    </div>
+  );
+}
+
+function ColorSwatch({ label, color }: { label: string; color?: string }) {
+  const safeColor = color || '#27272a';
+  return (
+    <div className="rounded-xl bg-zinc-950/40 border border-white/5 p-3">
+      <div
+        className="w-full h-16 rounded-lg border border-white/10 mb-2 shadow-inner"
+        style={{ background: safeColor }}
+        aria-label={`${label} rang: ${safeColor}`}
+      />
+      <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+        {label}
+      </div>
+      <div className="text-xs font-mono font-semibold text-white truncate">
+        {color || '—'}
       </div>
     </div>
   );
