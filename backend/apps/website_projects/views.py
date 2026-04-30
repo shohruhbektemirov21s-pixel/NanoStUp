@@ -8,7 +8,7 @@ import time
 from collections import deque
 from datetime import timedelta
 from threading import Lock
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from django.db.models import F
 from django.http import HttpResponse, StreamingHttpResponse
@@ -770,6 +770,33 @@ def _build_design_constraint(design: Dict, palette: Dict) -> str:
     )
 
 
+def _enrich_design_with_template(
+    business_type: str, design: Dict, palette: Dict,
+) -> Tuple[Dict, str, str]:
+    """
+    Dizayn metadatasini template_registry'dan kelgan template_id,
+    design_seed, layout/typography/density_variant bilan boyitadi.
+
+    Saytlar bir-biriga o'xshamasligi uchun:
+      - design_seed har sayt uchun noyob (UUID)
+      - template_id niche bo'yicha 3-4 ta variantdan deterministik tanlanadi
+      - layout/typography/density variantlari template'ga bog'liq
+
+    Returns: (enriched_design, template_id, design_seed)
+    """
+    try:
+        from .template_registry import pick_template, template_to_design_meta
+        template, seed = pick_template(business_type)
+        meta = template_to_design_meta(template, seed)
+        # Mavjud design (style/layoutPattern/...) saqlanadi, ustiga template
+        # metadatasi qo'shiladi. Bir-biriga zid bo'lmaydi (turli kalitlar).
+        enriched = {**design, **meta}
+        return enriched, template.id, seed
+    except Exception:
+        logger.warning("Template registry'dan template tanlashda xatolik", exc_info=True)
+        return design, "", ""
+
+
 def _deduct_partial_nano(
     user, conversation: Optional[Conversation], nano: int,
 ) -> int:
@@ -1390,7 +1417,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     _btype = _detect_business_type(prompt)
                     _design, _palette = _pick_random_design(_btype)
+                    _design, _tpl_id, _seed = _enrich_design_with_template(_btype, _design, _palette)
                     _constraint = _build_design_constraint(_design, _palette)
+                    logger.info("Template tanlandi: niche=%s template_id=%s seed=%s",
+                                _btype, _tpl_id, _seed[:8] if _seed else "-")
                     # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
                     _ctx = getattr(request, "_billing_ctx", None)
                     if isinstance(_ctx, dict):
@@ -1400,8 +1430,18 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     new_schema, usage = claude.generate_from_spec(
                         spec + _constraint, max_pages=user_limits["max_pages"],
                     )
-                    if isinstance(new_schema, dict) and "design" not in new_schema:
-                        new_schema["design"] = _design
+                    if isinstance(new_schema, dict):
+                        # Template metadata har doim merge qilinadi (AI o'z
+                        # design qaytarsa ham, layout/template fieldlari
+                        # backend tomonidan deterministik aniqlanadi).
+                        existing_design = new_schema.get("design") or {}
+                        new_schema["design"] = {**_design, **existing_design,
+                                                  **{k: _design[k] for k in (
+                                                      "template_id", "design_seed",
+                                                      "layout_variant",
+                                                      "typography_variant",
+                                                      "density_variant", "niche",
+                                                  ) if k in _design}}
                     gen_ms = int((time.monotonic() - gen_start) * 1000)
                     complexity = _estimate_complexity(new_schema)
 
@@ -1581,7 +1621,10 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
 
             _btype2 = _detect_business_type(prompt)
             _design2, _palette2 = _pick_random_design(_btype2)
+            _design2, _tpl_id2, _seed2 = _enrich_design_with_template(_btype2, _design2, _palette2)
             _constraint2 = _build_design_constraint(_design2, _palette2)
+            logger.info("Template tanlandi (direct): niche=%s template_id=%s seed=%s",
+                        _btype2, _tpl_id2, _seed2[:8] if _seed2 else "-")
             # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
             _ctx = getattr(request, "_billing_ctx", None)
             if isinstance(_ctx, dict):
@@ -1592,8 +1635,15 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 prompt + _constraint2, language, max_pages=user_limits["max_pages"],
             )
             gen_ms = int((time.monotonic() - gen_start) * 1000)
-            if isinstance(new_schema, dict) and "design" not in new_schema:
-                new_schema["design"] = _design2
+            if isinstance(new_schema, dict):
+                existing_design2 = new_schema.get("design") or {}
+                new_schema["design"] = {**_design2, **existing_design2,
+                                          **{k: _design2[k] for k in (
+                                              "template_id", "design_seed",
+                                              "layout_variant",
+                                              "typography_variant",
+                                              "density_variant", "niche",
+                                          ) if k in _design2}}
             # Fallback: AI 4 dan kam sahifa bersa, standart ko'p sahifali tuzilma qo'shamiz
             new_schema = _ensure_multipage(new_schema)
             complexity = _estimate_complexity(new_schema)

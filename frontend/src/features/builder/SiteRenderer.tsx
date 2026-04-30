@@ -75,6 +75,15 @@ interface SiteDesign {
   density?: string;
   cornerRadius?: string;
   animation?: string;
+  // ── Template registry meta (backend `template_registry.py` dan) ──
+  // Saytlar bir xil ko'rinmasligi uchun har sayt yaratilganda backend
+  // niche-ga mos template tanlaydi va bu fieldlarni schema.design ga yozadi.
+  template_id?: string;
+  design_seed?: string;
+  layout_variant?: string;       // default | classic | modern | bold | elegant
+  typography_variant?: string;   // sans | serif | display | mono
+  density_variant?: string;      // compact | comfortable | spacious
+  niche?: string;
 }
 
 interface SiteSchema {
@@ -119,7 +128,22 @@ function getRadius(d: SiteDesign): string {
 
 function getDensityPy(d: SiteDesign): string {
   const map: Record<string, string> = { compact:'py-12 md:py-16', comfortable:'py-16 md:py-24', spacious:'py-20 md:py-32' };
-  return map[d.density ?? 'comfortable'] ?? 'py-16 md:py-24';
+  // Template registry density_variant ustuvor (backend deterministik
+  // tanlagan), keyin schema.density, oxirida default.
+  const key = d.density_variant ?? d.density ?? 'comfortable';
+  return map[key] ?? 'py-16 md:py-24';
+}
+
+// Typography variant (template_registry) → CSS font-family stack.
+// Template har xil typography_variant bersa, sayt boshqacha ko'rinadi.
+function typographyFontStack(variant: string | undefined, fallback: string): string {
+  switch (variant) {
+    case 'serif':   return `"Playfair Display", "DM Serif Display", Georgia, serif`;
+    case 'display': return `"Space Grotesk", "Cabinet Grotesk", "Manrope", system-ui, sans-serif`;
+    case 'mono':    return `"JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace`;
+    case 'sans':    return `"Inter", "Manrope", system-ui, -apple-system, sans-serif`;
+    default:        return fallback;
+  }
 }
 
 function heroVariant(d: SiteDesign): 'centered' | 'split' | 'fullscreen' {
@@ -242,6 +266,170 @@ function nicheHeroVariant(niche: NicheCategory): 'centered' | 'split' | 'fullscr
   return map[niche] ?? null;
 }
 
+// ── Niche-aware section variant selectors ──────────────────────
+// Har niche uchun maxsus layout variantini qaytaradi. Agar niche='default'
+// bo'lsa — design.style yoki design.layout_variant (template registry'dan)
+// asosida fallback variant tanlanadi. Bu — bir xil niche bo'lsa ham
+// saytlar bir-biriga o'xshamasligini ta'minlaydi.
+type StatsV = 'grid' | 'split' | 'highlight';
+type AboutV = 'split' | 'centered' | 'image-overlay';
+type TestiV = 'grid' | 'featured' | 'masonry';
+type CtaV   = 'banner' | 'split' | 'gradient';
+type ContactV = 'split' | 'sidebar' | 'centered';
+type TeamV  = 'cards' | 'minimal' | 'big-photo';
+type FaqV   = 'stacked' | 'two-column';
+
+// Template layout_variant → section variant mapping.
+// Backend template_registry.py'dagi 4 ta variant uchun har sayt
+// section variantini turlicha qaytaramiz. Shunda har template noyob
+// vizual identifikatorga ega bo'ladi.
+function layoutVariantOverride(
+  layoutVariant: string | undefined,
+  kind: 'stats' | 'about' | 'testi' | 'cta' | 'team',
+): StatsV | AboutV | TestiV | CtaV | TeamV | null {
+  if (!layoutVariant) return null;
+  const overrides: Record<string, Record<string, string>> = {
+    classic:  { stats: 'split',     about: 'split',         testi: 'grid',     cta: 'banner',   team: 'cards'     },
+    modern:   { stats: 'highlight', about: 'split',         testi: 'grid',     cta: 'gradient', team: 'cards'     },
+    bold:     { stats: 'highlight', about: 'image-overlay', testi: 'masonry',  cta: 'gradient', team: 'big-photo' },
+    elegant:  { stats: 'split',     about: 'centered',      testi: 'featured', cta: 'split',    team: 'big-photo' },
+    default:  { stats: 'grid',      about: 'split',         testi: 'grid',     cta: 'banner',   team: 'cards'     },
+  };
+  const m = overrides[layoutVariant];
+  if (!m) return null;
+  return (m[kind] as StatsV | AboutV | TestiV | CtaV | TeamV) ?? null;
+}
+
+function nicheStatsVariant(niche: NicheCategory, design: SiteDesign): StatsV {
+  // Template registry layout_variant override (birinchi navbatda)
+  const ov = layoutVariantOverride(design.layout_variant, 'stats') as StatsV | null;
+  if (ov) return ov;
+  const map: Partial<Record<NicheCategory, StatsV>> = {
+    news: 'split', restaurant: 'highlight', wedding: 'grid', music: 'highlight',
+    fitness: 'highlight', medical: 'split', tech: 'split', agency: 'highlight',
+    realestate: 'grid', shop: 'grid', auto: 'highlight', hotel: 'highlight',
+    education: 'split', finance: 'grid', legal: 'split', photo: 'highlight',
+    beauty: 'grid',
+  };
+  if (map[niche]) return map[niche]!;
+  if (['minimal','editorial','corporate'].includes(design.style ?? '')) return 'split';
+  if (['bold-gradient','dark','luxury'].includes(design.style ?? '')) return 'highlight';
+  return 'grid';
+}
+
+function nicheAboutVariant(niche: NicheCategory, design: SiteDesign): AboutV {
+  const ov = layoutVariantOverride(design.layout_variant, 'about') as AboutV | null;
+  if (ov) return ov;
+  const map: Partial<Record<NicheCategory, AboutV>> = {
+    wedding: 'centered', music: 'image-overlay', photo: 'image-overlay',
+    restaurant: 'split', fitness: 'image-overlay', medical: 'split',
+    tech: 'split', agency: 'image-overlay', realestate: 'split',
+    shop: 'split', auto: 'image-overlay', hotel: 'image-overlay',
+    education: 'centered', finance: 'split', legal: 'centered',
+    news: 'split', beauty: 'centered',
+  };
+  if (map[niche]) return map[niche]!;
+  if (['minimal','editorial','corporate'].includes(design.style ?? '')) return 'centered';
+  if (['bold-gradient','dark','luxury','glassmorphism'].includes(design.style ?? '')) return 'image-overlay';
+  return 'split';
+}
+
+function nicheTestiVariant(niche: NicheCategory, design: SiteDesign): TestiV {
+  const ov = layoutVariantOverride(design.layout_variant, 'testi') as TestiV | null;
+  if (ov) return ov;
+  const map: Partial<Record<NicheCategory, TestiV>> = {
+    wedding: 'featured', restaurant: 'masonry', music: 'featured',
+    photo: 'featured', fitness: 'featured', medical: 'grid',
+    tech: 'grid', agency: 'masonry', realestate: 'grid',
+    shop: 'grid', auto: 'featured', hotel: 'featured',
+    education: 'masonry', finance: 'grid', legal: 'featured',
+    news: 'masonry', beauty: 'featured',
+  };
+  if (map[niche]) return map[niche]!;
+  if (['minimal','corporate'].includes(design.style ?? '')) return 'grid';
+  if (['luxury','editorial','glassmorphism'].includes(design.style ?? '')) return 'featured';
+  return 'grid';
+}
+
+function nicheCtaVariant(niche: NicheCategory, design: SiteDesign): CtaV {
+  const ov = layoutVariantOverride(design.layout_variant, 'cta') as CtaV | null;
+  if (ov) return ov;
+  const map: Partial<Record<NicheCategory, CtaV>> = {
+    wedding: 'split', restaurant: 'split', music: 'gradient',
+    photo: 'banner', fitness: 'gradient', medical: 'banner',
+    tech: 'gradient', agency: 'gradient', realestate: 'split',
+    shop: 'banner', auto: 'gradient', hotel: 'split',
+    education: 'banner', finance: 'banner', legal: 'banner',
+    news: 'banner', beauty: 'split',
+  };
+  if (map[niche]) return map[niche]!;
+  if (['bold-gradient','playful','dark','glassmorphism'].includes(design.style ?? '')) return 'gradient';
+  if (['luxury','editorial'].includes(design.style ?? '')) return 'split';
+  return 'banner';
+}
+
+function nicheContactVariant(niche: NicheCategory, _design: SiteDesign): ContactV {
+  void _design;
+  const map: Partial<Record<NicheCategory, ContactV>> = {
+    wedding: 'centered', restaurant: 'sidebar', music: 'centered',
+    photo: 'centered', fitness: 'sidebar', medical: 'sidebar',
+    tech: 'split', agency: 'split', realestate: 'sidebar',
+    shop: 'split', auto: 'sidebar', hotel: 'sidebar',
+    education: 'split', finance: 'split', legal: 'sidebar',
+    news: 'split', beauty: 'sidebar',
+  };
+  return map[niche] ?? 'split';
+}
+
+function nicheTeamVariant(niche: NicheCategory, design: SiteDesign): TeamV {
+  const ov = layoutVariantOverride(design.layout_variant, 'team') as TeamV | null;
+  if (ov) return ov;
+  const map: Partial<Record<NicheCategory, TeamV>> = {
+    wedding: 'big-photo', restaurant: 'cards', music: 'big-photo',
+    photo: 'big-photo', fitness: 'big-photo', medical: 'cards',
+    tech: 'minimal', agency: 'big-photo', realestate: 'cards',
+    shop: 'cards', auto: 'cards', hotel: 'big-photo',
+    education: 'cards', finance: 'minimal', legal: 'cards',
+    news: 'minimal', beauty: 'big-photo',
+  };
+  if (map[niche]) return map[niche]!;
+  if (['minimal','corporate','editorial'].includes(design.style ?? '')) return 'minimal';
+  return 'cards';
+}
+
+function nicheFaqVariant(niche: NicheCategory, _design: SiteDesign): FaqV {
+  void _design;
+  // 2-column for content-heavy niches, stacked for editorial/intimate ones
+  const twoCol: NicheCategory[] = ['tech','agency','shop','realestate','auto','medical','finance','education'];
+  return twoCol.includes(niche) ? 'two-column' : 'stacked';
+}
+
+// Niche → trust stats badges (Hero ostida ko'rsatiladi)
+// Har niche uchun 3 ta mini metrika qaytariladi.
+type TrustStat = { v: string; l: string };
+function nicheTrustStats(niche: NicheCategory): TrustStat[] | null {
+  const m: Partial<Record<NicheCategory, TrustStat[]>> = {
+    restaurant:  [{v:'10+', l:"yil tajriba"}, {v:'500+', l:'mijoz har kuni'}, {v:'4.9★', l:'reyting'}],
+    medical:     [{v:'24/7', l:'tez yordam'}, {v:'15+', l:'shifokor'}, {v:'10K+', l:'bemor'}],
+    realestate:  [{v:'150+', l:'obyekt'}, {v:'10+', l:'yil bozorda'}, {v:'4.9★', l:'mijozlar'}],
+    fitness:     [{v:'25+', l:'trener'}, {v:'1000+', l:'a\'zolar'}, {v:'24/7', l:'ochiq'}],
+    beauty:      [{v:'12+', l:'usta'}, {v:'5K+', l:'mijoz'}, {v:'4.9★', l:'reyting'}],
+    tech:        [{v:'500+', l:'mijoz'}, {v:'99.9%', l:'uptime'}, {v:'4.9★', l:'NPS'}],
+    agency:      [{v:'120+', l:'loyiha'}, {v:'8 yil', l:'tajriba'}, {v:'40+', l:'brend'}],
+    shop:        [{v:'10K+', l:'mahsulot'}, {v:'24h', l:'yetkazib berish'}, {v:'4.8★', l:'reyting'}],
+    education:   [{v:'2K+', l:"o'quvchi"}, {v:'30+', l:"o'qituvchi"}, {v:'95%', l:'natija'}],
+    hotel:       [{v:'5★', l:'darajali'}, {v:'120+', l:'xona'}, {v:'24/7', l:'qabul'}],
+    auto:        [{v:'15+', l:'yil'}, {v:'5K+', l:'avtomobil'}, {v:'24/7', l:'servis'}],
+    finance:     [{v:'10+', l:"yil bozorda"}, {v:'50K+', l:'mijoz'}, {v:'A+', l:'reyting'}],
+    legal:       [{v:'15+', l:'yil tajriba'}, {v:'95%', l:"yutilgan ish"}, {v:'500+', l:'mijoz'}],
+    photo:       [{v:'500+', l:'sessiya'}, {v:'8 yil', l:'tajriba'}, {v:'4.9★', l:'reyting'}],
+    music:       [{v:'200+', l:'tadbir'}, {v:'10K+', l:'tomoshabin'}, {v:'5★', l:'baho'}],
+    wedding:     [{v:'500+', l:"to'y"}, {v:'10 yil', l:'tajriba'}, {v:'5★', l:'baho'}],
+    news:        [{v:'1M+', l:'oquvchi'}, {v:'24/7', l:'yangiliklar'}, {v:'10+', l:'yil'}],
+  };
+  return m[niche] ?? null;
+}
+
 function isPlain(color?: string) {
   if (!color) return true;
   const c = color.toLowerCase().replace('#','');
@@ -249,7 +437,7 @@ function isPlain(color?: string) {
 }
 
 // ── Design token helper ─────────────────────────────────────────
-function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: string[]) {
+function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: string[], design?: SiteDesign) {
   const palette = (isPlain(settings?.primaryColor) || !settings?.primaryColor)
     ? smartPalette(siteName ?? '', sectionTypes ?? [])
     : null;
@@ -258,7 +446,10 @@ function useColors(settings?: SiteSettings, siteName?: string, sectionTypes?: st
   const accent  = (!isPlain(settings?.accentColor)  && settings?.accentColor)  ? settings.accentColor  : (palette?.accent  ?? '#6366f1');
   const bg      = settings?.bgColor   ?? palette?.bg   ?? '#ffffff';
   const text    = settings?.textColor ?? palette?.text  ?? '#111827';
-  const font    = settings?.font      ?? palette?.font  ?? 'Inter';
+  const baseFont = settings?.font     ?? palette?.font  ?? 'Inter';
+  // Template typography_variant ustun bo'ladi (backend deterministik
+  // tanlagan stack). Aks holda, palette/settings'dan kelgan font ishlatiladi.
+  const font   = typographyFontStack(design?.typography_variant, baseFont);
   // Light/dark detection for contrasting text on primary bg
   const isDarkPrimary = (() => {
     const hex = primary.replace('#', '');
@@ -419,7 +610,7 @@ function NicheHeroDecor({ niche, colors }: { niche: NicheCategory; colors: Color
           <span className="text-lg">{niche === 'legal' ? '⚖️' : '🏦'}</span>
           <div>
             <div className="text-[9px] font-bold uppercase tracking-widest" style={{ color: colors.mutedText }}>Litsenziyalangan</div>
-            <div className="text-xs font-black" style={{ color: colors.text }}>O'zbekiston</div>
+            <div className="text-xs font-black" style={{ color: colors.text }}>O&apos;zbekiston</div>
           </div>
         </div>
       </div>
@@ -454,6 +645,14 @@ function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
   const r        = getRadius(design);
   const py       = getDensityPy(design);
 
+  // Trust stats — content.stats ustun, fallback niche-default
+  type HeroStat = { v?: string; value?: string | number; l?: string; label?: string };
+  const rawStats = (content.stats as HeroStat[]) ?? (content.trustStats as HeroStat[]);
+  const inlineStats: TrustStat[] = Array.isArray(rawStats)
+    ? rawStats.map(s => ({ v: String(s.v ?? s.value ?? ''), l: String(s.l ?? s.label ?? '') })).filter(s => s.v)
+    : [];
+  const trust: TrustStat[] = inlineStats.length >= 2 ? inlineStats : (nicheTrustStats(niche) ?? []);
+
   const Badge = badge ? (
     <span style={{ background: colors.primary + '22', color: colors.primary, border: `1px solid ${colors.primary}44`, borderRadius: r }}
       className="inline-block mb-4 px-3 py-1 text-xs font-bold tracking-wider uppercase">{badge}</span>
@@ -478,6 +677,30 @@ function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
   const RichCtas = (cta || cta2) ? (
     <div className="mt-9 flex flex-wrap gap-3 items-center">{PrimaryBtn}{GhostBtn}</div>
   ) : null;
+
+  // Trust stats row — JSX expression, light va dark variant
+  const renderTrustRow = (onDark: boolean, centered: boolean) => trust.length === 0 ? null : (
+    <div className={`ns-fade-up ns-d-5 pt-8 grid grid-cols-3 gap-4 max-w-2xl ${centered ? 'mt-14 mx-auto sm:gap-10' : 'mt-12 sm:gap-8'}`}
+      style={{ borderTop: onDark ? '1px solid rgba(255,255,255,0.15)' : `1px solid ${colors.cardBorder}` }}>
+      {trust.slice(0, 3).map((s, i) => (
+        <div key={i} className={centered ? 'text-center' : 'text-left'}>
+          <div className="text-2xl sm:text-3xl md:text-4xl font-black ns-display"
+            style={{ color: onDark ? colors.onPrimary : colors.primary }}>{s.v}</div>
+          <div className="mt-1 text-[11px] sm:text-xs font-semibold uppercase tracking-wider"
+            style={{ color: onDark ? `${colors.onPrimary}99` : colors.mutedText }}>{s.l}</div>
+        </div>
+      ))}
+    </div>
+  );
+  const trustRowSplit       = renderTrustRow(false, false);
+  const trustRowFullscreen  = renderTrustRow(true, true);
+  const trustRowCentered    = renderTrustRow(false, true);
+
+  // Glow accent (har Hero pastida — ramka kabi)
+  const GlowAccent = (
+    <div aria-hidden className="absolute -bottom-px left-0 right-0 h-px pointer-events-none"
+      style={{ background: `linear-gradient(90deg, transparent, ${colors.primary}, ${colors.accent}, transparent)`, opacity: 0.6 }} />
+  );
 
   // Gradient mesh fon (har Hero uchun foydalanish mumkin)
   const MeshBg = (
@@ -518,9 +741,11 @@ function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
             {subtitle && <p style={{ color: colors.primary }} className="mt-4 text-lg sm:text-xl font-semibold">{subtitle}</p>}
             {desc && <p style={{ color: colors.mutedText }} className="mt-5 text-base sm:text-lg leading-relaxed max-w-xl">{desc}</p>}
             {RichCtas}
+            {trustRowSplit}
           </div>
           {VisualBlock}
         </div>
+        {GlowAccent}
       </section>
     );
   }
@@ -554,7 +779,9 @@ function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
                 className="ns-btn-ghost px-9 py-4 font-bold text-sm bg-transparent">{cta2}</a>}
             </div>
           )}
+          {trustRowFullscreen}
         </div>
+        {GlowAccent}
       </section>
     );
   }
@@ -574,7 +801,9 @@ function Hero({ content, colors, design, niche = 'default' }: SectionProps) {
         {subtitle && <p style={{ color: colors.primary }} className="ns-fade-up ns-d-1 mt-5 text-lg sm:text-xl font-semibold max-w-2xl mx-auto">{subtitle}</p>}
         {desc && <p style={{ color: colors.mutedText }} className="ns-fade-up ns-d-2 mt-5 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">{desc}</p>}
         <div className="ns-fade-up ns-d-3 flex flex-col sm:flex-row gap-3 justify-center items-center">{RichCtas}</div>
+        {trustRowCentered}
       </div>
+      {GlowAccent}
     </section>
   );
 }
@@ -679,21 +908,116 @@ function Features({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: Stats ──────────────────────────────────────────────
-interface StatItem { value?: string | number; number?: string | number; label?: string; title?: string; icon?: string; }
+// ── Section: Stats (3 variants: grid | split | highlight) ───────
+interface StatItem { value?: string | number; number?: string | number; label?: string; title?: string; icon?: string; description?: string; }
 
-function Stats({ content, colors, design: _d }: SectionProps) {
+function Stats({ content, colors, design, niche = 'default' }: SectionProps) {
   const items: StatItem[] = (content.items as StatItem[]) ?? (content.stats as StatItem[]) ?? [];
-  return (
-    <section style={{ background: colors.primary, fontFamily: colors.font }} className="py-14 md:py-20 px-4 md:px-8">
-      <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-10">
-        {items.map((item, i) => (
-          <div key={i} className="text-center">
-            {item.icon && <div className="text-2xl mb-2">{item.icon}</div>}
-            <div style={{ color: colors.onPrimary }} className="text-3xl sm:text-4xl md:text-5xl font-black">{item.value ?? item.number ?? ''}</div>
-            <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="mt-1.5 text-xs sm:text-sm font-semibold uppercase tracking-widest">{item.label ?? item.title ?? ''}</div>
+  const title = content.title ? String(content.title) : '';
+  const subtitle = content.subtitle ? String(content.subtitle) : '';
+  const v = nicheStatsVariant(niche, design);
+  const r = getRadius(design);
+  const py = getDensityPy(design);
+  if (items.length === 0) return null;
+
+  // SPLIT — chap tomonda title+desc, o'ngda 2x2 stat grid
+  if (v === 'split') {
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center">
+          <div className="md:col-span-5">
+            <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle || 'Raqamlar tilida'}</div>
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title || "Bizning natijalarimiz"}</h2>
+            <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base leading-relaxed max-w-md">
+              {String(content.description ?? '') || "Yillar davomida to'plagan tajribamiz va mijozlarimizning ishonchi — bizning eng katta yutug'imiz."}
+            </p>
           </div>
-        ))}
+          <div className="md:col-span-7 grid grid-cols-2 gap-4 md:gap-5">
+            {items.slice(0, 4).map((item, i) => (
+              <div key={i}
+                style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-6 md:p-8 relative overflow-hidden`}>
+                <div aria-hidden className="absolute top-0 right-0 w-20 h-20 rounded-full opacity-20 blur-2xl"
+                  style={{ background: i % 2 === 0 ? colors.primary : colors.accent }} />
+                {item.icon && <div className="text-2xl mb-3 relative">{item.icon}</div>}
+                <div style={{ color: colors.primary }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display relative">
+                  {item.value ?? item.number ?? ''}
+                </div>
+                <div style={{ color: colors.text }} className="mt-1.5 text-sm font-bold relative">{item.label ?? item.title ?? ''}</div>
+                {item.description && <p style={{ color: colors.mutedText }} className="mt-1.5 text-xs leading-relaxed relative">{item.description}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // HIGHLIGHT — dark gradient banner, katta raqamlar, accent stripe
+  if (v === 'highlight') {
+    return (
+      <section style={{
+        background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`,
+        fontFamily: colors.font,
+      }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        <div className="absolute inset-0 ns-grain opacity-30" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full blur-3xl" style={{ background: colors.onPrimary, opacity: 0.08 }} />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full blur-3xl" style={{ background: colors.onPrimary, opacity: 0.08 }} />
+        <div className="max-w-6xl mx-auto relative">
+          {(title || subtitle) && (
+            <div className="text-center mb-12">
+              {subtitle && <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="ns-eyebrow mb-3">{subtitle}</div>}
+              {title && <h2 style={{ color: colors.onPrimary }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>}
+            </div>
+          )}
+          <div className={`grid gap-8 md:gap-4 ${items.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+            {items.map((item, i) => (
+              <div key={i} className={`text-center relative ns-fade-up ns-d-${Math.min(i + 1, 6)} ${i > 0 ? 'md:border-l md:border-white/15' : ''} px-2`}>
+                {item.icon && <div className="text-3xl mb-2">{item.icon}</div>}
+                <div style={{ color: colors.onPrimary }} className="text-5xl sm:text-6xl md:text-7xl font-black ns-display tracking-tight">
+                  {item.value ?? item.number ?? ''}
+                </div>
+                <div style={{ color: colors.onPrimary, opacity: 0.85 }} className="mt-2 text-xs sm:text-sm font-bold uppercase tracking-widest">
+                  {item.label ?? item.title ?? ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // GRID — ko'p mahsulot/obyekt nicheslari uchun: katta cardlar
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+      <div className="max-w-6xl mx-auto">
+        {(title || subtitle) && (
+          <div className="text-center mb-10">
+            {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+            {title && <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>}
+          </div>
+        )}
+        <div className={`grid gap-4 md:gap-5 ${items.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+          {items.map((item, i) => (
+            <div key={i}
+              style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+              className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-6 md:p-8 text-center relative overflow-hidden`}>
+              {item.icon && (
+                <div style={{ background: `${colors.primary}15`, color: colors.primary, borderRadius: r }}
+                  className="w-12 h-12 mx-auto flex items-center justify-center text-xl mb-3">
+                  {item.icon}
+                </div>
+              )}
+              <div style={{ color: colors.primary }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">
+                {item.value ?? item.number ?? ''}
+              </div>
+              <div style={{ color: colors.text }} className="mt-1.5 text-xs sm:text-sm font-bold uppercase tracking-widest">
+                {item.label ?? item.title ?? ''}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -792,56 +1116,160 @@ function Pricing({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: Contact ────────────────────────────────────────────
-function Contact({ content, colors, design }: SectionProps) {
+// ── Section: Contact (3 variants: split | sidebar | centered) ────
+function Contact({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
+  const py = getDensityPy(design);
   const title    = String(content.title ?? "Bog'lanish");
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const email    = content.email   ? String(content.email)   : '';
   const phone    = content.phone   ? String(content.phone)   : '';
   const address  = content.address ? String(content.address) : '';
   const hours    = content.workingHours ? String(content.workingHours) : '';
+  const v = nicheContactVariant(niche, design);
+  const inputStyle = { background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r };
+
+  const renderInfoRow = (icon: string, label: string, value: string, href?: string) => (
+    <div className="flex items-start gap-3">
+      <span style={{ background: `${colors.primary}15`, color: colors.primary, borderRadius: r }}
+        className="w-10 h-10 shrink-0 flex items-center justify-center text-base">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <div style={{ color: colors.mutedText }} className="text-[11px] font-bold uppercase tracking-wider mb-0.5">{label}</div>
+        {href ? (
+          <a href={href} style={{ color: colors.text }} className="text-sm font-semibold break-all hover:opacity-70 transition">{value}</a>
+        ) : (
+          <p style={{ color: colors.text }} className="text-sm font-medium leading-snug">{value}</p>
+        )}
+      </div>
+    </div>
+  );
+
+  const FormFields = (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); alert("Xabaringiz qabul qilindi."); }}>
+      <input placeholder="Ismingiz" style={inputStyle} className="w-full px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-offset-0" required />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input type="email" placeholder="Email" style={inputStyle} className="w-full px-4 py-3 text-sm outline-none" />
+        <input type="tel" placeholder="Telefon" style={inputStyle} className="w-full px-4 py-3 text-sm outline-none" />
+      </div>
+      <textarea rows={4} placeholder="Xabar..." style={inputStyle} className="w-full px-4 py-3 text-sm outline-none resize-none" />
+      <button type="submit" style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r, boxShadow: `0 8px 22px -6px ${colors.primary}55` }}
+        className="ns-btn-primary w-full py-3.5 font-black text-sm">Yuborish <span className="ns-arrow">→</span></button>
+    </form>
+  );
+
+  // CENTERED — minimal, intim (wedding/photo/music)
+  if (v === 'centered') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        <div aria-hidden className="absolute inset-0" style={{ background: `radial-gradient(circle at 50% 0%, ${colors.primary}10, transparent 60%)` }} />
+        <div className="max-w-2xl mx-auto relative">
+          <div className="text-center mb-10">
+            {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+            <div className="mt-5 mx-auto w-12 h-px" style={{ background: colors.primary }} />
+          </div>
+          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6 md:p-10 ns-fade-up">
+            {(email || phone || address || hours) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pb-6 mb-6" style={{ borderBottom: `1px solid ${colors.cardBorder}` }}>
+                {phone && renderInfoRow('📞', 'Telefon', phone, `tel:${phone}`)}
+                {email && renderInfoRow('✉️', 'Email', email, `mailto:${email}`)}
+                {address && renderInfoRow('📍', 'Manzil', address)}
+                {hours && renderInfoRow('🕐', 'Ish vaqti', hours)}
+              </div>
+            )}
+            {FormFields}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // SIDEBAR — chap tomondagi colored sidebar info, o'ngda form (medical/restaurant/auto)
+  if (v === 'sidebar') {
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          </div>
+          <div style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r, boxShadow: '0 24px 50px -16px rgba(0,0,0,0.12)' }}
+            className="grid grid-cols-1 md:grid-cols-12 overflow-hidden">
+            {/* Colored sidebar */}
+            <aside style={{ background: `linear-gradient(160deg, ${colors.primary}, ${colors.accent})` }}
+              className="md:col-span-5 p-7 md:p-10 relative overflow-hidden">
+              <div aria-hidden className="absolute -bottom-20 -right-20 w-56 h-56 rounded-full blur-3xl opacity-20" style={{ background: colors.onPrimary }} />
+              <h3 style={{ color: colors.onPrimary }} className="text-xl md:text-2xl font-black ns-display">Aloqa ma&apos;lumotlari</h3>
+              <p style={{ color: colors.onPrimary, opacity: 0.85 }} className="mt-2 text-sm leading-relaxed">Savollaringiz bormi? Biz har doim sizga yordam berishga tayyormiz.</p>
+              <div className="mt-7 space-y-4 relative">
+                {phone && (
+                  <a href={`tel:${phone}`} className="flex items-start gap-3 group">
+                    <span style={{ background: 'rgba(255,255,255,0.18)' }} className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0">📞</span>
+                    <div>
+                      <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="text-[11px] font-bold uppercase tracking-wider">Telefon</div>
+                      <div style={{ color: colors.onPrimary }} className="text-sm font-bold group-hover:underline">{phone}</div>
+                    </div>
+                  </a>
+                )}
+                {email && (
+                  <a href={`mailto:${email}`} className="flex items-start gap-3 group">
+                    <span style={{ background: 'rgba(255,255,255,0.18)' }} className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0">✉️</span>
+                    <div className="min-w-0">
+                      <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="text-[11px] font-bold uppercase tracking-wider">Email</div>
+                      <div style={{ color: colors.onPrimary }} className="text-sm font-bold break-all group-hover:underline">{email}</div>
+                    </div>
+                  </a>
+                )}
+                {address && (
+                  <div className="flex items-start gap-3">
+                    <span style={{ background: 'rgba(255,255,255,0.18)' }} className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0">📍</span>
+                    <div>
+                      <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="text-[11px] font-bold uppercase tracking-wider">Manzil</div>
+                      <div style={{ color: colors.onPrimary }} className="text-sm font-bold leading-snug">{address}</div>
+                    </div>
+                  </div>
+                )}
+                {hours && (
+                  <div className="flex items-start gap-3">
+                    <span style={{ background: 'rgba(255,255,255,0.18)' }} className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0">🕐</span>
+                    <div>
+                      <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="text-[11px] font-bold uppercase tracking-wider">Ish vaqti</div>
+                      <div style={{ color: colors.onPrimary }} className="text-sm font-bold">{hours}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </aside>
+            <div className="md:col-span-7 p-7 md:p-10">
+              <h3 style={{ color: colors.text }} className="text-xl md:text-2xl font-black ns-display mb-5">Xabar yuborish</h3>
+              {FormFields}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // SPLIT — default 50/50 info+form (tech/agency/legal/finance)
   return (
-    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
-      <div className="max-w-4xl mx-auto">
+    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+      <div className="max-w-5xl mx-auto">
         <div className="text-center mb-10">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6 space-y-4">
-            {email && (
-              <div>
-                <div style={{ color: colors.mutedText }} className="text-xs font-semibold uppercase tracking-wider mb-1">Email</div>
-                <a href={`mailto:${email}`} style={{ color: colors.primary }} className="font-semibold text-sm break-all hover:underline">{email}</a>
-              </div>
-            )}
-            {phone && (
-              <div>
-                <div style={{ color: colors.mutedText }} className="text-xs font-semibold uppercase tracking-wider mb-1">Telefon</div>
-                <a href={`tel:${phone}`} style={{ color: colors.primary }} className="font-semibold text-sm hover:underline">{phone}</a>
-              </div>
-            )}
-            {address && (
-              <div>
-                <div style={{ color: colors.mutedText }} className="text-xs font-semibold uppercase tracking-wider mb-1">Manzil</div>
-                <p style={{ color: colors.text }} className="text-sm">{address}</p>
-              </div>
-            )}
-            {hours && (
-              <div>
-                <div style={{ color: colors.mutedText }} className="text-xs font-semibold uppercase tracking-wider mb-1">Ish vaqti</div>
-                <p style={{ color: colors.text }} className="text-sm">{hours}</p>
-              </div>
+          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6 md:p-8 space-y-5">
+            {phone && renderInfoRow('📞', 'Telefon', phone, `tel:${phone}`)}
+            {email && renderInfoRow('✉️', 'Email', email, `mailto:${email}`)}
+            {address && renderInfoRow('📍', 'Manzil', address)}
+            {hours && renderInfoRow('🕐', 'Ish vaqti', hours)}
+            {!phone && !email && !address && !hours && (
+              <p style={{ color: colors.mutedText }} className="text-sm italic">Aloqa ma&apos;lumotlari tez orada qo&apos;shiladi.</p>
             )}
           </div>
-          <div style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6">
-            <div className="space-y-3">
-              <input placeholder="Ismingiz" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-offset-0" />
-              <input placeholder="Email" style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none" />
-              <textarea rows={4} placeholder="Xabar..." style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, color: colors.text, borderRadius: r }} className="w-full px-4 py-2.5 text-sm outline-none resize-none" />
-              <button style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }} className="w-full py-3 font-bold text-sm hover:opacity-90 transition-opacity">Yuborish</button>
-            </div>
+          <div style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-6 md:p-8">
+            {FormFields}
           </div>
         </div>
       </div>
@@ -849,33 +1277,144 @@ function Contact({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: About ──────────────────────────────────────────────
-function About({ content, colors, design }: SectionProps) {
+// ── Section: About (3 variants: split | centered | image-overlay) ─
+function About({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
+  const py = getDensityPy(design);
   const title    = String(content.title ?? content.heading ?? 'Biz haqimizda');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const desc     = String(content.description ?? content.text ?? '');
   const mission  = content.mission ? String(content.mission) : '';
-  const values: Array<{ title?: string; text?: string }> = (content.values as Array<{ title?: string; text?: string }>) ?? [];
-  return (
-    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
-          <div>
-            <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-            {subtitle && <p style={{ color: colors.primary }} className="mt-2 font-semibold text-sm sm:text-base">{subtitle}</p>}
-            {desc && <p style={{ color: colors.mutedText }} className="mt-4 text-sm sm:text-base leading-relaxed">{desc}</p>}
-            {mission && <p style={{ color: colors.mutedText }} className="mt-3 text-sm leading-relaxed">{mission}</p>}
-          </div>
+  const values: Array<{ title?: string; text?: string; icon?: string }> = (content.values as Array<{ title?: string; text?: string; icon?: string }>) ?? [];
+  const v = nicheAboutVariant(niche, design);
+
+  // CENTERED — minimal, intim, wedding/legal/education uchun
+  if (v === 'centered') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.04] blur-3xl" style={{ background: colors.primary }} aria-hidden />
+        <div className="max-w-3xl mx-auto text-center relative">
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3 ns-fade-up">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display ns-fade-up ns-d-1">{title}</h2>
+          <div className="mt-6 mx-auto w-16 h-px" style={{ background: colors.primary }} />
+          {desc && <p style={{ color: colors.mutedText }} className="mt-8 text-base sm:text-lg leading-relaxed ns-fade-up ns-d-2">{desc}</p>}
+          {mission && (
+            <blockquote style={{ borderLeft: `3px solid ${colors.primary}`, color: colors.text }}
+              className="mt-8 px-6 py-3 text-left text-base italic leading-relaxed max-w-xl mx-auto ns-fade-up ns-d-3">
+              {mission}
+            </blockquote>
+          )}
           {values.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {values.map((v, i) => (
-                <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }} className="p-4">
-                  <h4 style={{ color: colors.primary }} className="font-bold text-sm">{v.title ?? ''}</h4>
-                  <p style={{ color: colors.mutedText }} className="mt-1 text-xs leading-relaxed">{v.text ?? ''}</p>
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {values.slice(0, 3).map((val, i) => (
+                <div key={i} className={`text-center ns-fade-up ns-d-${Math.min(i + 4, 6)}`}>
+                  <div style={{ background: `${colors.primary}15`, color: colors.primary, borderRadius: '9999px' }}
+                    className="w-12 h-12 mx-auto flex items-center justify-center text-lg mb-3">
+                    {val.icon ?? '✦'}
+                  </div>
+                  <h4 style={{ color: colors.text }} className="font-bold text-sm">{val.title ?? ''}</h4>
+                  <p style={{ color: colors.mutedText }} className="mt-1.5 text-xs leading-relaxed">{val.text ?? ''}</p>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // IMAGE-OVERLAY — dramatik dark gradient, photo/music/agency uchun
+  if (v === 'image-overlay') {
+    const imgSrc = (content.image ?? content.photo ?? '') as string;
+    return (
+      <section style={{ fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        {/* Background gradient/image */}
+        <div className="absolute inset-0" style={{
+          background: imgSrc
+            ? `linear-gradient(135deg, ${colors.primary}ee 0%, ${colors.accent}cc 100%)`
+            : `linear-gradient(135deg, ${colors.primary} 0%, ${colors.accent} 100%)`,
+        }} />
+        {imgSrc && <img src={imgSrc} alt="" className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-40" aria-hidden />}
+        <div className="absolute inset-0 ns-grain opacity-30" />
+        <div className="relative max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 items-center">
+          <div className="md:col-span-7 ns-fade-up">
+            {subtitle && <div style={{ color: colors.onPrimary, opacity: 0.7 }} className="ns-eyebrow mb-4">{subtitle}</div>}
+            <h2 style={{ color: colors.onPrimary }} className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black ns-display">{title}</h2>
+            {desc && <p style={{ color: colors.onPrimary, opacity: 0.85 }} className="mt-5 text-base sm:text-lg leading-relaxed max-w-xl">{desc}</p>}
+            {mission && <p style={{ color: colors.onPrimary, opacity: 0.7 }} className="mt-3 text-sm leading-relaxed max-w-xl italic">&ldquo;{mission}&rdquo;</p>}
+          </div>
+          {values.length > 0 && (
+            <div className="md:col-span-5 space-y-3">
+              {values.slice(0, 3).map((val, i) => (
+                <div key={i}
+                  style={{ background: 'rgba(255,255,255,0.1)', borderLeft: `3px solid ${colors.onPrimary}`, borderRadius: r, backdropFilter: 'blur(10px)' }}
+                  className={`ns-fade-up ns-d-${Math.min(i + 2, 6)} p-4 md:p-5`}>
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl shrink-0">{val.icon ?? '✦'}</span>
+                    <div>
+                      <h4 style={{ color: colors.onPrimary }} className="font-bold text-sm md:text-base">{val.title ?? ''}</h4>
+                      <p style={{ color: colors.onPrimary, opacity: 0.8 }} className="mt-1 text-xs sm:text-sm leading-relaxed">{val.text ?? ''}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // SPLIT — text+visual side-by-side (default)
+  const imgSrc = (content.image ?? content.photo ?? '') as string;
+  return (
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+        <div className="ns-fade-up">
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          {desc && <p style={{ color: colors.mutedText }} className="mt-5 text-sm sm:text-base leading-relaxed">{desc}</p>}
+          {mission && (
+            <p style={{ color: colors.text, borderLeft: `3px solid ${colors.primary}` }}
+              className="mt-5 pl-4 text-sm leading-relaxed italic">{mission}</p>
+          )}
+          {values.length > 0 && (
+            <div className="mt-7 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {values.slice(0, 4).map((val, i) => (
+                <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                  className={`p-4 ns-fade-up ns-d-${Math.min(i + 2, 6)}`}>
+                  <div className="flex items-start gap-2.5">
+                    <span style={{ background: `${colors.primary}15`, color: colors.primary, borderRadius: r }}
+                      className="w-8 h-8 flex items-center justify-center text-sm font-black shrink-0">
+                      {val.icon ?? String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div>
+                      <h4 style={{ color: colors.text }} className="font-bold text-sm">{val.title ?? ''}</h4>
+                      <p style={{ color: colors.mutedText }} className="mt-0.5 text-xs leading-relaxed">{val.text ?? ''}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Visual side — image yoki abstract block */}
+        <div className="relative aspect-[4/5] w-full ns-fade-up ns-d-2">
+          {imgSrc ? (
+            <>
+              <img src={imgSrc} alt="" style={{ borderRadius: r }} className="absolute inset-0 w-full h-full object-cover shadow-2xl" />
+              <div aria-hidden style={{ background: colors.accent, borderRadius: r }}
+                className="absolute -top-4 -right-4 w-24 h-24 -z-0" />
+            </>
+          ) : (
+            <>
+              <div aria-hidden style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, borderRadius: r }} className="absolute inset-0" />
+              <div style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r, boxShadow: '0 20px 50px -10px rgba(0,0,0,0.18)' }}
+                className="absolute bottom-6 left-6 right-12 p-5">
+                <div style={{ color: colors.primary }} className="text-3xl font-black ns-display">{values[0]?.title ?? "Bizning qadriyatlarimiz"}</div>
+                <p style={{ color: colors.text }} className="mt-2 text-sm leading-snug">{values[0]?.text ?? "Sifat, professionallik va mijozga e'tibor — bizning asosiy tamoyillarimiz."}</p>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -883,20 +1422,118 @@ function About({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: Testimonials ───────────────────────────────────────
-interface TestimonialItem { name?: string; role?: string; company?: string; text?: string; rating?: number; }
+// ── Section: Testimonials (3 variants: grid | featured | masonry) ─
+interface TestimonialItem { name?: string; role?: string; company?: string; text?: string; rating?: number; avatar?: string; image?: string; }
 
-function Testimonials({ content, colors, design }: SectionProps) {
+function Testimonials({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
+  const py = getDensityPy(design);
   const title = String(content.title ?? 'Mijozlar fikri');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: TestimonialItem[] = (content.items as TestimonialItem[]) ?? [];
+  const v = nicheTestiVariant(niche, design);
+  if (items.length === 0) return null;
+
+  const renderAvatar = (item: TestimonialItem, big?: boolean) => {
+    const src = item.avatar || item.image;
+    const sz = big ? 'w-14 h-14' : 'w-10 h-10';
+    if (src) return <img src={src} alt={item.name ?? ''} className={`${sz} rounded-full object-cover shrink-0`} />;
+    return (
+      <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, color: colors.onPrimary }}
+        className={`${sz} rounded-full flex items-center justify-center font-black text-sm shrink-0`}>
+        {(item.name ?? '?')[0].toUpperCase()}
+      </div>
+    );
+  };
+
+  // FEATURED — bitta katta sitata, pastida 3 ta kichik
+  if (v === 'featured' && items.length >= 1) {
+    const first = items[0];
+    const rest = items.slice(1, 4);
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8 relative overflow-hidden`}>
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-[0.06] blur-3xl" style={{ background: colors.primary }} aria-hidden />
+        <div className="max-w-5xl mx-auto relative">
+          <div className="text-center mb-12">
+            <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle || 'Mijozlar fikri'}</div>
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          </div>
+          {/* Featured big quote */}
+          <div style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r, boxShadow: '0 30px 60px -20px rgba(0,0,0,0.15)' }}
+            className="ns-fade-up p-8 md:p-12 relative">
+            <div style={{ color: colors.primary, opacity: 0.18 }} className="absolute top-4 left-6 md:top-6 md:left-8 text-7xl md:text-8xl font-serif leading-none select-none">“</div>
+            {first.rating && <div className="text-amber-400 text-base mb-4 relative">{'★'.repeat(Math.min(5, first.rating))}</div>}
+            <p style={{ color: colors.text }} className="relative text-lg md:text-2xl font-semibold leading-relaxed">{first.text ?? ''}</p>
+            <div className="mt-8 pt-6 flex items-center gap-4" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
+              {renderAvatar(first, true)}
+              <div>
+                <div style={{ color: colors.text }} className="font-black text-base">{first.name ?? ''}</div>
+                <div style={{ color: colors.mutedText }} className="text-xs sm:text-sm">{[first.role, first.company].filter(Boolean).join(', ')}</div>
+              </div>
+            </div>
+          </div>
+          {rest.length > 0 && (
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {rest.map((item, i) => (
+                <div key={i} style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                  className={`ns-card ns-fade-up ns-d-${Math.min(i + 2, 6)} p-5`}>
+                  {item.rating && <div className="text-amber-400 text-xs mb-2">{'★'.repeat(Math.min(5, item.rating))}</div>}
+                  <p style={{ color: colors.text }} className="text-sm leading-relaxed line-clamp-4">{item.text ?? ''}</p>
+                  <div className="mt-4 flex items-center gap-2.5">
+                    {renderAvatar(item)}
+                    <div>
+                      <div style={{ color: colors.text }} className="font-bold text-xs">{item.name ?? ''}</div>
+                      <div style={{ color: colors.mutedText }} className="text-[11px]">{[item.role, item.company].filter(Boolean).join(', ')}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // MASONRY — turli o'lchamdagi bricklar (CSS columns)
+  if (v === 'masonry') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle || 'Mijozlar fikri'}</div>
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          </div>
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 md:gap-6 [column-fill:_balance]">
+            {items.map((item, i) => (
+              <div key={i} style={{ background: i % 3 === 0 ? colors.primary : colors.cardBg, border: `1px solid ${i % 3 === 0 ? colors.primary : colors.cardBorder}`, borderRadius: r }}
+                className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} mb-5 md:mb-6 p-6 break-inside-avoid relative`}>
+                {item.rating && <div className="text-amber-400 text-sm mb-3">{'★'.repeat(Math.min(5, item.rating))}</div>}
+                <p style={{ color: i % 3 === 0 ? colors.onPrimary : colors.text }}
+                  className="text-sm md:text-[15px] leading-relaxed">{item.text ?? ''}</p>
+                <div className="mt-5 pt-5 flex items-center gap-3"
+                  style={{ borderTop: `1px solid ${i % 3 === 0 ? `${colors.onPrimary}33` : colors.cardBorder}` }}>
+                  {renderAvatar(item)}
+                  <div>
+                    <div style={{ color: i % 3 === 0 ? colors.onPrimary : colors.text }} className="font-bold text-sm">{item.name ?? ''}</div>
+                    <div style={{ color: i % 3 === 0 ? `${colors.onPrimary}99` : colors.mutedText }} className="text-xs">{[item.role, item.company].filter(Boolean).join(', ')}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // GRID — default uniform 3-column
   return (
-    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
           {items.map((item, i) => (
@@ -905,9 +1542,7 @@ function Testimonials({ content, colors, design }: SectionProps) {
               {item.rating && <div className="text-amber-400 text-sm mb-3">{'★'.repeat(Math.min(5, item.rating))}</div>}
               <p style={{ color: colors.text }} className="text-sm md:text-[15px] leading-relaxed flex-1 relative">{item.text ?? ''}</p>
               <div className="mt-5 pt-5 flex items-center gap-3" style={{ borderTop: `1px solid ${colors.cardBorder}` }}>
-                <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, color: colors.onPrimary }} className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm shrink-0">
-                  {(item.name ?? '?')[0].toUpperCase()}
-                </div>
+                {renderAvatar(item)}
                 <div>
                   <div style={{ color: colors.text }} className="font-bold text-sm">{item.name ?? ''}</div>
                   <div style={{ color: colors.mutedText }} className="text-xs">{[item.role, item.company].filter(Boolean).join(', ')}</div>
@@ -921,30 +1556,109 @@ function Testimonials({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: Team ───────────────────────────────────────────────
-interface TeamItem { name?: string; role?: string; bio?: string; }
+// ── Section: Team (3 variants: cards | minimal | big-photo) ─────
+interface TeamItem { name?: string; role?: string; bio?: string; photo?: string; image?: string; avatar?: string; }
 
-function Team({ content, colors, design }: SectionProps) {
+function Team({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
+  const py = getDensityPy(design);
   const title = String(content.title ?? 'Jamoa');
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: TeamItem[] = (content.items as TeamItem[]) ?? [];
+  const v = nicheTeamVariant(niche, design);
+  if (items.length === 0) return null;
+
+  const renderPhoto = (item: TeamItem, size: 'sm' | 'md' | 'lg') => {
+    const src = item.photo || item.image || item.avatar;
+    const cls = size === 'lg' ? 'aspect-[3/4] w-full'
+              : size === 'md' ? 'w-24 h-24 sm:w-28 sm:h-28'
+              : 'w-16 h-16 sm:w-20 sm:h-20';
+    if (src) return <img src={src} alt={item.name ?? ''} style={{ borderRadius: size === 'lg' ? r : '9999px' }} className={`${cls} object-cover ${size === 'lg' ? '' : 'mx-auto'}`} />;
+    return (
+      <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, color: colors.onPrimary, borderRadius: size === 'lg' ? r : '9999px' }}
+        className={`${cls} flex items-center justify-center font-black ${size === 'lg' ? 'text-5xl' : size === 'md' ? 'text-2xl' : 'text-xl'} ${size === 'lg' ? '' : 'mx-auto'}`}>
+        {(item.name ?? '?')[0].toUpperCase()}
+      </div>
+    );
+  };
+
+  // BIG-PHOTO — katta vertikal kartalar (wedding/photo/agency/hotel/beauty)
+  if (v === 'big-photo') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          </div>
+          <div className={`grid gap-5 md:gap-6 ${items.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : items.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'}`}>
+            {items.map((item, i) => (
+              <div key={i} className={`ns-fade-up ns-d-${Math.min(i + 1, 6)} group`}>
+                <div className="relative overflow-hidden" style={{ borderRadius: r }}>
+                  {renderPhoto(item, 'lg')}
+                  <div aria-hidden className="absolute inset-0 transition-opacity opacity-0 group-hover:opacity-100"
+                    style={{ background: `linear-gradient(to top, ${colors.primary}cc, transparent 60%)` }} />
+                  {item.bio && (
+                    <div className="absolute bottom-0 left-0 right-0 p-4 transition-transform translate-y-full group-hover:translate-y-0">
+                      <p style={{ color: colors.onPrimary }} className="text-xs leading-relaxed">{item.bio}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <div style={{ color: colors.text }} className="font-black text-base ns-display">{item.name ?? ''}</div>
+                  <div style={{ color: colors.primary }} className="text-xs font-bold uppercase tracking-wider mt-0.5">{item.role ?? ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // MINIMAL — tor list (corporate/tech/legal/finance/news)
+  if (v === 'minimal') {
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-3xl mx-auto">
+          <div className="mb-10">
+            {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+          </div>
+          <div className="space-y-3">
+            {items.map((item, i) => (
+              <div key={i} style={{ background: colors.bg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+                className={`ns-fade-up ns-d-${Math.min(i + 1, 6)} flex items-center gap-4 p-4 md:p-5 hover:shadow-lg transition-shadow`}>
+                {renderPhoto(item, 'sm')}
+                <div className="flex-1 min-w-0">
+                  <div style={{ color: colors.text }} className="font-bold text-sm md:text-base">{item.name ?? ''}</div>
+                  <div style={{ color: colors.primary }} className="text-xs font-semibold mt-0.5">{item.role ?? ''}</div>
+                  {item.bio && <p style={{ color: colors.mutedText }} className="mt-1 text-xs leading-relaxed line-clamp-2">{item.bio}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // CARDS — default uniform card grid
   return (
-    <section style={{ background: colors.bg, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+    <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+        <div className={`grid gap-4 md:gap-6 ${items.length === 1 ? 'grid-cols-1' : items.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : items.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4'}`}>
           {items.map((item, i) => (
-            <div key={i} className="text-center">
-              <div style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }} className="w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center font-black text-xl sm:text-2xl">
-                {(item.name ?? '?')[0].toUpperCase()}
-              </div>
-              <div style={{ color: colors.text }} className="mt-3 font-bold text-sm">{item.name ?? ''}</div>
-              <div style={{ color: colors.primary }} className="text-xs font-semibold mt-0.5">{item.role ?? ''}</div>
-              {item.bio && <p style={{ color: colors.mutedText }} className="mt-1.5 text-xs leading-relaxed">{item.bio}</p>}
+            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${colors.cardBorder}`, borderRadius: r }}
+              className={`ns-card ns-fade-up ns-d-${Math.min(i + 1, 6)} p-5 md:p-6 text-center`}>
+              {renderPhoto(item, 'md')}
+              <div style={{ color: colors.text }} className="mt-4 font-black text-sm md:text-base ns-display">{item.name ?? ''}</div>
+              <div style={{ color: colors.primary }} className="text-xs font-bold uppercase tracking-wider mt-0.5">{item.role ?? ''}</div>
+              {item.bio && <p style={{ color: colors.mutedText }} className="mt-2 text-xs leading-relaxed">{item.bio}</p>}
             </div>
           ))}
         </div>
@@ -953,33 +1667,65 @@ function Team({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: FAQ ────────────────────────────────────────────────
+// ── Section: FAQ (2 variants: stacked | two-column) ─────────────
 interface FaqItem { question?: string; answer?: string; }
 
-function Faq({ content, colors, design }: SectionProps) {
+function Faq({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
-  const title = String(content.title ?? 'Ko\'p so\'raladigan savollar');
+  const py = getDensityPy(design);
+  const title = String(content.title ?? "Ko'p so'raladigan savollar");
   const subtitle = content.subtitle ? String(content.subtitle) : '';
   const items: FaqItem[] = (content.items as FaqItem[]) ?? [];
   const [open, setOpen] = useState<number | null>(null);
+  const v = nicheFaqVariant(niche, design);
+  if (items.length === 0) return null;
+
+  const renderFaqItem = (item: FaqItem, i: number) => (
+    <div key={i} style={{ background: colors.cardBg, border: `1px solid ${open === i ? colors.primary + '55' : colors.cardBorder}`, borderRadius: r }}
+      className={`ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden transition-colors`}>
+      <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between p-5 md:p-6 text-left gap-4">
+        <span style={{ color: colors.text }} className="font-semibold text-sm md:text-base">{item.question ?? ''}</span>
+        <span style={{ background: open === i ? colors.primary : `${colors.primary}18`, color: open === i ? colors.onPrimary : colors.primary, borderRadius: '9999px' }}
+          className="w-7 h-7 flex items-center justify-center text-base shrink-0 transition">{open === i ? '−' : '+'}</span>
+      </button>
+      {open === i && <div style={{ color: colors.mutedText }} className="px-5 md:px-6 pb-5 md:pb-6 text-sm md:text-[15px] leading-relaxed">{item.answer ?? ''}</div>}
+    </div>
+  );
+
+  // TWO-COLUMN — chap title+subtitle+CTA, o'ngda accordion (tech/agency/shop/realestate)
+  if (v === 'two-column') {
+    return (
+      <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-14">
+          <div className="md:col-span-4">
+            <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle || 'FAQ'}</div>
+            <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
+            <p style={{ color: colors.mutedText }} className="mt-5 text-sm leading-relaxed">
+              Boshqa savollaringiz bormi? Mutaxassislarimiz bilan bevosita aloqaga chiqing.
+            </p>
+            <a href="#contact" style={{ background: colors.primary, color: colors.onPrimary, borderRadius: r }}
+              className="ns-btn-primary mt-6 inline-flex px-6 py-3 font-bold text-sm">
+              Bog&apos;lanish <span className="ns-arrow">→</span>
+            </a>
+          </div>
+          <div className="md:col-span-8 space-y-3">
+            {items.map((item, i) => renderFaqItem(item, i))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // STACKED — default centered accordion (wedding/restaurant/legal/photo/...)
   return (
-    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8">
+    <section style={{ background: colors.sectionAlt, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-10">
-          <h2 style={{ color: colors.text }} className="text-2xl sm:text-3xl md:text-4xl font-black">{title}</h2>
-          {subtitle && <p style={{ color: colors.mutedText }} className="mt-3 text-sm sm:text-base">{subtitle}</p>}
+          {subtitle && <div style={{ color: colors.primary }} className="ns-eyebrow mb-3">{subtitle}</div>}
+          <h2 style={{ color: colors.text }} className="text-3xl sm:text-4xl md:text-5xl font-black ns-display">{title}</h2>
         </div>
         <div className="space-y-3">
-          {items.map((item, i) => (
-            <div key={i} style={{ background: colors.cardBg, border: `1px solid ${open === i ? colors.primary + '55' : colors.cardBorder}`, borderRadius: r }} className={`ns-fade-up ns-d-${Math.min(i + 1, 6)} overflow-hidden transition-colors`}>
-              <button onClick={() => setOpen(open === i ? null : i)} className="w-full flex items-center justify-between p-5 md:p-6 text-left gap-4">
-                <span style={{ color: colors.text }} className="font-semibold text-sm md:text-base">{item.question ?? ''}</span>
-                <span style={{ background: open === i ? colors.primary : `${colors.primary}18`, color: open === i ? colors.onPrimary : colors.primary, borderRadius: '9999px' }}
-                  className="w-7 h-7 flex items-center justify-center text-base shrink-0 transition">{open === i ? '−' : '+'}</span>
-              </button>
-              {open === i && <div style={{ color: colors.mutedText }} className="px-5 md:px-6 pb-5 md:pb-6 text-sm md:text-[15px] leading-relaxed">{item.answer ?? ''}</div>}
-            </div>
-          ))}
+          {items.map((item, i) => renderFaqItem(item, i))}
         </div>
       </div>
     </section>
@@ -1024,23 +1770,120 @@ function Menu({ content, colors, design }: SectionProps) {
   );
 }
 
-// ── Section: CTA ────────────────────────────────────────────────
-function Cta({ content, colors, design }: SectionProps) {
+// ── Section: CTA (3 variants: banner | split | gradient) ────────
+function Cta({ content, colors, design, niche = 'default' }: SectionProps) {
   const r = getRadius(design);
+  const py = getDensityPy(design);
   const title = String(content.title ?? 'Boshlash vaqti keldi');
   const desc  = content.description ? String(content.description) : '';
-  const cta   = String(content.ctaText ?? 'Bepul sinab ko\'rish');
+  const cta   = String(content.ctaText ?? content.cta ?? "Bepul sinab ko'rish");
+  const cta2  = content.cta2Text ? String(content.cta2Text) : (content.secondaryCta ? String(content.secondaryCta) : '');
   const badge = content.badge ? String(content.badge) : '';
+  const ctaLink = String(content.ctaLink ?? '#contact');
+  const v = nicheCtaVariant(niche, design);
+
+  // GRADIENT — vibrant gradient mesh, music/tech/agency uchun
+  if (v === 'gradient') {
+    return (
+      <section style={{
+        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.accent} 100%)`,
+        fontFamily: colors.font,
+      }} className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 25% 30%, ${colors.onPrimary}30, transparent 50%), radial-gradient(circle at 75% 70%, ${colors.accent}88, transparent 50%)` }} />
+        <div className="absolute inset-0 ns-grain opacity-30" />
+        <div aria-hidden className="absolute top-10 left-10 w-32 h-32 rounded-full blur-3xl opacity-30" style={{ background: colors.onPrimary }} />
+        <div aria-hidden className="absolute bottom-10 right-10 w-40 h-40 rounded-full blur-3xl opacity-25" style={{ background: colors.onPrimary }} />
+        <div className="relative max-w-3xl mx-auto">
+          {badge && (
+            <span style={{ background: 'rgba(255,255,255,0.18)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(8px)' }}
+              className="ns-fade-up inline-flex items-center gap-2 mb-5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider">
+              <span style={{ background: colors.onPrimary }} className="w-1.5 h-1.5 rounded-full animate-pulse" />
+              {badge}
+            </span>
+          )}
+          <h2 style={{ color: colors.onPrimary }} className="ns-display ns-fade-up ns-d-1 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black">{title}</h2>
+          {desc && <p style={{ color: colors.onPrimary, opacity: 0.85 }} className="ns-fade-up ns-d-2 mt-5 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto">{desc}</p>}
+          <div className="ns-fade-up ns-d-3 mt-9 flex flex-wrap gap-3 justify-center">
+            <a href={ctaLink}
+              style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r, boxShadow: '0 14px 36px -10px rgba(0,0,0,0.4)' }}
+              className="ns-btn-primary px-9 py-4 font-black text-sm">{cta} <span className="ns-arrow">→</span></a>
+            {cta2 && (
+              <a href="#"
+                style={{ border: `1.5px solid ${colors.onPrimary}66`, color: colors.onPrimary, borderRadius: r, backdropFilter: 'blur(8px)' }}
+                className="ns-btn-ghost px-9 py-4 font-bold text-sm bg-transparent">{cta2}</a>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // SPLIT — chap text, o'ngda visual/form, intim/luxury uchun
+  if (v === 'split') {
+    return (
+      <section style={{ background: colors.bg, fontFamily: colors.font }} className={`${py} px-4 md:px-8`}>
+        <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, borderRadius: r }}
+          className="max-w-6xl mx-auto relative overflow-hidden">
+          <div className="absolute inset-0 ns-grain opacity-20" />
+          <div aria-hidden className="absolute -top-20 -right-20 w-72 h-72 rounded-full blur-3xl opacity-25" style={{ background: colors.onPrimary }} />
+          <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 p-8 md:p-14 items-center">
+            <div className="ns-fade-up">
+              {badge && (
+                <span style={{ background: 'rgba(255,255,255,0.2)', color: colors.onPrimary, border: '1px solid rgba(255,255,255,0.3)' }}
+                  className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{badge}</span>
+              )}
+              <h2 style={{ color: colors.onPrimary }} className="ns-display text-3xl sm:text-4xl md:text-5xl font-black">{title}</h2>
+              {desc && <p style={{ color: colors.onPrimary, opacity: 0.85 }} className="mt-4 text-sm sm:text-base leading-relaxed">{desc}</p>}
+              <div className="mt-7 flex flex-wrap gap-3">
+                <a href={ctaLink}
+                  style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r, boxShadow: '0 12px 30px -8px rgba(0,0,0,0.35)' }}
+                  className="ns-btn-primary px-7 py-3.5 font-black text-sm">{cta} <span className="ns-arrow">→</span></a>
+                {cta2 && (
+                  <a href="#"
+                    style={{ border: `1.5px solid ${colors.onPrimary}66`, color: colors.onPrimary, borderRadius: r }}
+                    className="ns-btn-ghost px-7 py-3.5 font-bold text-sm bg-transparent">{cta2}</a>
+                )}
+              </div>
+            </div>
+            {/* Visual block — floating card stack */}
+            <div className="relative aspect-[4/3] hidden md:block ns-fade-up ns-d-2">
+              <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: r, backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.25)' }}
+                className="absolute inset-4 p-6 flex flex-col justify-center">
+                <div className="text-5xl mb-3">{niche === 'wedding' ? '💍' : niche === 'restaurant' ? '🍽️' : niche === 'beauty' ? '💆' : niche === 'realestate' ? '🏠' : niche === 'hotel' ? '🏨' : '✨'}</div>
+                <div style={{ color: colors.onPrimary }} className="text-xl font-black ns-display">{(content.featureTitle as string) ?? "Premium tajriba"}</div>
+                <p style={{ color: colors.onPrimary, opacity: 0.8 }} className="mt-2 text-sm leading-relaxed">{(content.featureText as string) ?? "Sifat va professionallik birinchi o'rinda."}</p>
+              </div>
+              <div aria-hidden style={{ background: colors.onPrimary, opacity: 0.18, borderRadius: r }}
+                className="absolute -top-2 -right-2 w-16 h-16" />
+              <div aria-hidden style={{ background: colors.onPrimary, opacity: 0.1, borderRadius: '9999px' }}
+                className="absolute -bottom-4 -left-4 w-24 h-24" />
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // BANNER — default solid primary, classic
   return (
-    <section style={{ background: colors.primary, fontFamily: colors.font }} className="py-16 md:py-24 px-4 md:px-8 text-center">
-      {badge && <span style={{ background: colors.onPrimary + '25', color: colors.onPrimary }} className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{badge}</span>}
-      <h2 style={{ color: colors.onPrimary }} className="text-2xl sm:text-3xl md:text-4xl font-black max-w-2xl mx-auto">{title}</h2>
-      {desc && <p style={{ color: colors.onPrimary, opacity: 0.75 }} className="mt-4 text-sm sm:text-base max-w-xl mx-auto">{desc}</p>}
-      <a href={String(content.ctaLink ?? '#contact')}
-        style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r }}
-        className="inline-block mt-8 px-8 py-4 font-black text-sm shadow-2xl hover:opacity-90 transition-opacity">
-        {cta}
-      </a>
+    <section style={{ background: colors.primary, fontFamily: colors.font }} className={`${py} px-4 md:px-8 text-center relative overflow-hidden`}>
+      <div className="absolute inset-0 ns-grain opacity-20" />
+      <div aria-hidden className="absolute -top-32 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full blur-3xl opacity-15" style={{ background: colors.accent }} />
+      <div className="relative max-w-3xl mx-auto">
+        {badge && <span style={{ background: colors.onPrimary + '25', color: colors.onPrimary }} className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{badge}</span>}
+        <h2 style={{ color: colors.onPrimary }} className="ns-display text-3xl sm:text-4xl md:text-5xl font-black max-w-2xl mx-auto">{title}</h2>
+        {desc && <p style={{ color: colors.onPrimary, opacity: 0.8 }} className="mt-4 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">{desc}</p>}
+        <div className="mt-9 flex flex-wrap gap-3 justify-center">
+          <a href={ctaLink}
+            style={{ background: colors.onPrimary, color: colors.primary, borderRadius: r, boxShadow: '0 14px 36px -10px rgba(0,0,0,0.35)' }}
+            className="ns-btn-primary px-8 py-4 font-black text-sm">{cta} <span className="ns-arrow">→</span></a>
+          {cta2 && (
+            <a href="#"
+              style={{ border: `1.5px solid ${colors.onPrimary}66`, color: colors.onPrimary, borderRadius: r }}
+              className="ns-btn-ghost px-8 py-4 font-bold text-sm bg-transparent">{cta2}</a>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1477,12 +2320,13 @@ export const SiteRenderer = React.memo(function SiteRenderer({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const siteName = String(schema?.siteName ?? schema?.name ?? '');
   const allSectionTypes = pages.flatMap(p => (p.sections ?? []).map(s => s.type ?? ''));
+  const design = schema ? resolveDesign(schema) : {} as SiteDesign;
   const colors = useColors(
     schema?.settings as SiteSettings | undefined,
     siteName,
     allSectionTypes,
+    design,
   );
-  const design = schema ? resolveDesign(schema) : {} as SiteDesign;
   const scrolled = useScrolled(40);
   // Niche detector: sayt nomi va seksiya turlari bo'yicha biznes turini aniqlaydi.
   // Hero komponentiga uzatiladi — har niche uchun maxsus dekorativ elementlar.
