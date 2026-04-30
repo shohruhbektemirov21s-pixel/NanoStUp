@@ -1090,10 +1090,13 @@ class ArchitectService:
                 )
             parts.append(genai_types.Part(text=user_message or "Rasmlarni tahlil qil."))
 
+            # Til lock — foydalanuvchining oxirgi xabari tilida javob berishni
+            # majburlovchi qattiq direktiva (build_language_directive uz/ru/en).
+            language_directive = build_language_directive(user_message)
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
-                    system_instruction=ARCHITECT_SYSTEM_PROMPT,
+                    system_instruction=ARCHITECT_SYSTEM_PROMPT + language_directive,
                     max_output_tokens=2048,
                     # Google Search grounding — internetdan o'xshash saytlar,
                     # dizayn trendlar, UX misollar haqida real ma'lumot olish uchun.
@@ -1191,10 +1194,13 @@ class ClaudeService:
                         parts=[genai_types.Part(text=content)],
                     )
                 )
+            # Til lock — foydalanuvchi promptida aniqlangan til (uz/ru/en)
+            # bo'yicha qat'iy direktiva system_instruction'ga qo'shiladi.
+            language_directive = build_language_directive(prompt)
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
-                    system_instruction=CHAT_SYSTEM_PROMPT,
+                    system_instruction=CHAT_SYSTEM_PROMPT + language_directive,
                     max_output_tokens=1024,
                     # Internetdan foydalanuvchi savollariga dolzarb javob olish uchun
                     tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
@@ -1490,6 +1496,44 @@ _UZ_HINT = re.compile(
 )
 # Apostroflar bilan o'zbekcha lotinizatsiyaning aniq belgilari (g', o', ', ʻ)
 _UZ_APOSTROPHE = re.compile(r"[a-z]['\u2019\u02BB][a-z]", re.IGNORECASE)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Til direktivalari — chat AI'siga aniq, qattiq buyruq sifatida prefiks.
+# System prompt allaqachon "reply in same language" deydi, lekin LLM
+# vaqti-vaqti bilan "drift" qiladi. Server'da tilni aniqlab, kerakli
+# tilda HARD instruction qo'shsak — barqaror natija beradi.
+# ─────────────────────────────────────────────────────────────────
+_LANGUAGE_DIRECTIVES: Dict[str, str] = {
+    "uz": (
+        "\n\n## 🔒 ENFORCED LANGUAGE: UZBEK (Latin script)\n"
+        "The user's latest message is in O'ZBEK tilida. "
+        "You MUST reply ONLY in O'zbek (lotin yozuvi) — NOT in Russian, NOT in English. "
+        "Do not switch language even if past messages were in another language."
+    ),
+    "ru": (
+        "\n\n## 🔒 ENFORCED LANGUAGE: RUSSIAN\n"
+        "Последнее сообщение пользователя — НА РУССКОМ. "
+        "Ты ОБЯЗАН ответить ТОЛЬКО по-русски — не по-узбекски, не по-английски. "
+        "Не переключай язык, даже если прошлые сообщения были на другом."
+    ),
+    "en": (
+        "\n\n## 🔒 ENFORCED LANGUAGE: ENGLISH\n"
+        "The user's latest message is in ENGLISH. "
+        "You MUST reply ONLY in English — not in Uzbek, not in Russian. "
+        "Do not switch language even if past messages were in another language."
+    ),
+}
+
+
+def build_language_directive(text: str) -> str:
+    """
+    Foydalanuvchi xabarini detect_language orqali tahlil qilib,
+    LLM system_instruction'ga qo'shiladigan qattiq til-direktivasini qaytaradi.
+    Noma'lum til → uz (default).
+    """
+    lang = detect_language(text or "")
+    return _LANGUAGE_DIRECTIVES.get(lang, _LANGUAGE_DIRECTIVES["uz"])
 
 
 def detect_language(text: str) -> str:
