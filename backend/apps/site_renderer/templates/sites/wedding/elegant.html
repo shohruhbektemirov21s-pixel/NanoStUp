@@ -1,0 +1,96 @@
+{% extends "sites/_partials/base.html" %}
+{# WEDDING — elegant, romantic, serif/muted. #}
+{% block content %}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold tracking-tight" style="font-style:italic;">{{ site.title }}</a>
+  <div class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em]">
+    {% if sections.about %}<a href="#story" class="hover:text-primary">Hikoya</a>{% endif %}
+    {% if sections.gallery %}<a href="#gallery" class="hover:text-primary">Galereya</a>{% endif %}
+    {% if sections.services or sections.features %}<a href="#services" class="hover:text-primary">Xizmatlar</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="hover:text-primary">Aloqa</a>{% endif %}
+  </div>
+</nav>
+
+{% with hero=sections.hero %}{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container max-w-4xl text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-6 text-primary">{{ hero.eyebrow|default:"To'y va bayramlar" }}</p>
+    <h1 class="font-heading text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[0.95] mb-8" style="font-style:italic;">{{ hero.title|default:site.title }}</h1>
+    <p class="text-base md:text-lg leading-relaxed text-muted max-w-2xl mx-auto mb-10">{{ hero.subtitle }}</p>
+    {% if hero.cta.label %}<a href="{{ hero.cta.href|default:'#contact' }}" class="ns-btn-outline">{{ hero.cta.label }}</a>{% endif %}
+  </div>
+  {% if hero.image %}<div class="ns-container mt-12"><div class="aspect-[16/9] rounded-3xl overflow-hidden"><img src="{{ hero.image }}" alt="" class="w-full h-full object-cover"></div></div>{% endif %}
+</header>
+{% endif %}{% endwith %}
+
+{% with about=sections.about %}{% if about %}
+<section id="story" class="ns-section">
+  <div class="ns-container max-w-3xl text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Bizning hikoya</p>
+    <h2 class="ns-section-title" style="font-style:italic;">{{ about.title|default:"Sizning eng go'zal kuningiz" }}</h2>
+    <div class="space-y-4 text-base md:text-lg leading-[1.9] text-muted mt-8">
+      {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+      {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+      {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    </div>
+    {% if about.quote %}
+      <blockquote class="my-12 italic"><p class="font-heading text-2xl md:text-3xl leading-snug">"{{ about.quote }}"</p>
+      {% if about.quote_author %}<footer class="text-sm not-italic text-muted mt-3">— {{ about.quote_author }}</footer>{% endif %}</blockquote>
+    {% endif %}
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with services=sections.services|default:sections.features %}{% if services %}
+<section id="services" class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Xizmatlarimiz</p>
+      <h2 class="ns-section-title" style="font-style:italic;">{{ services.title|default:"Tantana paketlari" }}</h2>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in services.items %}
+        <article class="ns-card text-center">
+          {% if item.icon %}<div class="text-3xl mb-3">{{ item.icon }}</div>{% endif %}
+          <h3 class="font-heading text-xl font-semibold mb-3" style="font-style:italic;">{{ item.title|default:item.name }}</h3>
+          {% if item.description %}<p class="text-sm leading-relaxed text-muted mb-4">{{ item.description }}</p>{% endif %}
+          {% if item.price %}<div class="font-heading text-lg font-bold text-primary">{{ item.price }}</div>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with gallery=sections.gallery %}{% if gallery and gallery.images %}
+<section id="gallery" class="ns-section">
+  <div class="ns-container">
+    <div class="text-center mb-12">
+      <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Damlar</p>
+      <h2 class="ns-section-title" style="font-style:italic;">{{ gallery.title|default:"Galereya" }}</h2>
+    </div>
+    <div class="columns-2 md:columns-3 gap-4 space-y-4">
+      {% for img in gallery.images %}
+        <div class="rounded-2xl overflow-hidden break-inside-avoid"><img src="{{ img.src|default:img }}" alt="" class="w-full h-auto" loading="lazy"></div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Bog'lanish</p>
+    <h2 class="ns-section-title" style="font-style:italic;">{{ contact.title|default:"Bizga keling" }}</h2>
+    <div class="grid sm:grid-cols-2 gap-6 text-base text-left mt-10">
+      {% if contact.address or settings.address %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📍 Manzil</div><div>{{ contact.address|default:settings.address }}</div></div>{% endif %}
+      {% if contact.phone or settings.phone %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div><a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary">{{ contact.phone|default:settings.phone }}</a></div>{% endif %}
+      {% if contact.email or settings.email %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div><a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary">{{ contact.email|default:settings.email }}</a></div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted"><div class="ns-container">© {% now "Y" %} {{ site.title }} · NanoStUp</div></footer>
+{% endblock %}

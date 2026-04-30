@@ -1,0 +1,101 @@
+{% extends "sites/_partials/base.html" %}
+{# LEGAL — authoritative, serif, formal. #}
+{% block content %}
+<nav class="ns-container py-6 flex items-center justify-between" style="border-bottom:1px solid var(--color-border);">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold tracking-tight">{{ site.title }}</a>
+  <div class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-[0.2em]">
+    {% if sections.services or sections.features %}<a href="#practice" class="hover:text-primary">Yo'nalishlar</a>{% endif %}
+    {% if sections.about %}<a href="#about" class="hover:text-primary">Biz haqimizda</a>{% endif %}
+    {% if sections.faq %}<a href="#faq" class="hover:text-primary">FAQ</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="hover:text-primary">Aloqa</a>{% endif %}
+  </div>
+  {% if settings.phone %}<a href="tel:{{ settings.phone }}" class="ns-btn-primary text-xs">Maslahat</a>{% endif %}
+</nav>
+
+{% with hero=sections.hero %}{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container max-w-4xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-6 text-primary">{{ hero.eyebrow|default:"Yuridik xizmatlar" }}</p>
+    <h1 class="font-heading text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.05] mb-8">{{ hero.title|default:site.title }}</h1>
+    <p class="text-base md:text-lg leading-relaxed text-muted max-w-2xl mb-10">{{ hero.subtitle }}</p>
+    <div class="flex flex-wrap gap-3">
+      {% if hero.cta.label %}<a href="{{ hero.cta.href|default:'#contact' }}" class="ns-btn-primary">{{ hero.cta.label }}</a>{% endif %}
+      {% if hero.cta2.label %}<a href="{{ hero.cta2.href|default:'#practice' }}" class="ns-btn-outline">{{ hero.cta2.label }}</a>{% endif %}
+    </div>
+  </div>
+</header>
+{% endif %}{% endwith %}
+
+{% with services=sections.services|default:sections.features %}{% if services %}
+<section id="practice" class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="mb-12">
+      <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Yo'nalishlar</p>
+      <h2 class="ns-section-title">{{ services.title|default:"Amaliyot sohalari" }}</h2>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in services.items %}
+        <article class="ns-card">
+          <h3 class="font-heading text-lg font-semibold mb-3">{{ item.title|default:item.name }}</h3>
+          {% if item.description %}<p class="text-sm leading-relaxed text-muted">{{ item.description }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with about=sections.about %}{% if about %}
+<section id="about" class="ns-section">
+  <div class="ns-container max-w-3xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.4em] mb-3 text-primary">Biz haqimizda</p>
+    <h2 class="ns-section-title">{{ about.title|default:"Yuridik kompaniya" }}</h2>
+    <div class="space-y-4 text-base md:text-lg leading-[1.85] text-muted mt-6">
+      {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+      {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+      {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    </div>
+    {% if about.quote %}
+    <blockquote class="my-12 pl-6 italic" style="border-left: 3px solid var(--color-primary);">
+      <p class="font-heading text-xl md:text-2xl leading-snug">{{ about.quote }}</p>
+      {% if about.quote_author %}<footer class="text-sm not-italic text-muted mt-3">— {{ about.quote_author }}</footer>{% endif %}
+    </blockquote>
+    {% endif %}
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with faq=sections.faq %}{% if faq and faq.items %}
+<section id="faq" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl">
+    <div class="mb-10"><h2 class="ns-section-title">{{ faq.title|default:"Tez-tez beriladigan savollar" }}</h2></div>
+    <div class="space-y-3">
+      {% for item in faq.items %}
+        <details class="ns-card group">
+          <summary class="font-heading text-base md:text-lg font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+            <span>{{ item.question }}</span><span class="text-primary text-xl group-open:rotate-45 transition-transform">+</span>
+          </summary>
+          <p class="mt-3 text-sm leading-relaxed text-muted">{{ item.answer }}</p>
+        </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section">
+  <div class="ns-container max-w-3xl">
+    <h2 class="ns-section-title">{{ contact.title|default:"Bog'lanish" }}</h2>
+    <div class="grid sm:grid-cols-2 gap-6 text-base mt-10">
+      {% if contact.address or settings.address %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📍 Manzil</div><div>{{ contact.address|default:settings.address }}</div></div>{% endif %}
+      {% if contact.phone or settings.phone %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div><a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary">{{ contact.phone|default:settings.phone }}</a></div>{% endif %}
+      {% if contact.email or settings.email %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div><a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary">{{ contact.email|default:settings.email }}</a></div>{% endif %}
+      {% if contact.hours %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">🕒 Qabul vaqti</div><div>{{ contact.hours }}</div></div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted" style="border-top:1px solid var(--color-border);"><div class="ns-container">© {% now "Y" %} {{ site.title }} · NanoStUp</div></footer>
+{% endblock %}

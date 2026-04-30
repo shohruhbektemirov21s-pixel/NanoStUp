@@ -26,16 +26,23 @@ logger = logging.getLogger(__name__)
 # Har niche uchun mavjud HTML template fayllar (Django template path).
 # Yangi niche/variant qo'shganda — shu yerga ro'yxatga olib qo'ying.
 HTML_TEMPLATES: Dict[str, List[str]] = {
+    # Phase A: 3 ta variantli (restaurant)
     "restaurant": [
         "sites/restaurant/classic.html",
         "sites/restaurant/modern.html",
         "sites/restaurant/storytelling.html",
     ],
-    # Faza 4'da qo'shiladi:
-    # "clinic":     ["sites/clinic/trustworthy.html", "sites/clinic/specialist.html", "sites/clinic/wellness.html"],
-    # "shop":       ["sites/shop/catalog.html",       "sites/shop/boutique.html",    "sites/shop/landing.html"],
-    # "portfolio":  [...], "news": [...], "wedding": [...], "finance": [...],
-    # "legal": [...], "education": [...], "hotel": [...],
+    # Phase B: 1 ta minimal/niche-specific (boshqa nicheslar)
+    # Keyingi sessiyalarda har biriga 2-3 ta variant qo'shiladi.
+    "clinic":     ["sites/clinic/trustworthy.html"],
+    "shop":       ["sites/shop/catalog.html"],
+    "portfolio":  ["sites/portfolio/showcase.html"],
+    "news":       ["sites/news/editorial.html"],
+    "wedding":    ["sites/wedding/elegant.html"],
+    "finance":    ["sites/finance/professional.html"],
+    "legal":      ["sites/legal/authoritative.html"],
+    "education":  ["sites/education/inspiring.html"],
+    "hotel":      ["sites/hotel/luxury.html"],
 }
 
 # Niche yo'q bo'lsa fallback. 'default.html' universal — har qanday content uchun.

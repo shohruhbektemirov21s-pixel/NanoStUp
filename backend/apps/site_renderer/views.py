@@ -257,6 +257,18 @@ def _ensure_section_defaults(section: Any) -> Any:
     return section
 
 
+# Template'lar `sections.X|default:sections.Y` patternini ishlatadi —
+# shu sababli barcha standart sectiontype'larga bo'sh dict default qo'shamiz.
+# Shunda template ichida har qanday section access xato bermaydi
+# (`{% if sections.menu %}` falsy bo'sh dictga to'g'ri ishlaydi).
+_KNOWN_SECTION_TYPES: Tuple[str, ...] = (
+    "hero", "menu", "features", "services", "products",
+    "courses", "rooms", "articles", "projects", "doctors", "team",
+    "about", "gallery", "testimonials", "faq", "stats",
+    "cta", "contact",
+)
+
+
 def _build_sections_index(page: Dict[str, Any]) -> Dict[str, Any]:
     """
     page.sections[] ro'yxatidan {section_type: section_obj | [sections...]} dict
@@ -269,12 +281,17 @@ def _build_sections_index(page: Dict[str, Any]) -> Dict[str, Any]:
         {"type": "menu", "items": [...]},
       ]
       → {"hero": {...}, "menu": [{...}, {...}]}
+
+    Shuningdek, ishlatilmagan _KNOWN_SECTION_TYPES'ga ham bo'sh dict
+    default qo'shadi — shu orqali Django template'da
+    `sections.foo|default:sections.bar` chain xato bermaydi.
     """
+    # Boshlang'ich qiymat: barcha known section type'lar bo'sh dict bilan
+    index: Dict[str, Any] = {t: {} for t in _KNOWN_SECTION_TYPES}
+
     sections = page.get("sections") if isinstance(page, dict) else None
     if not isinstance(sections, list):
-        return {}
-
-    index: Dict[str, Any] = {}
+        return index
     counts: Dict[str, int] = {}
     for sec in sections:
         if not isinstance(sec, dict):
@@ -284,17 +301,17 @@ def _build_sections_index(page: Dict[str, Any]) -> Dict[str, Any]:
             continue
         # Default keylarni qo'shamiz — Django template'da bezarar
         _ensure_section_defaults(sec)
-        if t in index:
-            # Bir xil type ikkinchi marta — list'ga aylantir
-            existing = index[t]
-            if isinstance(existing, list):
-                existing.append(sec)
-            else:
-                index[t] = [existing, sec]
-            counts[t] = counts.get(t, 1) + 1
-        else:
+        seen = counts.get(t, 0)
+        if seen == 0:
+            # Birinchi marta bu typeni ko'ryapmiz — bo'sh default'ni almashtir
             index[t] = sec
-            counts[t] = 1
+        elif seen == 1:
+            # Ikkinchi marta — list'ga aylantir
+            index[t] = [index[t], sec]
+        else:
+            # Uchinchi va keyingi marta — listga append
+            index[t].append(sec)
+        counts[t] = seen + 1
     return index
 
 

@@ -1,0 +1,98 @@
+{% extends "sites/_partials/base.html" %}
+{# PORTFOLIO — visual showcase, dark/display feel. #}
+{% block content %}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold tracking-tight uppercase">{{ site.title }}</a>
+  <div class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-widest">
+    {% if sections.gallery or sections.projects or sections.features %}<a href="#work" class="hover:text-primary">Ishlar</a>{% endif %}
+    {% if sections.about %}<a href="#about" class="hover:text-primary">Men haqimda</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="hover:text-primary">Aloqa</a>{% endif %}
+  </div>
+</nav>
+
+{% with hero=sections.hero %}{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container max-w-4xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-6 text-primary">{{ hero.eyebrow|default:"Portfolio" }}</p>
+    <h1 class="font-heading text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-8">{{ hero.title|default:site.title }}</h1>
+    <p class="text-lg md:text-xl leading-relaxed text-muted max-w-2xl mb-8">{{ hero.subtitle }}</p>
+    {% if hero.cta.label %}<a href="{{ hero.cta.href|default:'#work' }}" class="ns-btn-primary">{{ hero.cta.label }}</a>{% endif %}
+  </div>
+  {% if hero.image %}
+  <div class="ns-container mt-16">
+    <div class="aspect-[16/9] rounded-3xl overflow-hidden"><img src="{{ hero.image }}" alt="" class="w-full h-full object-cover"></div>
+  </div>
+  {% endif %}
+</header>
+{% endif %}{% endwith %}
+
+{% with work=sections.gallery|default:sections.projects %}{% if work and work.images %}
+<section id="work" class="ns-section">
+  <div class="ns-container">
+    <div class="mb-12">
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Tanlangan ishlar</p>
+      <h2 class="ns-section-title">{{ work.title|default:"Loyihalar" }}</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      {% for img in work.images %}
+        <div class="aspect-[4/3] rounded-2xl overflow-hidden">
+          <img src="{{ img.src|default:img }}" alt="{{ img.alt|default:'' }}" class="w-full h-full object-cover hover:scale-[1.03] transition" loading="lazy">
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with features=sections.features|default:sections.services %}{% if features %}
+<section class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <h2 class="ns-section-title">{{ features.title|default:"Xizmatlar" }}</h2>
+      {% if features.subtitle %}<p class="ns-section-subtitle mt-3">{{ features.subtitle }}</p>{% endif %}
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in features.items %}
+        <article class="ns-card">
+          {% if item.icon %}<div class="text-3xl mb-3">{{ item.icon }}</div>{% endif %}
+          <h3 class="font-heading text-lg font-semibold mb-2">{{ item.title|default:item.name }}</h3>
+          {% if item.description %}<p class="text-sm leading-relaxed text-muted">{{ item.description }}</p>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with about=sections.about %}{% if about %}
+<section id="about" class="ns-section">
+  <div class="ns-container grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+    {% if about.image %}<div class="aspect-[4/5] rounded-3xl overflow-hidden"><img src="{{ about.image }}" alt="" class="w-full h-full object-cover"></div>{% endif %}
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Men haqimda</p>
+      <h2 class="ns-section-title">{{ about.title|default:"Salom!" }}</h2>
+      <div class="space-y-4 text-base md:text-lg leading-relaxed text-muted mt-6">
+        {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+        {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+        {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl text-center">
+    <h2 class="ns-section-title">{{ contact.title|default:"Hamkorlik qiling" }}</h2>
+    {% if contact.subtitle %}<p class="ns-section-subtitle mt-3 mb-10">{{ contact.subtitle }}</p>{% endif %}
+    <div class="grid sm:grid-cols-2 gap-6 text-base text-left mt-8">
+      {% if contact.email or settings.email %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div><a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary">{{ contact.email|default:settings.email }}</a></div>{% endif %}
+      {% if contact.phone or settings.phone %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div><a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary">{{ contact.phone|default:settings.phone }}</a></div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted"><div class="ns-container">© {% now "Y" %} {{ site.title }} · NanoStUp</div></footer>
+{% endblock %}

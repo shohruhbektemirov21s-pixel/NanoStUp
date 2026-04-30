@@ -1,0 +1,131 @@
+{% extends "sites/_partials/base.html" %}
+{# EDUCATION — inspiring, vibrant, friendly. #}
+{% block content %}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold tracking-tight">{{ site.title }}</a>
+  <div class="hidden md:flex items-center gap-6 text-sm">
+    {% if sections.courses or sections.features or sections.services %}<a href="#courses" class="hover:text-primary">Kurslar</a>{% endif %}
+    {% if sections.about %}<a href="#about" class="hover:text-primary">Biz haqimizda</a>{% endif %}
+    {% if sections.testimonials %}<a href="#reviews" class="hover:text-primary">Sharhlar</a>{% endif %}
+    {% if sections.faq %}<a href="#faq" class="hover:text-primary">FAQ</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="hover:text-primary">Aloqa</a>{% endif %}
+  </div>
+  {% if settings.phone %}<a href="tel:{{ settings.phone }}" class="ns-btn-primary text-xs">🎓 Yozilish</a>{% endif %}
+</nav>
+
+{% with hero=sections.hero %}{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-4 text-primary">{{ hero.eyebrow|default:"Ta'lim markazi" }}</p>
+      <h1 class="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-6">{{ hero.title|default:site.title }}</h1>
+      <p class="text-base md:text-lg leading-relaxed text-muted mb-8 max-w-xl">{{ hero.subtitle }}</p>
+      <div class="flex flex-wrap gap-3">
+        {% if hero.cta.label %}<a href="{{ hero.cta.href|default:'#courses' }}" class="ns-btn-primary">{{ hero.cta.label }}</a>{% endif %}
+        {% if hero.cta2.label %}<a href="{{ hero.cta2.href|default:'#about' }}" class="ns-btn-outline">{{ hero.cta2.label }}</a>{% endif %}
+      </div>
+    </div>
+    <div class="aspect-[4/3] rounded-3xl overflow-hidden bg-surface">
+      {% if hero.image %}<img src="{{ hero.image }}" alt="" class="w-full h-full object-cover">
+      {% else %}<div class="w-full h-full flex items-center justify-center text-7xl bg-primary/10">🎓</div>{% endif %}
+    </div>
+  </div>
+</header>
+{% endif %}{% endwith %}
+
+{% with courses=sections.courses|default:sections.features|default:sections.services %}{% if courses %}
+<section id="courses" class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-3 text-primary">Kurslarimiz</p>
+      <h2 class="ns-section-title">{{ courses.title|default:"Mavjud kurslar" }}</h2>
+      {% if courses.subtitle %}<p class="ns-section-subtitle mt-3">{{ courses.subtitle }}</p>{% endif %}
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in courses.items %}
+        <article class="ns-card flex flex-col">
+          {% if item.icon %}<div class="text-3xl mb-3 text-primary">{{ item.icon }}</div>{% endif %}
+          <h3 class="font-heading text-lg font-semibold mb-2">{{ item.title|default:item.name }}</h3>
+          {% if item.description %}<p class="text-sm leading-relaxed text-muted mb-3">{{ item.description }}</p>{% endif %}
+          {% if item.price %}<div class="font-heading text-base font-bold text-primary mt-auto">{{ item.price }}</div>{% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with about=sections.about %}{% if about %}
+<section id="about" class="ns-section">
+  <div class="ns-container grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+    {% if about.image %}<div class="aspect-[4/5] rounded-3xl overflow-hidden order-last md:order-first"><img src="{{ about.image }}" alt="" class="w-full h-full object-cover"></div>{% endif %}
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-3 text-primary">Biz haqimizda</p>
+      <h2 class="ns-section-title">{{ about.title|default:"Bizning maktab" }}</h2>
+      <div class="space-y-4 text-base leading-relaxed text-muted mt-6">
+        {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+        {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+        {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      </div>
+      {% if about.stats %}
+      <div class="grid grid-cols-3 gap-6 mt-10 pt-8" style="border-top:1px solid var(--color-border);">
+        {% for stat in about.stats %}
+        <div><div class="font-heading text-3xl font-bold text-primary">{{ stat.value }}</div>
+        <div class="text-xs uppercase tracking-wider text-muted mt-1">{{ stat.label }}</div></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with reviews=sections.testimonials %}{% if reviews and reviews.items %}
+<section id="reviews" class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="text-center mb-12"><h2 class="ns-section-title">{{ reviews.title|default:"O'quvchilar fikri" }}</h2></div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in reviews.items %}
+        <blockquote class="ns-card">
+          <p class="text-base leading-relaxed mb-4">"{{ item.quote|default:item.text }}"</p>
+          <footer class="text-sm font-semibold">{{ item.author|default:item.name }}{% if item.role %} <span class="text-muted font-normal">— {{ item.role }}</span>{% endif %}</footer>
+        </blockquote>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with faq=sections.faq %}{% if faq and faq.items %}
+<section id="faq" class="ns-section">
+  <div class="ns-container max-w-3xl">
+    <div class="text-center mb-10"><h2 class="ns-section-title">{{ faq.title|default:"Savol-javob" }}</h2></div>
+    <div class="space-y-3">
+      {% for item in faq.items %}
+        <details class="ns-card group">
+          <summary class="font-heading text-base md:text-lg font-semibold cursor-pointer list-none flex items-center justify-between gap-4">
+            <span>{{ item.question }}</span><span class="text-primary text-xl group-open:rotate-45 transition-transform">+</span>
+          </summary>
+          <p class="mt-3 text-sm leading-relaxed text-muted">{{ item.answer }}</p>
+        </details>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl text-center">
+    <h2 class="ns-section-title">{{ contact.title|default:"Yozilish" }}</h2>
+    <div class="grid sm:grid-cols-2 gap-6 text-base text-left mt-10">
+      {% if contact.address or settings.address %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📍 Manzil</div><div>{{ contact.address|default:settings.address }}</div></div>{% endif %}
+      {% if contact.phone or settings.phone %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div><a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary">{{ contact.phone|default:settings.phone }}</a></div>{% endif %}
+      {% if contact.email or settings.email %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div><a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary">{{ contact.email|default:settings.email }}</a></div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted"><div class="ns-container">© {% now "Y" %} {{ site.title }} · NanoStUp</div></footer>
+{% endblock %}

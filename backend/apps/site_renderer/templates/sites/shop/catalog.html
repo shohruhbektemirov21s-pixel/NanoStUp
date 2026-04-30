@@ -1,0 +1,99 @@
+{% extends "sites/_partials/base.html" %}
+{# SHOP — product catalog, vibrant. #}
+{% block content %}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold">{{ site.title }}</a>
+  <div class="hidden md:flex items-center gap-6 text-sm">
+    {% if sections.products or sections.features %}<a href="#products" class="hover:text-primary transition">Katalog</a>{% endif %}
+    {% if sections.about %}<a href="#about" class="hover:text-primary transition">Biz haqimizda</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="hover:text-primary transition">Aloqa</a>{% endif %}
+  </div>
+  {% if settings.phone %}<a href="tel:{{ settings.phone }}" class="ns-btn-primary text-xs">🛒 Buyurtma</a>{% endif %}
+</nav>
+
+{% with hero=sections.hero %}{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container grid md:grid-cols-2 gap-10 items-center">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-4 text-primary">{{ hero.eyebrow|default:"Onlayn do'kon" }}</p>
+      <h1 class="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-6">{{ hero.title|default:site.title }}</h1>
+      <p class="text-base md:text-lg leading-relaxed text-muted mb-8 max-w-xl">{{ hero.subtitle }}</p>
+      <div class="flex flex-wrap gap-3">
+        {% if hero.cta.label %}<a href="{{ hero.cta.href|default:'#products' }}" class="ns-btn-primary">{{ hero.cta.label }}</a>{% endif %}
+        {% if hero.cta2.label %}<a href="{{ hero.cta2.href|default:'#about' }}" class="ns-btn-outline">{{ hero.cta2.label }}</a>{% endif %}
+      </div>
+    </div>
+    <div class="aspect-square rounded-3xl overflow-hidden bg-surface">
+      {% if hero.image %}<img src="{{ hero.image }}" alt="" class="w-full h-full object-cover">
+      {% else %}<div class="w-full h-full flex items-center justify-center text-7xl bg-primary/10">🛍️</div>{% endif %}
+    </div>
+  </div>
+</header>
+{% endif %}{% endwith %}
+
+{% with products=sections.products|default:sections.features %}{% if products %}
+<section id="products" class="ns-section bg-surface">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-3 text-primary">Mahsulotlar</p>
+      <h2 class="ns-section-title">{{ products.title|default:"Bizning katalog" }}</h2>
+      {% if products.subtitle %}<p class="ns-section-subtitle mt-3">{{ products.subtitle }}</p>{% endif %}
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in products.items %}
+        <article class="ns-card flex flex-col">
+          {% if item.image %}<div class="aspect-square -m-6 mb-6 rounded-t-2xl overflow-hidden bg-primary/5"><img src="{{ item.image }}" alt="" class="w-full h-full object-cover"></div>{% endif %}
+          <h3 class="font-heading text-lg font-semibold mb-2">{{ item.title|default:item.name }}</h3>
+          {% if item.description %}<p class="text-sm leading-relaxed text-muted mb-3">{{ item.description }}</p>{% endif %}
+          <div class="flex items-center justify-between mt-auto pt-3">
+            {% if item.price %}<span class="font-heading text-xl font-bold text-primary">{{ item.price }}</span>{% endif %}
+            {% if settings.phone %}<a href="tel:{{ settings.phone }}" class="text-xs font-semibold uppercase tracking-wider text-primary hover:underline">Buyurtma →</a>{% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with about=sections.about %}{% if about %}
+<section id="about" class="ns-section">
+  <div class="ns-container max-w-3xl text-center">
+    <h2 class="ns-section-title">{{ about.title|default:"Biz haqimizda" }}</h2>
+    <div class="space-y-4 text-base leading-relaxed text-muted mt-8">
+      {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+      {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+      {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with cta=sections.cta %}{% if cta %}
+<section class="ns-section">
+  <div class="ns-container">
+    <div class="rounded-3xl p-10 md:p-16 text-center bg-primary">
+      <h2 class="font-heading text-3xl md:text-4xl font-bold mb-4 leading-tight" style="color: var(--color-bg);">{{ cta.title|default:"Bugun xarid qiling" }}</h2>
+      {% if cta.subtitle %}<p class="text-base md:text-lg max-w-2xl mx-auto mb-8 opacity-90" style="color: var(--color-bg);">{{ cta.subtitle }}</p>{% endif %}
+      {% with btn=cta.cta|default:cta.button %}{% if btn.label %}<a href="{{ btn.href|default:'#contact' }}" class="inline-flex items-center justify-center px-8 py-3 rounded-full font-bold text-sm" style="background-color: var(--color-bg); color: var(--color-primary);">{{ btn.label }}</a>{% endif %}{% endwith %}
+    </div>
+  </div>
+</section>
+{% endif %}{% endwith %}
+
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl text-center">
+    <h2 class="ns-section-title">{{ contact.title|default:"Bog'lanish" }}</h2>
+    <div class="grid sm:grid-cols-2 gap-6 text-base text-left mt-10">
+      {% if contact.address or settings.address %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📍 Manzil</div><div>{{ contact.address|default:settings.address }}</div></div>{% endif %}
+      {% if contact.phone or settings.phone %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div><a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary">{{ contact.phone|default:settings.phone }}</a></div>{% endif %}
+      {% if contact.email or settings.email %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div><a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary">{{ contact.email|default:settings.email }}</a></div>{% endif %}
+      {% if contact.hours %}<div class="ns-card"><div class="text-xs uppercase tracking-wider text-muted mb-1">🕒 Ish vaqti</div><div>{{ contact.hours }}</div></div>{% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted"><div class="ns-container">© {% now "Y" %} {{ site.title }} · NanoStUp</div></footer>
+{% endblock %}
