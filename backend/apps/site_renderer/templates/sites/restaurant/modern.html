@@ -1,0 +1,217 @@
+{% extends "sites/_partials/base.html" %}
+
+{# MODERN restaurant template — bold layout, large typography, asymmetric grids. #}
+
+{% block content %}
+
+{# ── NAV ──────────────────────────────────────────────── #}
+<nav class="ns-container py-6 flex items-center justify-between sticky top-0 z-30 backdrop-blur"
+     style="background-color: rgba(0,0,0,0.001);">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-2xl font-bold tracking-tighter uppercase">
+    {{ site.title }}
+  </a>
+  <div class="hidden md:flex items-center gap-1 text-xs font-semibold uppercase tracking-widest">
+    {% if sections.menu %}<a href="#menu" class="px-4 py-2 hover:text-primary transition">Menyu</a>{% endif %}
+    {% if sections.about %}<a href="#about" class="px-4 py-2 hover:text-primary transition">Biz</a>{% endif %}
+    {% if sections.contact %}<a href="#contact" class="px-4 py-2 hover:text-primary transition">Aloqa</a>{% endif %}
+  </div>
+  {% if settings.phone %}
+    <a href="tel:{{ settings.phone }}" class="ns-btn-primary text-xs px-4 py-2">
+      Rezervatsiya
+    </a>
+  {% endif %}
+</nav>
+
+{# ── HERO — fullscreen, asymmetric ─────────────────────── #}
+{% with hero=sections.hero %}
+<header class="relative min-h-[85vh] flex items-end overflow-hidden">
+  {% if hero.image %}
+    <img src="{{ hero.image }}" alt="{{ hero.title }}"
+         class="absolute inset-0 w-full h-full object-cover"
+         style="filter: brightness(0.55);">
+  {% else %}
+    <div class="absolute inset-0 bg-primary"></div>
+  {% endif %}
+  <div class="ns-container relative z-10 pb-16 md:pb-24" style="color: var(--color-bg);">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-6 opacity-80">
+      {{ hero.eyebrow|default:"Restoran" }}
+    </p>
+    <h1 class="font-heading text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-6 max-w-5xl">
+      {{ hero.title|default:site.title }}
+    </h1>
+    <p class="text-lg md:text-xl leading-relaxed max-w-2xl opacity-90 mb-10">
+      {{ hero.subtitle|default:hero.description }}
+    </p>
+    <div class="flex flex-wrap gap-3">
+      {% if hero.cta %}
+        <a href="{{ hero.cta.href|default:'#menu' }}"
+           class="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full font-bold text-sm uppercase tracking-wider"
+           style="background-color: var(--color-bg); color: var(--color-text);">
+          {{ hero.cta.label|default:"Menyu →" }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</header>
+{% endwith %}
+
+{# ── MENU — split layout ──────────────────────────────── #}
+{% with menu=sections.menu %}
+{% if menu %}
+<section id="menu" class="ns-section">
+  <div class="ns-container grid md:grid-cols-12 gap-10 md:gap-16">
+    <aside class="md:col-span-4 md:sticky md:top-24 md:self-start">
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">01 / Menyu</p>
+      <h2 class="font-heading text-4xl md:text-5xl font-bold tracking-tighter leading-[1.05]">
+        {{ menu.title|default:"Bizning takliflar" }}
+      </h2>
+      {% if menu.subtitle %}
+        <p class="text-base leading-relaxed text-muted mt-5">{{ menu.subtitle }}</p>
+      {% endif %}
+    </aside>
+    <div class="md:col-span-8 space-y-6">
+      {% for item in menu.items %}
+        <article class="flex items-start gap-5 pb-6"
+                 style="border-bottom:1px solid var(--color-border);">
+          {% if item.image %}
+            <div class="w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden bg-primary/5 shrink-0">
+              <img src="{{ item.image }}" alt="{{ item.name|default:item.title }}"
+                   class="w-full h-full object-cover">
+            </div>
+          {% endif %}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-3 mb-1">
+              <h3 class="font-heading text-xl md:text-2xl font-semibold">
+                {{ item.name|default:item.title }}
+              </h3>
+              {% if item.price %}
+                <span class="font-heading text-lg font-bold text-primary whitespace-nowrap">
+                  {{ item.price }}
+                </span>
+              {% endif %}
+            </div>
+            {% if item.description %}
+              <p class="text-sm md:text-base leading-relaxed text-muted">{{ item.description }}</p>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── ABOUT — overlapping image ────────────────────────── #}
+{% with about=sections.about %}
+{% if about %}
+<section id="about" class="ns-section relative">
+  <div class="ns-container grid md:grid-cols-2 gap-10 md:gap-20 items-center">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">02 / Biz haqimizda</p>
+      <h2 class="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tighter leading-[1.05] mb-6">
+        {{ about.title|default:"Bizning hikoyamiz" }}
+      </h2>
+      <div class="space-y-4 text-base md:text-lg leading-relaxed text-muted">
+        {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+        {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+        {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      </div>
+    </div>
+    {% if about.image %}
+      <div class="aspect-[4/5] rounded-3xl overflow-hidden">
+        <img src="{{ about.image }}" alt="{{ about.title }}" class="w-full h-full object-cover">
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── CTA — full bleed ─────────────────────────────────── #}
+{% with cta=sections.cta %}
+{% if cta %}
+<section class="py-20 md:py-32 bg-primary text-center">
+  <div class="ns-container">
+    <h2 class="font-heading text-4xl md:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.05] max-w-4xl mx-auto"
+        style="color: var(--color-bg);">
+      {{ cta.title|default:"Bizga tashrif buyuring" }}
+    </h2>
+    {% if cta.subtitle %}
+      <p class="text-base md:text-lg max-w-2xl mx-auto mt-6 mb-10 opacity-90"
+         style="color: var(--color-bg);">
+        {{ cta.subtitle }}
+      </p>
+    {% endif %}
+    {% with btn=cta.cta|default:cta.button %}
+      {% if btn %}
+        <a href="{{ btn.href|default:'#contact' }}"
+           class="inline-flex items-center justify-center px-10 py-4 rounded-full font-bold text-sm uppercase tracking-widest"
+           style="background-color: var(--color-bg); color: var(--color-primary);">
+          {{ btn.label|default:"Bog'lanish" }}
+        </a>
+      {% endif %}
+    {% endwith %}
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── CONTACT ──────────────────────────────────────────── #}
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section">
+  <div class="ns-container">
+    <div class="grid md:grid-cols-3 gap-8 md:gap-12">
+      <div class="md:col-span-1">
+        <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">03 / Aloqa</p>
+        <h2 class="font-heading text-4xl md:text-5xl font-bold tracking-tighter leading-[1.05]">
+          {{ contact.title|default:"Bog'lanish" }}
+        </h2>
+      </div>
+      <div class="md:col-span-2 grid sm:grid-cols-2 gap-6 md:gap-8 text-sm">
+        {% if contact.address or settings.address %}
+          <div>
+            <div class="text-[11px] uppercase tracking-widest text-muted mb-1">Manzil</div>
+            <div class="font-heading text-base md:text-lg font-semibold">
+              {{ contact.address|default:settings.address }}
+            </div>
+          </div>
+        {% endif %}
+        {% if contact.phone or settings.phone %}
+          <div>
+            <div class="text-[11px] uppercase tracking-widest text-muted mb-1">Telefon</div>
+            <a href="tel:{{ contact.phone|default:settings.phone }}"
+               class="font-heading text-base md:text-lg font-semibold hover:text-primary transition">
+              {{ contact.phone|default:settings.phone }}
+            </a>
+          </div>
+        {% endif %}
+        {% if contact.email or settings.email %}
+          <div>
+            <div class="text-[11px] uppercase tracking-widest text-muted mb-1">Email</div>
+            <a href="mailto:{{ contact.email|default:settings.email }}"
+               class="font-heading text-base md:text-lg font-semibold hover:text-primary transition">
+              {{ contact.email|default:settings.email }}
+            </a>
+          </div>
+        {% endif %}
+        {% if contact.hours %}
+          <div>
+            <div class="text-[11px] uppercase tracking-widest text-muted mb-1">Ish vaqti</div>
+            <div class="font-heading text-base md:text-lg font-semibold">{{ contact.hours }}</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+{# ── FOOTER ───────────────────────────────────────────── #}
+<footer class="py-10 text-center text-xs text-muted">
+  <div class="ns-container">
+    © {% now "Y" %} {{ site.title }} · NanoStUp
+  </div>
+</footer>
+
+{% endblock %}

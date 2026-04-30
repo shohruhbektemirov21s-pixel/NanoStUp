@@ -1,0 +1,71 @@
+{% load static %}<!DOCTYPE html>
+<html lang="{{ site.language|default:'uz' }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ meta.title }}</title>
+  <meta name="description" content="{{ meta.description }}">
+
+  {# Open Graph / Twitter — SEO #}
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ meta.title }}">
+  <meta property="og:description" content="{{ meta.description }}">
+  {% if meta.image %}<meta property="og:image" content="{{ meta.image }}">{% endif %}
+  <meta property="og:locale" content="{{ site.language|default:'uz' }}">
+  <meta name="twitter:card" content="summary_large_image">
+
+  {# Google Fonts — typography_variant'ga qarab #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ fonts.google }}&display=swap">
+
+  {# Tailwind build CSS #}
+  <link rel="stylesheet" href="{% static 'sites/styles.css' %}">
+
+  {# CSS variables — har sayt o'z palitrasi #}
+  <style>
+    :root {
+      --color-primary: {{ colors.primary }};
+      --color-accent:  {{ colors.accent }};
+      --color-bg:      {{ colors.bg }};
+      --color-surface: {{ colors.surface }};
+      --color-text:    {{ colors.text }};
+      --color-muted:   {{ colors.muted }};
+      --color-border:  {{ colors.border }};
+      --font-heading: {{ fonts.heading|safe }};
+      --font-body:    {{ fonts.body|safe }};
+    }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen antialiased">
+
+{% block content %}{% endblock %}
+
+{# Soft-lock overlay — hosting EXPIRED/SUSPENDED bo'lsa #}
+{% if site.is_locked and site.lock_message %}
+  <div class="ns-lock-overlay" role="alertdialog" aria-modal="true">
+    <div class="ns-lock-card">
+      <div class="text-5xl mb-4">🔒</div>
+      <h2 class="text-2xl font-bold mb-3">{{ site.lock_message.title }}</h2>
+      <p class="text-sm leading-relaxed mb-6 text-muted">
+        {{ site.lock_message.description }}
+      </p>
+      {% if site.lock_message.cta %}
+        <a href="/{{ site.language|default:'uz' }}/pricing"
+           class="ns-btn-primary">
+          {{ site.lock_message.cta }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{# Optional: faqat tahlil uchun, JS yo'q #}
+<noscript>
+  <style>.ns-lock-overlay { display: flex; }</style>
+</noscript>
+
+</body>
+</html>

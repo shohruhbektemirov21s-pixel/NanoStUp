@@ -1,0 +1,199 @@
+{% extends "sites/_partials/base.html" %}
+
+{# DEFAULT universal template — har qanday biznes turi uchun fallback. #}
+{# Restaurant/clinic/shop/portfolio template'lari mavjud bo'lmasa ishlatiladi. #}
+
+{% block content %}
+
+{# ── NAV ──────────────────────────────────────────────── #}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl md:text-2xl font-bold tracking-tight">
+    {{ site.title }}
+  </a>
+  <div class="hidden md:flex items-center gap-6 text-sm">
+    {% for s in page.sections %}
+      {% if s.type == 'features' or s.type == 'services' %}<a href="#features" class="hover:text-primary transition">Xizmatlar</a>{% endif %}
+      {% if s.type == 'about' %}<a href="#about" class="hover:text-primary transition">Biz haqimizda</a>{% endif %}
+      {% if s.type == 'contact' %}<a href="#contact" class="hover:text-primary transition">Aloqa</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% if settings.phone %}
+    <a href="tel:{{ settings.phone }}" class="ns-btn-outline hidden sm:inline-flex text-xs">
+      📞 {{ settings.phone }}
+    </a>
+  {% endif %}
+</nav>
+
+{# ── HERO ─────────────────────────────────────────────── #}
+{% with hero=sections.hero %}
+{% if hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container max-w-4xl text-center">
+    {% if hero.eyebrow %}
+      <p class="text-xs font-semibold uppercase tracking-[0.25em] mb-4 text-primary">
+        {{ hero.eyebrow }}
+      </p>
+    {% endif %}
+    <h1 class="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-6">
+      {{ hero.title|default:site.title }}
+    </h1>
+    {% if hero.subtitle or hero.description %}
+      <p class="text-base md:text-lg leading-relaxed text-muted max-w-2xl mx-auto mb-8">
+        {{ hero.subtitle|default:hero.description }}
+      </p>
+    {% endif %}
+    <div class="flex flex-wrap justify-center gap-3">
+      {% if hero.cta %}
+        <a href="{{ hero.cta.href|default:'#contact' }}" class="ns-btn-primary">
+          {{ hero.cta.label|default:"Boshlash" }}
+        </a>
+      {% endif %}
+      {% if hero.cta2 %}
+        <a href="{{ hero.cta2.href|default:'#about' }}" class="ns-btn-outline">
+          {{ hero.cta2.label|default:"Batafsil" }}
+        </a>
+      {% endif %}
+    </div>
+  </div>
+  {% if hero.image %}
+    <div class="ns-container mt-12">
+      <div class="aspect-[16/9] rounded-3xl overflow-hidden">
+        <img src="{{ hero.image }}" alt="{{ hero.title }}" class="w-full h-full object-cover">
+      </div>
+    </div>
+  {% endif %}
+</header>
+{% endif %}
+{% endwith %}
+
+{# ── FEATURES / SERVICES ──────────────────────────────── #}
+{% with features=sections.features|default:sections.services %}
+{% if features %}
+<section id="features" class="ns-section">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <h2 class="ns-section-title">{{ features.title|default:"Xizmatlarimiz" }}</h2>
+      {% if features.subtitle %}<p class="ns-section-subtitle mt-3">{{ features.subtitle }}</p>{% endif %}
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in features.items %}
+        <article class="ns-card">
+          {% if item.icon %}<div class="text-4xl mb-4">{{ item.icon }}</div>{% endif %}
+          <h3 class="font-heading text-xl font-semibold mb-2">
+            {{ item.title|default:item.name }}
+          </h3>
+          {% if item.description %}
+            <p class="text-sm leading-relaxed text-muted">{{ item.description }}</p>
+          {% endif %}
+          {% if item.price %}
+            <div class="font-heading text-lg font-bold text-primary mt-3">{{ item.price }}</div>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── ABOUT ────────────────────────────────────────────── #}
+{% with about=sections.about %}
+{% if about %}
+<section id="about" class="ns-section bg-surface">
+  <div class="ns-container grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+    {% if about.image %}
+      <div class="aspect-[4/3] rounded-3xl overflow-hidden order-last md:order-first">
+        <img src="{{ about.image }}" alt="{{ about.title }}" class="w-full h-full object-cover">
+      </div>
+    {% endif %}
+    <div>
+      <h2 class="ns-section-title">{{ about.title|default:"Biz haqimizda" }}</h2>
+      <div class="space-y-4 text-base leading-relaxed text-muted mt-6">
+        {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+        {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+        {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── CTA ──────────────────────────────────────────────── #}
+{% with cta=sections.cta %}
+{% if cta %}
+<section class="ns-section">
+  <div class="ns-container">
+    <div class="rounded-3xl p-10 md:p-16 text-center bg-primary">
+      <h2 class="font-heading text-3xl md:text-4xl font-bold mb-4 leading-tight"
+          style="color: var(--color-bg);">
+        {{ cta.title|default:"Boshlashga tayyormisiz?" }}
+      </h2>
+      {% if cta.subtitle %}
+        <p class="text-base md:text-lg max-w-2xl mx-auto mb-8 opacity-90"
+           style="color: var(--color-bg);">{{ cta.subtitle }}</p>
+      {% endif %}
+      {% with btn=cta.cta|default:cta.button %}
+        {% if btn %}
+          <a href="{{ btn.href|default:'#contact' }}"
+             class="inline-flex items-center justify-center px-8 py-3 rounded-full font-bold text-sm"
+             style="background-color: var(--color-bg); color: var(--color-primary);">
+            {{ btn.label|default:"Bog'lanish" }}
+          </a>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── CONTACT ──────────────────────────────────────────── #}
+{% with contact=sections.contact %}
+<section id="contact" class="ns-section">
+  <div class="ns-container max-w-3xl text-center">
+    <h2 class="ns-section-title">{{ contact.title|default:"Bog'lanish" }}</h2>
+    {% if contact.subtitle %}<p class="ns-section-subtitle mt-3 mb-10">{{ contact.subtitle }}</p>{% endif %}
+
+    <div class="grid sm:grid-cols-2 gap-6 text-base text-left mt-10">
+      {% if contact.address or settings.address %}
+        <div class="ns-card">
+          <div class="text-xs uppercase tracking-wider text-muted mb-1">📍 Manzil</div>
+          <div>{{ contact.address|default:settings.address }}</div>
+        </div>
+      {% endif %}
+      {% if contact.phone or settings.phone %}
+        <div class="ns-card">
+          <div class="text-xs uppercase tracking-wider text-muted mb-1">📞 Telefon</div>
+          <a href="tel:{{ contact.phone|default:settings.phone }}" class="hover:text-primary transition">
+            {{ contact.phone|default:settings.phone }}
+          </a>
+        </div>
+      {% endif %}
+      {% if contact.email or settings.email %}
+        <div class="ns-card">
+          <div class="text-xs uppercase tracking-wider text-muted mb-1">✉️ Email</div>
+          <a href="mailto:{{ contact.email|default:settings.email }}" class="hover:text-primary transition">
+            {{ contact.email|default:settings.email }}
+          </a>
+        </div>
+      {% endif %}
+      {% if contact.hours %}
+        <div class="ns-card">
+          <div class="text-xs uppercase tracking-wider text-muted mb-1">🕒 Ish vaqti</div>
+          <div>{{ contact.hours }}</div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted">
+  <div class="ns-container">
+    © {% now "Y" %} {{ site.title }}
+    <span class="opacity-60">— Powered by NanoStUp.</span>
+  </div>
+</footer>
+
+{% endblock %}

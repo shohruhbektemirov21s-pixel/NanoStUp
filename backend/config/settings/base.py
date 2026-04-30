@@ -76,6 +76,7 @@ INSTALLED_APPS = [
     "apps.website_projects",
     "apps.exports",
     "apps.notifications",
+    "apps.site_renderer",
 ]
 
 MIDDLEWARE = [

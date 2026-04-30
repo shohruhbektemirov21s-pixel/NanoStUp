@@ -767,14 +767,31 @@ def _build_design_constraint(design: Dict, palette: Dict) -> str:
         f'  "cornerRadius": "{design["cornerRadius"]}",\n'
         f'  "animation": "{design["animation"]}"\n'
         "}\n"
-        "\n--- AI ROLE: CONTENT + INTENT ONLY ---\n"
-        "You DO NOT choose layout, page order, section order, or template.\n"
-        "Backend chooses the template deterministically. Your job:\n"
-        "  1) Generate high-quality CONTENT (siteName, slogan, services,\n"
-        "     menu, FAQ, testimonials, contact info, CTAs, page texts).\n"
-        "  2) Optionally add design.intent hints (preferred_style,\n"
-        "     color_mood, business_tone). Backend respects them.\n"
-        "  3) Do NOT invent extra layoutPattern values.\n"
+        "\n--- AI ROLE: CONTENT ONLY (STRICT) ---\n"
+        "You are NOT a web designer. Do not create layout. Do not create HTML\n"
+        "structure. Only generate clean, structured CONTENT for an existing\n"
+        "Django HTML template that the backend will pick deterministically.\n"
+        "\n"
+        "Your output JSON keys (per page.sections[]):\n"
+        "  - hero:         { title, subtitle, eyebrow?, image?, cta?: {label, href}, cta2?: {...} }\n"
+        "  - menu/items:   [ { name, price, description, image? } ]   (restaurant)\n"
+        "  - features:     [ { title, description, icon?, price? } ]\n"
+        "  - services:     [ { title, description, price?, image? } ]\n"
+        "  - about:        { title, description?, text?, paragraphs?, image?, stats?, quote? }\n"
+        "  - gallery:      { title, images: [ { src, alt? } ] }\n"
+        "  - testimonials: { title, items: [ { author, role?, quote } ] }\n"
+        "  - faq:          { title, items: [ { question, answer } ] }\n"
+        "  - cta:          { title, subtitle?, cta: { label, href } }\n"
+        "  - contact:      { title, address?, phone?, email?, hours?, map_embed_url? }\n"
+        "\n"
+        "Strict rules:\n"
+        "  1) Do NOT invent custom section types — backend templates expect\n"
+        "     a fixed vocabulary above.\n"
+        "  2) Do NOT specify pixel sizes, columns count, grid layouts, or\n"
+        "     CSS class names. Backend handles all visual structure.\n"
+        "  3) Do NOT generate HTML, Markdown styling, or inline styles.\n"
+        "  4) Optionally add design.intent (preferred_style, color_mood,\n"
+        "     business_tone) — these influence backend template selection.\n"
         "=== END DESIGN CONSTRAINT ==="
     )
 
@@ -862,6 +879,24 @@ def _enrich_design_with_template(
         # Intent ham saqlanadi (frontend reference va keyingi revise uchun)
         if intent and any(intent.values()):
             enriched["intent"] = {k: v for k, v in intent.items() if v}
+
+        # ── REAL HTML TEMPLATE (Django SSR uchun) ─────────────────────
+        # apps/site_renderer template_picker bir xil seed orqali aniq HTML
+        # fayl yo'lini va color/typography variantlarini qaytaradi. Bu —
+        # publik /sites/<slug>/ render'i tomonidan ishlatiladi.
+        try:
+            from apps.site_renderer.template_picker import pick_html_template
+            html_choice = pick_html_template(niche=business_type, seed=seed)
+            enriched["html_path"]          = html_choice.html_path
+            enriched["template_variant"]   = html_choice.template_variant
+            enriched["color_variant"]      = html_choice.color_variant
+            # Eski "typography_variant" template_registry tomondan ham
+            # belgilanadi; agar farq bo'lsa — html picker'niki ustun.
+            enriched["typography_variant"] = html_choice.typography_variant
+            enriched["niche"]              = html_choice.niche
+        except Exception:
+            logger.warning("HTML template_picker ishlamadi", exc_info=True)
+
         return enriched, template.id, seed
     except Exception:
         logger.warning("Template registry'dan template tanlashda xatolik", exc_info=True)

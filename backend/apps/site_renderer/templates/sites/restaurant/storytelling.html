@@ -1,0 +1,199 @@
+{% extends "sites/_partials/base.html" %}
+
+{# STORYTELLING restaurant template — narrative, magazine-like, image-heavy. #}
+
+{% block content %}
+
+{# ── NAV ──────────────────────────────────────────────── #}
+<nav class="ns-container py-6 flex items-center justify-between">
+  <a href="/sites/{{ site.slug }}/" class="font-heading text-xl font-bold tracking-tight">
+    {{ site.title }}
+  </a>
+  <div class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-wider">
+    {% if sections.about %}<a href="#story" class="hover:text-primary transition">Hikoya</a>{% endif %}
+    {% if sections.menu %}<a href="#menu" class="hover:text-primary transition">Menyu</a>{% endif %}
+    {% if sections.gallery %}<a href="#moments" class="hover:text-primary transition">Damlar</a>{% endif %}
+    {% if sections.contact %}<a href="#visit" class="hover:text-primary transition">Tashrif</a>{% endif %}
+  </div>
+</nav>
+
+{# ── HERO — vertical, narrative ───────────────────────── #}
+{% with hero=sections.hero %}
+<header class="ns-section pt-12">
+  <div class="ns-container max-w-4xl text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-6 text-primary">
+      {{ hero.eyebrow|default:"Bir hikoya" }}
+    </p>
+    <h1 class="font-heading text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1] mb-8"
+        style="font-style: italic;">
+      {{ hero.title|default:site.title }}
+    </h1>
+    <p class="text-lg md:text-xl leading-relaxed text-muted max-w-2xl mx-auto mb-10">
+      {{ hero.subtitle|default:hero.description }}
+    </p>
+    {% if hero.cta %}
+      <a href="{{ hero.cta.href|default:'#story' }}" class="ns-btn-outline">
+        {{ hero.cta.label|default:"Hikoyani o'qish" }}
+      </a>
+    {% endif %}
+  </div>
+
+  {% if hero.image %}
+    <div class="ns-container mt-16 md:mt-20">
+      <div class="aspect-[16/9] rounded-3xl overflow-hidden">
+        <img src="{{ hero.image }}" alt="{{ hero.title }}" class="w-full h-full object-cover">
+      </div>
+    </div>
+  {% endif %}
+</header>
+{% endwith %}
+
+{# ── ABOUT (Story) ────────────────────────────────────── #}
+{% with about=sections.about %}
+{% if about %}
+<section id="story" class="ns-section">
+  <div class="ns-container max-w-3xl">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Bizning hikoya</p>
+    <h2 class="font-heading text-3xl md:text-5xl font-bold leading-[1.1] mb-8 tracking-tight">
+      {{ about.title|default:"Hammasi qanday boshlangan" }}
+    </h2>
+    <div class="prose prose-lg space-y-6 text-base md:text-lg leading-[1.8] text-muted">
+      {% if about.description %}<p>{{ about.description }}</p>{% endif %}
+      {% if about.text %}<p>{{ about.text }}</p>{% endif %}
+      {% for paragraph in about.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    </div>
+
+    {% if about.quote %}
+      <blockquote class="my-12 md:my-16 pl-6 md:pl-8 italic"
+                  style="border-left: 3px solid var(--color-primary);">
+        <p class="font-heading text-2xl md:text-3xl leading-snug">{{ about.quote }}</p>
+        {% if about.quote_author %}
+          <footer class="text-sm not-italic text-muted mt-3">— {{ about.quote_author }}</footer>
+        {% endif %}
+      </blockquote>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── MENU — minimal list, magazine-like ───────────────── #}
+{% with menu=sections.menu %}
+{% if menu %}
+<section id="menu" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl">
+    <div class="text-center mb-12">
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Menyu</p>
+      <h2 class="font-heading text-3xl md:text-5xl font-bold tracking-tight">
+        {{ menu.title|default:"Bugungi takliflarimiz" }}
+      </h2>
+    </div>
+    <ul class="divide-y" style="--tw-divide-opacity:1; border-color:var(--color-border);">
+      {% for item in menu.items %}
+        <li class="py-5 flex items-baseline gap-4"
+            style="border-bottom:1px solid var(--color-border);">
+          <span class="font-heading text-xl md:text-2xl font-semibold flex-shrink-0">
+            {{ item.name|default:item.title }}
+          </span>
+          <span class="flex-1 leading-none opacity-30 mx-2"
+                style="border-bottom: 2px dotted var(--color-muted); transform: translateY(-4px);"></span>
+          {% if item.price %}
+            <span class="font-heading text-lg md:text-xl font-bold text-primary whitespace-nowrap">
+              {{ item.price }}
+            </span>
+          {% endif %}
+          {% if item.description %}
+            <p class="text-sm text-muted ml-8 mt-2 max-w-xl">{{ item.description }}</p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── GALLERY — masonry feel ─────────────────────────────── #}
+{% with gallery=sections.gallery %}
+{% if gallery and gallery.images %}
+<section id="moments" class="ns-section">
+  <div class="ns-container">
+    <div class="text-center mb-12 max-w-2xl mx-auto">
+      <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Damlar</p>
+      <h2 class="font-heading text-3xl md:text-5xl font-bold tracking-tight">
+        {{ gallery.title|default:"Restoran tasvirlarda" }}
+      </h2>
+    </div>
+    <div class="columns-2 md:columns-3 gap-3 md:gap-4 space-y-3 md:space-y-4">
+      {% for img in gallery.images %}
+        <div class="rounded-2xl overflow-hidden break-inside-avoid">
+          <img src="{{ img.src|default:img }}" alt="{{ img.alt|default:'' }}"
+               class="w-full h-auto" loading="lazy">
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+{# ── CONTACT ──────────────────────────────────────────── #}
+{% with contact=sections.contact %}
+<section id="visit" class="ns-section bg-surface">
+  <div class="ns-container max-w-3xl text-center">
+    <p class="text-xs font-semibold uppercase tracking-[0.3em] mb-3 text-primary">Tashrif</p>
+    <h2 class="font-heading text-3xl md:text-5xl font-bold tracking-tight mb-10">
+      {{ contact.title|default:"Bizga keling" }}
+    </h2>
+
+    <div class="grid sm:grid-cols-2 gap-8 text-base">
+      {% if contact.address or settings.address %}
+        <div>
+          <div class="text-[11px] uppercase tracking-widest text-muted mb-2">Manzil</div>
+          <div class="font-heading text-lg">{{ contact.address|default:settings.address }}</div>
+        </div>
+      {% endif %}
+      {% if contact.phone or settings.phone %}
+        <div>
+          <div class="text-[11px] uppercase tracking-widest text-muted mb-2">Telefon</div>
+          <a href="tel:{{ contact.phone|default:settings.phone }}"
+             class="font-heading text-lg hover:text-primary transition">
+            {{ contact.phone|default:settings.phone }}
+          </a>
+        </div>
+      {% endif %}
+      {% if contact.email or settings.email %}
+        <div>
+          <div class="text-[11px] uppercase tracking-widest text-muted mb-2">Email</div>
+          <a href="mailto:{{ contact.email|default:settings.email }}"
+             class="font-heading text-lg hover:text-primary transition">
+            {{ contact.email|default:settings.email }}
+          </a>
+        </div>
+      {% endif %}
+      {% if contact.hours %}
+        <div>
+          <div class="text-[11px] uppercase tracking-widest text-muted mb-2">Ish vaqti</div>
+          <div class="font-heading text-lg">{{ contact.hours }}</div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if contact.cta or contact.button %}
+      {% with btn=contact.cta|default:contact.button %}
+        <a href="{{ btn.href|default:'#' }}" class="ns-btn-primary mt-12">
+          {{ btn.label|default:"Stol band qilish" }}
+        </a>
+      {% endwith %}
+    {% endif %}
+  </div>
+</section>
+{% endwith %}
+
+<footer class="py-10 text-center text-xs text-muted">
+  <div class="ns-container">
+    © {% now "Y" %} {{ site.title }} — Powered by NanoStUp
+  </div>
+</footer>
+
+{% endblock %}

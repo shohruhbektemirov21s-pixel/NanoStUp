@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────────────────────────
+   NanoStUp — publik sayt CSS asosi
+   Har sayt o'zining CSS variables (--color-primary, --font-heading)
+   bilan keladi (template ichidagi <style> orqali). Bu fayl faqat
+   utility class va component preset'lar uchun.
+   ─────────────────────────────────────────────────────────────── */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background-color: var(--color-bg);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--color-text);
+    line-height: 1.15;
+  }
+  a { color: inherit; }
+  img { max-width: 100%; height: auto; }
+}
+
+@layer components {
+  /* Container — barcha template'larda bir xil */
+  .ns-container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+    max-width: 1200px;
+  }
+
+  /* Tugma — primary */
+  .ns-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition;
+    background-color: var(--color-primary);
+    color: var(--color-bg);
+  }
+  .ns-btn-primary:hover { filter: brightness(0.92); transform: translateY(-1px); }
+
+  /* Tugma — outline */
+  .ns-btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition border-2;
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background-color: transparent;
+  }
+  .ns-btn-outline:hover {
+    background-color: var(--color-primary);
+    color: var(--color-bg);
+  }
+
+  /* Card */
+  .ns-card {
+    @apply rounded-2xl p-6;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  /* Section */
+  .ns-section {
+    @apply py-16 md:py-24;
+  }
+  .ns-section-title {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold mb-4 tracking-tight;
+  }
+  .ns-section-subtitle {
+    @apply text-base md:text-lg leading-relaxed;
+    color: var(--color-muted);
+  }
+
+  /* Soft-lock overlay */
+  .ns-lock-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md;
+    background-color: rgba(0, 0, 0, 0.55);
+  }
+  .ns-lock-card {
+    @apply max-w-md w-[90%] rounded-2xl p-8 text-center;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+}
+
+@layer utilities {
+  /* Niche-specific utility — primary asosida overlay/tint */
+  .bg-primary  { background-color: var(--color-primary) !important; }
+  .text-primary { color: var(--color-primary) !important; }
+  .border-primary { border-color: var(--color-primary) !important; }
+  .bg-accent   { background-color: var(--color-accent) !important; }
+  .text-accent { color: var(--color-accent) !important; }
+  .bg-surface  { background-color: var(--color-surface) !important; }
+  .text-muted  { color: var(--color-muted) !important; }
+}

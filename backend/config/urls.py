@@ -33,6 +33,9 @@ admin.site.login = _staff_required(admin.site.login)  # noqa: disable hint
 urlpatterns = [
     path(f"{ADMIN_URL}/", admin.site.urls),
 
+    # Publik HTML saytlar (Django SSR, minimal JS) — /sites/<slug>/
+    path("sites/", include("apps.site_renderer.urls")),
+
     # API endpoints
     path("api/accounts/", include("apps.accounts.urls")),
     path("api/subscriptions/", include("apps.subscriptions.urls")),
