@@ -675,3 +675,4 @@ def registry_stats() -> Dict[str, Any]:
 # sof random kerak bo'lsa
 def seeded_rng(seed: str) -> random.Random:
     return random.Random(_seed_to_int(seed))
+
