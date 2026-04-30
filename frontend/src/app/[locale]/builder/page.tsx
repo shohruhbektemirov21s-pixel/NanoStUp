@@ -544,23 +544,125 @@ function ChatBubble({
   );
 }
 
+// ── Generation messages — uz/ru/en lokalizatsiya ──────────────────
+// Sayt yaratilayotgan paytda foydalanuvchiga ko'rsatiladigan barcha
+// matnlar shu yerda. AGENTS.md / next.js best practice: i18n bo'lsa
+// ham, generation jarayoni juda dinamik (timer/steps) — server-fetched
+// next-intl o'rniga lokal const dictionary ishlatamiz.
+type BuildLang = 'uz' | 'ru' | 'en';
+
+interface BuildCopy {
+  title: string;
+  estimateShort: string;     // <30s
+  estimateMid: string;       // 30-90s
+  estimateLong: string;      // >90s
+  doNotLeave: string;        // banner: "Sahifadan chiqmang"
+  doNotLeaveDetail: string;  // tushuntirish
+  steps: string[];           // 5 ta bosqich
+  elapsedSuffix: string;     // "soniya o'tdi"
+  beforeUnload: string;      // browser confirm() matni
+  chatNotice: string;        // chatga avtomatik qo'shiladigan xabar
+  chatTyping: string;        // "Kod yozilmoqda…"
+  chatThinking: string;      // "AI tahlil qilmoqda…"
+}
+
+const BUILD_MESSAGES: Record<BuildLang, BuildCopy> = {
+  uz: {
+    title: 'Sun\'iy intellekt saytingizni yaratmoqda…',
+    estimateShort: '🤖 AI kod yozyapti — taxminan 30-60 soniya kuting',
+    estimateMid: '⏳ Murakkab sayt — 1-2 daqiqa ketishi mumkin',
+    estimateLong: '🔄 Deyarli tayyor, iltimos sahifadan chiqmay biroz kuting…',
+    doNotLeave: 'Sahifadan chiqmang!',
+    doNotLeaveDetail: 'Saytingiz tayyorlanyapti. Iltimos, ushbu sahifani yopmang yoki yangilamang — aks holda jarayon to\'xtaydi.',
+    steps: [
+      'Loyiha tahlil qilinmoqda',
+      'Sahifalar tuzilishi belgilanmoqda',
+      'Kontent yaratilmoqda',
+      'Dizayn va uslub qo\'llanilmoqda',
+      'Sayt yakunlanmoqda',
+    ],
+    elapsedSuffix: 'soniya o\'tdi',
+    beforeUnload: 'Sayt yaratilmoqda. Sahifadan chiqsangiz jarayon to\'xtaydi. Davom etasizmi?',
+    chatNotice: '🚀 **Saytingizni yaratishni boshladim!**\n\n⏱ Taxminiy vaqt: **30-90 soniya** (sayt murakkabligiga qarab).\n\n⚠️ **Iltimos, ushbu sahifadan chiqmang va yangilamang** — sun\'iy intellekt saytingizni yaratmoqda. Tayyor bo\'lishi bilanoq xabar beraman.',
+    chatTyping: 'Kod yozilmoqda — sahifadan chiqmang…',
+    chatThinking: 'AI tahlil qilmoqda…',
+  },
+  ru: {
+    title: 'Искусственный интеллект создаёт ваш сайт…',
+    estimateShort: '🤖 AI пишет код — подождите примерно 30-60 секунд',
+    estimateMid: '⏳ Сложный сайт — может занять 1-2 минуты',
+    estimateLong: '🔄 Почти готово, пожалуйста, не покидайте страницу…',
+    doNotLeave: 'Не покидайте страницу!',
+    doNotLeaveDetail: 'Ваш сайт сейчас создаётся. Не закрывайте и не обновляйте эту страницу — иначе процесс прервётся.',
+    steps: [
+      'Анализ проекта',
+      'Определение структуры страниц',
+      'Генерация контента',
+      'Применение дизайна и стиля',
+      'Финализация сайта',
+    ],
+    elapsedSuffix: 'сек прошло',
+    beforeUnload: 'Сайт создаётся. Если вы покинете страницу, процесс остановится. Продолжить?',
+    chatNotice: '🚀 **Начал создавать ваш сайт!**\n\n⏱ Примерное время: **30-90 секунд** (зависит от сложности).\n\n⚠️ **Пожалуйста, не покидайте и не обновляйте эту страницу** — искусственный интеллект сейчас создаёт ваш сайт. Я сообщу, как только всё будет готово.',
+    chatTyping: 'Пишу код — не уходите со страницы…',
+    chatThinking: 'AI анализирует…',
+  },
+  en: {
+    title: 'AI is building your website…',
+    estimateShort: '🤖 AI is writing code — about 30-60 seconds',
+    estimateMid: '⏳ Complex site — may take 1-2 minutes',
+    estimateLong: '🔄 Almost ready, please stay on this page…',
+    doNotLeave: 'Don\'t leave this page!',
+    doNotLeaveDetail: 'Your site is being created. Please don\'t close or refresh this page — the process will stop if you do.',
+    steps: [
+      'Analyzing your project',
+      'Designing page structure',
+      'Generating content',
+      'Applying design and style',
+      'Finalizing the site',
+    ],
+    elapsedSuffix: 'seconds elapsed',
+    beforeUnload: 'Your site is being generated. Leaving the page will cancel it. Continue?',
+    chatNotice: '🚀 **Started building your site!**\n\n⏱ Estimated time: **30-90 seconds** (depending on complexity).\n\n⚠️ **Please don\'t leave or refresh this page** — AI is creating your site. I\'ll notify you as soon as it\'s ready.',
+    chatTyping: 'Writing code — stay on this page…',
+    chatThinking: 'AI is thinking…',
+  },
+};
+
+function pickBuildCopy(locale: string): BuildCopy {
+  const key = (locale === 'ru' || locale === 'en') ? locale : 'uz';
+  return BUILD_MESSAGES[key as BuildLang];
+}
+
+// Build trigger regex — uz/ru/en bo'yicha "yarat / build / готово" iboralari.
+// Backend'dagi READY_TRIGGERS bilan sinxron bo'lishi kerak (services.py).
+// Match → user "saytni boshla" deb buyuryapti → chat-notice + beforeunload yoqamiz.
+const BUILD_TRIGGER_REGEX = /\b(qur|yarat|qilib\s+ber|tayyor|boshla|davom|mayli|tushundim|build|create|make|start|go|готово|давай|сделай|поехали|продолжай)\b/i;
+
+function looksLikeBuildTrigger(text: string): boolean {
+  if (!text) return false;
+  return BUILD_TRIGGER_REGEX.test(text);
+}
+
 // ── Generation Progress (preview da) ──────────────────────────────
 
-function GenerationProgress({ startTime }: { startTime: number }) {
+function GenerationProgress({ startTime, locale }: { startTime: number; locale: string }) {
   const [elapsed, setElapsed] = useState(0);
+  const copy = pickBuildCopy(locale);
 
   useEffect(() => {
     const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 500);
     return () => clearInterval(id);
   }, [startTime]);
 
-  const steps = [
-    { label: 'Loyiha tahlil qilinmoqda', done: elapsed > 3 },
-    { label: 'Sahifalar tuzilishi belgilanmoqda', done: elapsed > 8 },
-    { label: 'Kontent yaratilmoqda', done: elapsed > 15 },
-    { label: 'Dizayn va uslub qo\'llanilmoqda', done: elapsed > 22 },
-    { label: 'Sayt yakunlanmoqda', done: false },
-  ];
+  const steps = copy.steps.map((label, i) => ({
+    label,
+    done: i === 0 ? elapsed > 3
+        : i === 1 ? elapsed > 8
+        : i === 2 ? elapsed > 15
+        : i === 3 ? elapsed > 22
+        : false,
+  }));
   const activeStep = steps.filter(s => s.done).length;
   const progress = Math.min(95, (activeStep / steps.length) * 100 + (elapsed % 5) * 1.5);
 
@@ -574,10 +676,22 @@ function GenerationProgress({ startTime }: { startTime: number }) {
         <Sparkles className="w-8 h-8 text-white" />
       </motion.div>
 
-      <h2 className="text-xl font-black text-zinc-900 mb-1">Sayt yaratilmoqda…</h2>
-      <p className="text-zinc-400 text-sm mb-6">
-        {elapsed < 30 ? 'AI kodni yozmoqda, biroz kuting' : elapsed < 90 ? '⏳ Murakkab sayt — 1-2 daqiqa ketishi mumkin' : '🔄 Deyarli tayyor, iltimos kuting...'}
+      <h2 className="text-xl font-black text-zinc-900 mb-1">{copy.title}</h2>
+      <p className="text-zinc-400 text-sm mb-5">
+        {elapsed < 30 ? copy.estimateShort : elapsed < 90 ? copy.estimateMid : copy.estimateLong}
       </p>
+
+      {/* "Sahifadan chiqmang" — yorqin ogohlantirish banneri */}
+      <motion.div
+        initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-sm mb-5 px-4 py-3 rounded-2xl border border-amber-300 bg-amber-50 flex items-start gap-2.5"
+      >
+        <span className="text-lg leading-none mt-0.5">⚠️</span>
+        <div>
+          <div className="text-sm font-bold text-amber-900">{copy.doNotLeave}</div>
+          <div className="text-xs text-amber-800 leading-relaxed mt-0.5">{copy.doNotLeaveDetail}</div>
+        </div>
+      </motion.div>
 
       {/* Progress bar */}
       <div className="w-full max-w-sm bg-zinc-100 rounded-full h-2 mb-5 overflow-hidden">
@@ -610,7 +724,7 @@ function GenerationProgress({ startTime }: { startTime: number }) {
       {/* Timer */}
       <div className="flex items-center gap-1.5 text-zinc-400 text-xs">
         <Clock className="w-3.5 h-3.5" />
-        <span>{elapsed} soniya o'tdi</span>
+        <span>{elapsed} {copy.elapsedSuffix}</span>
       </div>
     </div>
   );
@@ -1042,6 +1156,17 @@ export default function BuilderPage() {
     setErrorMsg('');
     setIsGenerating(true);
 
+    // ── Build trigger announce (user "yarat / build / готово" deb yuborganda) ──
+    // Foydalanuvchi sayt yaratishni boshlash buyrug'i berdi → darhol uning tilida
+    // "AI saytni yaratyapti, sahifadan chiqmang" xabarini chatga qo'shamiz.
+    // Faqat REVISE rejimida emas (sayt allaqachon tayyor — bu tahrirlash).
+    const isReviseFlow = phase === 'done' && !!previewSchema;
+    if (!isReviseFlow && looksLikeBuildTrigger(text)) {
+      const copy = pickBuildCopy(locale);
+      // Bir oz kechiktirib qo'shamiz — user xabari ko'ringandan keyin chiroyliroq
+      setTimeout(() => addMsg('ai', copy.chatNotice), 250);
+    }
+
     const promptForApi = text || 'Rasmni tahlil qil va nima yordam kerakligini ayt.';
     const newHistory: HistoryItem[] = [...history, { role: 'user', content: promptForApi }];
 
@@ -1361,6 +1486,23 @@ export default function BuilderPage() {
       setPhase('building');
     }
   }, [isGenerating]);
+
+  // ── beforeunload guard ──────────────────────────────────────────
+  // Sayt yaratilayotgan paytda foydalanuvchi sahifani yopmoqchi bo'lsa
+  // brauzer "Are you sure?" dialogini ko'rsatsin — generatsiya bekor
+  // bo'lib ketmasligi uchun. Faqat isGenerating=true bo'lganda yoqamiz.
+  useEffect(() => {
+    if (!isGenerating) return;
+    const copy = pickBuildCopy(locale);
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Ko'p modern brauzerlar matnni o'zlari ko'rsatadi (returnValue legacy uchun)
+      e.returnValue = copy.beforeUnload;
+      return copy.beforeUnload;
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isGenerating, locale]);
 
   const handleReset = () => {
     setPreviewSchema(null);
@@ -1744,7 +1886,7 @@ export default function BuilderPage() {
               {/* Generatsiya jarayoni (eski animatsiya — faqat Preview rejimida) */}
               {isBuilding && buildStartTime && (
                 <motion.div key="building" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <GenerationProgress startTime={buildStartTime} />
+                  <GenerationProgress startTime={buildStartTime} locale={locale} />
                 </motion.div>
               )}
 
@@ -1945,13 +2087,13 @@ export default function BuilderPage() {
                 </div>
                 <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2">
                   {isBuilding
-                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" /><span className="text-xs text-zinc-400">Kod yozilmoqda…</span></>
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" /><span className="text-xs text-zinc-400">{pickBuildCopy(locale).chatTyping}</span></>
                     : <>
                         {[0, 1, 2].map(i => (
                           <motion.div key={i} className="w-1.5 h-1.5 rounded-full bg-blue-400"
                             animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }} />
                         ))}
-                        <span className="text-xs text-zinc-500 ml-1">AI tahlil qilmoqda…</span>
+                        <span className="text-xs text-zinc-500 ml-1">{pickBuildCopy(locale).chatThinking}</span>
                       </>}
                 </div>
               </motion.div>
