@@ -1505,6 +1505,15 @@ export default function BuilderPage() {
   }, [isGenerating, locale]);
 
   const handleReset = () => {
+    // ── Generatsiya ketayotgan bo'lsa to'xtatamiz ────────────────
+    // Foydalanuvchi "Yangi chat" bossa, joriy AI request bekor qilinishi shart
+    // (aks holda eski natija yangi chatga tushib qolardi).
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
+
     setPreviewSchema(null);
     setPreviewTitle('');
     setPreviewId(null);
@@ -1525,8 +1534,13 @@ export default function BuilderPage() {
     setPublishedSlug(null);
     setShowShareModal(false);
     setCopied(false);
+    setAttachedImages([]);
+    setPrompt('');
     // Yangi chat = yangi 500 bonus (backend tomonida yangi Conversation yaratiladi)
     setConversationId(null);
+    // URL'dan ?conversation=<eski-id> ni olib tashlaymiz — aks holda reload
+    // bilan eski suhbat qaytarilardi (bug-fix).
+    router.replace('/builder' as Parameters<typeof router.replace>[0]);
   };
 
   // Saytni publik URL orqali ulashish (publish)
