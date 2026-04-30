@@ -3,6 +3,7 @@ import logging
 import queue as _queue_module
 import random as _random
 import secrets
+import uuid
 import threading
 import time
 from collections import deque
@@ -766,12 +767,74 @@ def _build_design_constraint(design: Dict, palette: Dict) -> str:
         f'  "cornerRadius": "{design["cornerRadius"]}",\n'
         f'  "animation": "{design["animation"]}"\n'
         "}\n"
+        "\n--- AI ROLE: CONTENT + INTENT ONLY ---\n"
+        "You DO NOT choose layout, page order, section order, or template.\n"
+        "Backend chooses the template deterministically. Your job:\n"
+        "  1) Generate high-quality CONTENT (siteName, slogan, services,\n"
+        "     menu, FAQ, testimonials, contact info, CTAs, page texts).\n"
+        "  2) Optionally add design.intent hints (preferred_style,\n"
+        "     color_mood, business_tone). Backend respects them.\n"
+        "  3) Do NOT invent extra layoutPattern values.\n"
         "=== END DESIGN CONSTRAINT ==="
     )
 
 
+# ── Design intent extraction (prompt -> seed influence) ─────────────
+_INTENT_STYLE_KEYWORDS = {
+    "premium":  ["premium", "elite", "high-end", "vip"],
+    "minimal":  ["minimal", "sodda", "simple", "clean", "minimalist"],
+    "modern":   ["modern", "zamonaviy", "trendy", "yangi"],
+    "classic":  ["klassik", "classic", "an'anaviy", "ananaviy", "traditional"],
+    "luxury":   ["lyuks", "luxury", "boutique", "butik"],
+    "bold":     ["bold", "qattiq", "kreativ", "creative"],
+}
+_INTENT_MOOD_KEYWORDS = {
+    "warm":    ["iliq", "warm", "qizil", "issiq"],
+    "cool":    ["sovuq", "cool", "ko'k", "blue"],
+    "vibrant": ["yorqin", "vibrant", "rangli", "bright"],
+    "muted":   ["xira", "muted", "subtle", "yumshoq"],
+    "neutral": ["neytral", "neutral", "kulrang"],
+    "dark":    ["qora", "dark", "qorong'i", "tungi", "night"],
+}
+_INTENT_TONE_KEYWORDS = {
+    "professional": ["professional", "biznes", "business", "korporativ"],
+    "friendly":     ["do'stona", "dostona", "friendly", "yaqin"],
+    "playful":      ["o'yinqaroq", "playful", "qiziqarli", "fun"],
+    "luxurious":    ["lyuks", "luxury", "luxurious"],
+    "trustworthy":  ["ishonchli", "trustworthy", "trust", "xavfsiz"],
+}
+
+
+def _extract_design_intent(prompt: str) -> Dict[str, str]:
+    """Promptdan design intent kalit so'zlarini topadi."""
+    text = (prompt or "").lower()
+
+    def first_match(mapping: Dict[str, list]) -> str:
+        for key, words in mapping.items():
+            for w in words:
+                if w in text:
+                    return key
+        return ""
+
+    return {
+        "preferred_style": first_match(_INTENT_STYLE_KEYWORDS),
+        "color_mood":      first_match(_INTENT_MOOD_KEYWORDS),
+        "business_tone":   first_match(_INTENT_TONE_KEYWORDS),
+    }
+
+
+def _intent_seed_suffix(intent: Dict[str, str]) -> str:
+    """Intentdan seed suffix yaratadi (deterministik)."""
+    return ":".join([
+        intent.get("preferred_style") or "_",
+        intent.get("color_mood") or "_",
+        intent.get("business_tone") or "_",
+    ])
+
+
 def _enrich_design_with_template(
     business_type: str, design: Dict, palette: Dict,
+    intent: Optional[Dict[str, str]] = None,
 ) -> Tuple[Dict, str, str]:
     """
     Dizayn metadatasini template_registry'dan kelgan template_id,
@@ -786,11 +849,19 @@ def _enrich_design_with_template(
     """
     try:
         from .template_registry import pick_template, template_to_design_meta
-        template, seed = pick_template(business_type)
+        # Intent bo'lsa, seed suffix bilan template tanlovini influence qilamiz.
+        # Lekin har sayt yana noyob bo'lishi uchun random UUID prefiks ham qo'shamiz.
+        seed_input = None
+        if intent:
+            suffix = _intent_seed_suffix(intent)
+            if suffix and suffix != "_:_:_":
+                seed_input = f"{uuid.uuid4().hex}:{suffix}"
+        template, seed = pick_template(business_type, seed_input)
         meta = template_to_design_meta(template, seed)
-        # Mavjud design (style/layoutPattern/...) saqlanadi, ustiga template
-        # metadatasi qo'shiladi. Bir-biriga zid bo'lmaydi (turli kalitlar).
         enriched = {**design, **meta}
+        # Intent ham saqlanadi (frontend reference va keyingi revise uchun)
+        if intent and any(intent.values()):
+            enriched["intent"] = {k: v for k, v in intent.items() if v}
         return enriched, template.id, seed
     except Exception:
         logger.warning("Template registry'dan template tanlashda xatolik", exc_info=True)
@@ -1416,11 +1487,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     # Generatsiyadan oldin balansni tekshiramiz (auth user uchun)
                     logger.info("FINAL_SITE_SPEC aniqlandi, Claude generatsiya boshlandi")
                     _btype = _detect_business_type(prompt)
+                    _intent = _extract_design_intent(prompt)
                     _design, _palette = _pick_random_design(_btype)
-                    _design, _tpl_id, _seed = _enrich_design_with_template(_btype, _design, _palette)
+                    _design, _tpl_id, _seed = _enrich_design_with_template(_btype, _design, _palette, _intent)
                     _constraint = _build_design_constraint(_design, _palette)
-                    logger.info("Template tanlandi: niche=%s template_id=%s seed=%s",
-                                _btype, _tpl_id, _seed[:8] if _seed else "-")
+                    logger.info("Template tanlandi: niche=%s template_id=%s seed=%s intent=%s",
+                                _btype, _tpl_id, _seed[:8] if _seed else "-", _intent)
                     # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
                     _ctx = getattr(request, "_billing_ctx", None)
                     if isinstance(_ctx, dict):
@@ -1620,11 +1692,12 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 )
 
             _btype2 = _detect_business_type(prompt)
+            _intent2 = _extract_design_intent(prompt)
             _design2, _palette2 = _pick_random_design(_btype2)
-            _design2, _tpl_id2, _seed2 = _enrich_design_with_template(_btype2, _design2, _palette2)
+            _design2, _tpl_id2, _seed2 = _enrich_design_with_template(_btype2, _design2, _palette2, _intent2)
             _constraint2 = _build_design_constraint(_design2, _palette2)
-            logger.info("Template tanlandi (direct): niche=%s template_id=%s seed=%s",
-                        _btype2, _tpl_id2, _seed2[:8] if _seed2 else "-")
+            logger.info("Template tanlandi (direct): niche=%s template_id=%s seed=%s intent=%s",
+                        _btype2, _tpl_id2, _seed2[:8] if _seed2 else "-", _intent2)
             # Progressive billing FAQAT shu nuqtadan e'tiboran aktivlashadi.
             _ctx = getattr(request, "_billing_ctx", None)
             if isinstance(_ctx, dict):

@@ -335,6 +335,176 @@ TEMPLATES: List[Template] = [
     ),
 
     # ═══════════════════════════════════════════════════════════
+    # WEDDING (to'y/nikoh) (3 ta)
+    # ═══════════════════════════════════════════════════════════
+    Template(
+        id="wedding_romantic_v1",
+        niche="wedding",
+        name="Romantik to'y",
+        description="Hero → Hikoya → Galereya → Bron → Mehmonlar → Aloqa",
+        layout_variant="elegant",
+        typography_variant="serif",
+        density_variant="spacious",
+        sections=[_HERO, _ABOUT, _GALLERY, _booking(), _TESTIMONIALS, _CONTACT],
+    ),
+    Template(
+        id="wedding_modern_v1",
+        niche="wedding",
+        name="Zamonaviy to'y",
+        description="Hero → Stats → Xizmatlar → Galereya → Pricing → Aloqa",
+        layout_variant="modern",
+        typography_variant="display",
+        density_variant="comfortable",
+        sections=[_HERO, _STATS, _services(), _GALLERY, _pricing(), _CONTACT],
+    ),
+    Template(
+        id="wedding_classic_v1",
+        niche="wedding",
+        name="Klassik to'y",
+        description="Hero → Xizmatlar → Galereya → FAQ → Mijozlar → Aloqa",
+        layout_variant="classic",
+        typography_variant="serif",
+        density_variant="comfortable",
+        sections=[_HERO, _services(), _GALLERY, _FAQ, _TESTIMONIALS, _CONTACT],
+    ),
+
+    # ═══════════════════════════════════════════════════════════
+    # FINANCE (bank/sug'urta/invest) (3 ta)
+    # ═══════════════════════════════════════════════════════════
+    Template(
+        id="finance_trustworthy_v1",
+        niche="finance",
+        name="Ishonchli moliya",
+        description="Hero → Xizmatlar → Stats → Biz haqimizda → FAQ → Aloqa",
+        layout_variant="default",
+        typography_variant="sans",
+        density_variant="comfortable",
+        sections=[_HERO, _services(), _STATS, _ABOUT, _FAQ, _CONTACT],
+    ),
+    Template(
+        id="finance_corporate_v1",
+        niche="finance",
+        name="Korporativ moliya",
+        description="Hero → Stats → Xizmatlar → Jamoa → Mijozlar → CTA → Aloqa",
+        layout_variant="modern",
+        typography_variant="sans",
+        density_variant="comfortable",
+        sections=[_HERO, _STATS, _services(), _TEAM, _TESTIMONIALS, _CTA, _CONTACT],
+    ),
+    Template(
+        id="finance_premium_v1",
+        niche="finance",
+        name="Premium investitsiya",
+        description="Hero → Biz haqimizda → Xizmatlar → Pricing → Mijozlar → Aloqa",
+        layout_variant="elegant",
+        typography_variant="serif",
+        density_variant="spacious",
+        sections=[_HERO, _ABOUT, _services(), _pricing(), _TESTIMONIALS, _CONTACT],
+    ),
+
+    # ═══════════════════════════════════════════════════════════
+    # LEGAL (yuridik/advokat) (3 ta)
+    # ═══════════════════════════════════════════════════════════
+    Template(
+        id="legal_authority_v1",
+        niche="legal",
+        name="Mahkam advokatlik",
+        description="Hero → Xizmatlar → Biz haqimizda → Jamoa → Mijozlar → FAQ → Aloqa",
+        layout_variant="classic",
+        typography_variant="serif",
+        density_variant="comfortable",
+        sections=[_HERO, _services(), _ABOUT, _TEAM, _TESTIMONIALS, _FAQ, _CONTACT],
+    ),
+    Template(
+        id="legal_modern_v1",
+        niche="legal",
+        name="Zamonaviy yuridik",
+        description="Hero → Stats → Xizmatlar → Jamoa → CTA → Aloqa",
+        layout_variant="modern",
+        typography_variant="sans",
+        density_variant="comfortable",
+        sections=[_HERO, _STATS, _services(), _TEAM, _CTA, _CONTACT],
+    ),
+    Template(
+        id="legal_boutique_v1",
+        niche="legal",
+        name="Butik yuridik byuro",
+        description="Hero → Biz haqimizda → Jamoa → Xizmatlar → Mijozlar → Aloqa",
+        layout_variant="elegant",
+        typography_variant="serif",
+        density_variant="spacious",
+        sections=[_HERO, _ABOUT, _TEAM, _services(), _TESTIMONIALS, _CONTACT],
+    ),
+
+    # ═══════════════════════════════════════════════════════════
+    # EDUCATION (kurs/akademiya) (3 ta)
+    # ═══════════════════════════════════════════════════════════
+    Template(
+        id="education_academy_v1",
+        niche="education",
+        name="Akademiya",
+        description="Hero → Xizmatlar (kurslar) → Stats → Mualliflar → Mijozlar → FAQ → Aloqa",
+        layout_variant="default",
+        typography_variant="sans",
+        density_variant="comfortable",
+        sections=[_HERO, _services(), _STATS, _TEAM, _TESTIMONIALS, _FAQ, _CONTACT],
+    ),
+    Template(
+        id="education_bootcamp_v1",
+        niche="education",
+        name="Bootcamp / kurs",
+        description="Hero → Stats → Xizmatlar → Pricing → Mijozlar → CTA → Aloqa",
+        layout_variant="bold",
+        typography_variant="display",
+        density_variant="comfortable",
+        sections=[_HERO, _STATS, _services(), _pricing(), _TESTIMONIALS, _CTA, _CONTACT],
+    ),
+    Template(
+        id="education_kids_v1",
+        niche="education",
+        name="Bolalar maktabi",
+        description="Hero → Biz haqimizda → Xizmatlar → Galereya → Jamoa → Aloqa",
+        layout_variant="modern",
+        typography_variant="sans",
+        density_variant="comfortable",
+        sections=[_HERO, _ABOUT, _services(), _GALLERY, _TEAM, _CONTACT],
+    ),
+
+    # ═══════════════════════════════════════════════════════════
+    # HOTEL (mehmonxona/turizm) (3 ta)
+    # ═══════════════════════════════════════════════════════════
+    Template(
+        id="hotel_luxury_v1",
+        niche="hotel",
+        name="Lyuks mehmonxona",
+        description="Hero → Galereya → Xizmatlar → Pricing → Mijozlar → Bron → Aloqa",
+        layout_variant="elegant",
+        typography_variant="serif",
+        density_variant="spacious",
+        sections=[_HERO, _GALLERY, _services(), _pricing(), _TESTIMONIALS, _booking(), _CONTACT],
+    ),
+    Template(
+        id="hotel_resort_v1",
+        niche="hotel",
+        name="Resort/Kurort",
+        description="Hero → Stats → Galereya → Xizmatlar → Bron → Mijozlar → Aloqa",
+        layout_variant="modern",
+        typography_variant="display",
+        density_variant="comfortable",
+        sections=[_HERO, _STATS, _GALLERY, _services(), _booking(), _TESTIMONIALS, _CONTACT],
+    ),
+    Template(
+        id="hotel_boutique_v1",
+        niche="hotel",
+        name="Butik mehmonxona",
+        description="Hero → Biz haqimizda → Galereya → Xizmatlar → FAQ → Aloqa",
+        layout_variant="classic",
+        typography_variant="serif",
+        density_variant="comfortable",
+        sections=[_HERO, _ABOUT, _GALLERY, _services(), _FAQ, _CONTACT],
+    ),
+
+    # ═══════════════════════════════════════════════════════════
     # DEFAULT — fallback (har qanday biznes uchun) (1 ta)
     # ═══════════════════════════════════════════════════════════
     Template(
@@ -369,7 +539,6 @@ NICHE_ALIASES: Dict[str, str] = {
     "shop": "shop",
     "auto": "shop",
     "real_estate": "shop",
-    "hotel": "shop",
     # Creative family
     "portfolio": "portfolio",
     "agency": "portfolio",
@@ -378,11 +547,13 @@ NICHE_ALIASES: Dict[str, str] = {
     "music_event": "portfolio",
     # News family
     "news": "news",
-    "education": "news",
     "ngo": "news",
-    "legal": "news",
-    "finance": "news",
-    "wedding": "news",  # wedding ham editorial uslubni yaxshi qabul qiladi
+    # New dedicated niches
+    "wedding": "wedding",
+    "finance": "finance",
+    "legal": "legal",
+    "education": "education",
+    "hotel": "hotel",
 }
 
 

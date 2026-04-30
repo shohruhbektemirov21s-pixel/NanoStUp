@@ -450,3 +450,218 @@ class AdminProjectDetailView(APIView):
         title = p.title
         p.delete()
         return Response({"ok": True, "message": f"'{title}' o'chirildi."})
+
+
+# ── Hosting & Custom Domain (admin) ─────────────────────────────────
+
+class AdminHostingListView(APIView):
+    """Hosting holati bo'yicha saytlar ro'yxati (filter: status=ACTIVE|EXPIRED|...)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from apps.website_projects.models import HostingStatus
+
+        qs = WebsiteProject.objects.select_related("user").order_by("-updated_at")
+        status_f = (request.query_params.get("status") or "").strip().upper()
+        if status_f in HostingStatus.values:
+            qs = qs.filter(hosting_status=status_f)
+
+        domain_f = (request.query_params.get("custom_domain") or "").strip()
+        if domain_f == "true":
+            qs = qs.exclude(custom_domain="")
+        elif domain_f == "false":
+            qs = qs.filter(custom_domain="")
+
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 50)), 200))
+        except (TypeError, ValueError):
+            limit = 50
+
+        items = []
+        for p in qs[:limit]:
+            items.append({
+                "id": str(p.id),
+                "title": p.title,
+                "slug": p.slug,
+                "hosting_status": p.hosting_status,
+                "hosting_expires_at": p.hosting_expires_at.isoformat() if p.hosting_expires_at else None,
+                "days_until_expiry": p.days_until_expiry,
+                "is_locked": p.is_locked,
+                "is_live": p.is_live,
+                "custom_domain": p.custom_domain,
+                "custom_domain_verified": p.custom_domain_verified,
+                "suspension_reason": p.suspension_reason,
+                "user": {"id": p.user.id, "email": p.user.email},
+            })
+        return Response({"total": qs.count(), "items": items})
+
+
+class AdminSetHostingStatusView(APIView):
+    """Saytning hosting_status'ini admin qo'lda o'zgartiradi (ACTIVE/EXPIRED/SUSPENDED/ARCHIVED)."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, project_id):
+        from apps.website_projects.models import HostingStatus
+
+        try:
+            p = WebsiteProject.objects.get(id=project_id)
+        except WebsiteProject.DoesNotExist:
+            return Response({"error": "Topilmadi"}, status=404)
+
+        new_status = (request.data.get("status") or "").upper()
+        reason = (request.data.get("reason") or "").strip()[:255]
+        if new_status not in HostingStatus.values:
+            return Response({"error": "Status noto'g'ri"}, status=400)
+
+        p.hosting_status = new_status
+        if new_status == HostingStatus.SUSPENDED:
+            p.suspension_reason = reason or "Admin tomonidan to'xtatildi"
+        elif new_status == HostingStatus.ACTIVE:
+            p.suspension_reason = ""
+        p.save(update_fields=["hosting_status", "suspension_reason", "updated_at"])
+        return Response({
+            "ok": True,
+            "hosting_status": p.hosting_status,
+            "suspension_reason": p.suspension_reason,
+        })
+
+
+class AdminSetCustomDomainView(APIView):
+    """Saytning custom_domain'ini admin o'rnatadi/tasdiqlaydi."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, project_id):
+        try:
+            p = WebsiteProject.objects.get(id=project_id)
+        except WebsiteProject.DoesNotExist:
+            return Response({"error": "Topilmadi"}, status=404)
+
+        domain = (request.data.get("custom_domain") or "").strip().lower()[:253]
+        verified = request.data.get("custom_domain_verified")
+
+        updates = []
+        if "custom_domain" in request.data:
+            p.custom_domain = domain
+            updates.append("custom_domain")
+        if verified is not None:
+            p.custom_domain_verified = bool(verified)
+            updates.append("custom_domain_verified")
+        if updates:
+            updates.append("updated_at")
+            p.save(update_fields=updates)
+        return Response({
+            "ok": True,
+            "custom_domain": p.custom_domain,
+            "custom_domain_verified": p.custom_domain_verified,
+        })
+
+
+# ── Payments ────────────────────────────────────────────────────────
+
+class AdminPaymentsView(APIView):
+    """Barcha to'lovlar ro'yxati (filter: status, provider)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        try:
+            from apps.payments.models import PaymentTransaction, PaymentStatus
+        except Exception:
+            return Response({"total": 0, "items": []})
+
+        qs = PaymentTransaction.objects.select_related("user", "tariff").order_by("-created_at")
+        status_f = (request.query_params.get("status") or "").strip().upper()
+        if status_f in PaymentStatus.values:
+            qs = qs.filter(status=status_f)
+        provider = (request.query_params.get("provider") or "").strip()
+        if provider:
+            qs = qs.filter(provider=provider)
+
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 50)), 200))
+        except (TypeError, ValueError):
+            limit = 50
+
+        total = qs.count()
+        items = []
+        for t in qs[:limit]:
+            items.append({
+                "id": t.id,
+                "amount": str(t.amount),
+                "provider": t.provider,
+                "status": t.status,
+                "external_id": t.external_id,
+                "created_at": t.created_at.isoformat() if hasattr(t, "created_at") else None,
+                "user": {"id": t.user.id, "email": t.user.email},
+                "tariff": {"id": t.tariff.id, "name": t.tariff.name} if t.tariff else None,
+            })
+        return Response({"total": total, "items": items})
+
+
+# ── AI usage (nano coin sarfi) ──────────────────────────────────────
+
+class AdminAIUsageView(APIView):
+    """
+    Foydalanuvchilar bo'yicha nano coin balansi va so'nggi 30-kun
+    sayt generatsiyasi (token sarfi proxy).
+    """
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from django.db.models import Count
+
+        now = timezone.now()
+        last_30 = now - timedelta(days=30)
+
+        # Saytlar bo'yicha 30-kun aktivlik
+        proj_counts = dict(
+            WebsiteProject.objects
+            .filter(created_at__gte=last_30)
+            .values("user_id")
+            .annotate(c=Count("id"))
+            .values_list("user_id", "c")
+        )
+
+        try:
+            limit = max(1, min(int(request.query_params.get("limit", 100)), 500))
+        except (TypeError, ValueError):
+            limit = 100
+
+        users = User.objects.all().order_by("-tokens_balance")[:limit]
+        items = []
+        for u in users:
+            items.append({
+                "id": u.id,
+                "email": u.email,
+                "tokens_balance": u.tokens_balance,
+                "nano_coins": u.nano_coins,  # 30-day expiry hisobga olinadi
+                "sites_30d": proj_counts.get(u.id, 0),
+                "is_active": u.is_active,
+            })
+
+        return Response({
+            "summary": {
+                "total_tokens": sum(u.tokens_balance for u in users),
+                "active_users_30d": len(proj_counts),
+                "sites_created_30d": sum(proj_counts.values()),
+            },
+            "items": items,
+        })
+
+
+# ── Templates registry (read-only) ──────────────────────────────────
+
+class AdminTemplatesView(APIView):
+    """Template registry'dagi barcha template'larni ko'rsatadi."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        try:
+            from apps.website_projects.template_registry import (
+                list_all_templates, registry_stats,
+            )
+        except Exception:
+            return Response({"stats": {}, "items": []})
+        return Response({
+            "stats": registry_stats(),
+            "items": list_all_templates(),
+        })

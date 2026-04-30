@@ -60,13 +60,14 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'dashboard' | 'editor' | 'hosting' | 'settings';
+type Tab = 'view' | 'text' | 'design' | 'domain' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
-  { key: 'editor', label: 'Tahrirlash', icon: Wand2 },
-  { key: 'dashboard', label: 'Boshqaruv', icon: LayoutDashboard },
-  { key: 'hosting', label: 'Hosting', icon: Server },
-  { key: 'settings', label: 'Sozlamalar', icon: Settings },
+  { key: 'view',     label: "Ko'rish",       icon: Eye },
+  { key: 'text',     label: 'Matn',          icon: Wand2 },
+  { key: 'design',   label: 'Dizayn',        icon: Sparkles },
+  { key: 'domain',   label: 'Domen / Hosting', icon: Server },
+  { key: 'settings', label: 'Sozlamalar',    icon: Settings },
 ];
 
 const cardVariants = {
@@ -96,7 +97,7 @@ export default function SiteAdminPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [schemaText, setSchemaText] = useState('');
 
-  const [tab, setTab] = useState<Tab>('editor');
+  const [tab, setTab] = useState<Tab>('view');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Inline login form (NanoStUp asosiy login/register sahifasiga umuman olib bormaydi)
@@ -592,7 +593,18 @@ export default function SiteAdminPage() {
             <div className="rounded-2xl border border-white/5 bg-zinc-900 p-10 text-center text-zinc-500">
               Sayt topilmadi.
             </div>
-          ) : tab === 'editor' ? (
+          ) : tab === 'view' ? (
+            <ViewTab
+              site={site}
+              locale={locale}
+              schemaStats={schemaStats}
+              healthScore={healthScore}
+              onEditText={() => setTab('text')}
+              onEditDesign={() => setTab('design')}
+              onDownload={handleDownload}
+              downloading={downloading}
+            />
+          ) : tab === 'text' ? (
             <EditorTab
               schema={(() => {
                 try {
@@ -605,18 +617,14 @@ export default function SiteAdminPage() {
               saving={saving}
               onSave={handleSave}
             />
-          ) : tab === 'dashboard' ? (
-            <DashboardTab
-              site={site}
-              schemaStats={schemaStats}
-              healthScore={healthScore}
-              locale={locale}
-              onEditSettings={() => setTab('settings')}
-              onEditVisual={() => setTab('editor')}
-              onDownload={handleDownload}
-              downloading={downloading}
+          ) : tab === 'design' ? (
+            <DesignTab
+              schemaText={schemaText}
+              setSchemaText={setSchemaText}
+              saving={saving}
+              onSave={handleSave}
             />
-          ) : tab === 'hosting' ? (
+          ) : tab === 'domain' ? (
             <HostingTab site={site} locale={locale} />
           ) : (
             <SettingsTab

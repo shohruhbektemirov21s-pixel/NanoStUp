@@ -11,6 +11,12 @@ from .admin_api import (
     AdminTariffDetailView,
     AdminProjectsView,
     AdminProjectDetailView,
+    AdminHostingListView,
+    AdminSetHostingStatusView,
+    AdminSetCustomDomainView,
+    AdminPaymentsView,
+    AdminAIUsageView,
+    AdminTemplatesView,
 )
 
 urlpatterns = [
@@ -28,4 +34,14 @@ urlpatterns = [
     path('admin/tariffs/<int:tariff_id>/', AdminTariffDetailView.as_view(), name='admin_tariff_detail'),
     path('admin/projects/', AdminProjectsView.as_view(), name='admin_projects'),
     path('admin/projects/<uuid:project_id>/', AdminProjectDetailView.as_view(), name='admin_project_detail'),
+
+    # Hosting & custom domain management
+    path('admin/hosting/', AdminHostingListView.as_view(), name='admin_hosting_list'),
+    path('admin/hosting/<uuid:project_id>/status/', AdminSetHostingStatusView.as_view(), name='admin_hosting_status'),
+    path('admin/hosting/<uuid:project_id>/domain/', AdminSetCustomDomainView.as_view(), name='admin_hosting_domain'),
+
+    # Payments + AI usage + templates
+    path('admin/payments/', AdminPaymentsView.as_view(), name='admin_payments'),
+    path('admin/ai-usage/', AdminAIUsageView.as_view(), name='admin_ai_usage'),
+    path('admin/templates/', AdminTemplatesView.as_view(), name='admin_templates'),
 ]
