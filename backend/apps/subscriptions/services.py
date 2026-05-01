@@ -80,13 +80,17 @@ def activate_for_payment(payment) -> Subscription:
             month_reset_date=now.date() + timedelta(days=30),
         )
 
-        # 3. Nano koin grant
+        # 3. Nano koin grant (race-safe F() update — parallel webhook'larda ham to'g'ri)
         nano = tariff.nano_coins_included or 0
         tokens = nano * TOKENS_PER_NANO_COIN
         if tokens > 0:
-            user.tokens_balance = (user.tokens_balance or 0) + tokens
-            user.nano_coins_last_used_at = now  # 30-kunlik timer reset
-            user.save(update_fields=["tokens_balance", "nano_coins_last_used_at"])
+            from django.db.models import F
+            User = type(user)
+            User.objects.filter(pk=user.pk).update(
+                tokens_balance=F("tokens_balance") + tokens,
+                nano_coins_last_used_at=now,  # 30-kunlik timer reset
+            )
+            user.refresh_from_db(fields=["tokens_balance", "nano_coins_last_used_at"])
 
         # 4. EXPIRED saytlarni qayta tiklash (SaaS soft-lock)
         try:

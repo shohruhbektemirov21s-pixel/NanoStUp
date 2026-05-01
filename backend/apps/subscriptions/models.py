@@ -168,28 +168,23 @@ class Subscription(models.Model):
         self.refresh_from_db(fields=["sites_created_this_month", "projects_created"])
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        # Agar end_date kiritilmagan bo'lsa, tariff bo'yicha hisoblaymiz
-        if not self.end_date:
-            self.end_date = timezone.now() + timedelta(days=self.tariff.duration_days)
-            
+        # Agar end_date kiritilmagan bo'lsa, tariff bo'yicha hisoblaymiz.
+        # Duration_days xavfsiz oraliqda bo'lishi uchun cheklaymiz
+        # ("bepul" tarif kabilarida int64 max qiymat saqlanishi mumkin).
+        if not self.end_date and self.tariff_id:
+            days = self.tariff.duration_days or 30
+            if days <= 0 or days > 3650:
+                days = 3650
+            self.end_date = timezone.now() + timedelta(days=days)
+
         super().save(*args, **kwargs)
-        
-        # Yangi faol obuna yaratilganda nano koinlarni balansga qo'shish
-        if is_new and self.status == SubscriptionStatus.ACTIVE:
-            from django.contrib.auth import get_user_model
-            from django.utils import timezone
-            UserModel = get_user_model()
-            from apps.accounts.models import TOKENS_PER_NANO_COIN
-            nano_to_add = self.tariff.nano_coins_included
-            if nano_to_add > 0:
-                tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
-                from django.db.models import F
-                # Nano koin qo'shilganda — 30 kunlik timer ham qaytadan boshlanadi
-                UserModel.objects.filter(pk=self.user.pk).update(
-                    tokens_balance=F("tokens_balance") + tokens_to_add,
-                    nano_coins_last_used_at=timezone.now(),
-                )
+
+        # ⚠️ MUHIM: nano koin BU YERDA BERILMAYDI.
+        # Token (nano koin) grant faqat `apps.subscriptions.services.activate_for_payment`
+        # orqali beriladi — bu funksiya to'lov MUVAFFAQIYATLI tasdiqlanganda
+        # (WLCM/Payme/Click webhook, SMS verify, yoki admin manual confirm)
+        # chaqiriladi. Aks holda foydalanuvchi to'lov qilmasdan turib
+        # token olib qolardi (bu katta xavf edi).
 
     def __str__(self):
         return f"{self.user.email} - {self.tariff.name}"
