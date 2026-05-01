@@ -340,3 +340,11 @@ def webhook_click(request):
 def webhook_paynet(request):
     """Paynet callback."""
     return PROVIDERS["paynet"]["handle_webhook"](request)
+
+
+@csrf_exempt
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def webhook_wlcm(request):
+    """WLCM (https://docs.wlcm.uz/webhook) callback. Imzo gateway ichida tekshiriladi."""
+    return PROVIDERS["wlcm"]["handle_webhook"](request)

@@ -18,6 +18,7 @@ from typing import Dict, Callable
 from . import click as click_gw
 from . import paynet as paynet_gw
 from . import payme as payme_gw
+from . import wlcm as wlcm_gw
 
 
 PROVIDERS: Dict[str, Dict[str, Callable]] = {
@@ -36,6 +37,13 @@ PROVIDERS: Dict[str, Dict[str, Callable]] = {
         "handle_webhook": paynet_gw.handle_webhook,
         "label": "Paynet",
     },
+    # WLCM — agregator: bitta API orqali Payme/Click/Paylov/Uzum/Card
+    # https://docs.wlcm.uz/
+    "wlcm": {
+        "build_checkout_url": wlcm_gw.build_checkout_url,
+        "handle_webhook": wlcm_gw.handle_webhook,
+        "label": "WLCM",
+    },
 }
 
-__all__ = ["PROVIDERS", "payme_gw", "click_gw", "paynet_gw"]
+__all__ = ["PROVIDERS", "payme_gw", "click_gw", "paynet_gw", "wlcm_gw"]

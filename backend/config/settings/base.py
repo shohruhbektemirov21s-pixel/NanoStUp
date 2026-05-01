@@ -48,6 +48,18 @@ PAYNET_PASSWORD = env("PAYNET_PASSWORD", default="")
 PAYNET_TERMINAL_ID = env("PAYNET_TERMINAL_ID", default="")
 PAYNET_CHECKOUT_URL = env("PAYNET_CHECKOUT_URL", default="")
 
+# WLCM (https://wlcm.uz / https://docs.wlcm.uz/) — agregator
+# Bitta API orqali Payme / Click / Paylov / Uzum / Card to'lovlarini
+# yig'a oladi. HMAC-SHA256 bilan imzolanadigan REST API.
+WLCM_API_KEY = env("WLCM_API_KEY", default="")
+WLCM_API_SECRET = env("WLCM_API_SECRET", default="")
+WLCM_BASE_URL = env("WLCM_BASE_URL", default="https://api.wlcm.uz")
+WLCM_CHECKOUT_PATH = env("WLCM_CHECKOUT_PATH", default="/api/v1/integrations/checkout")
+# Default sub-provider WLCM ichida: payme | click | paylov | uzum | card
+WLCM_DEFAULT_PROVIDER = env("WLCM_DEFAULT_PROVIDER", default="payme")
+WLCM_VERIFY_WEBHOOK_SIGNATURE = env.bool("WLCM_VERIFY_WEBHOOK_SIGNATURE", default=True)
+WLCM_HTTP_TIMEOUT = env.int("WLCM_HTTP_TIMEOUT", default=15)
+
 # Application definition
 INSTALLED_APPS = [
     "unfold",
