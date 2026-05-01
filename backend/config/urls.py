@@ -1,11 +1,24 @@
 import environ
 from django.contrib import admin
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, HttpResponseRedirect
+from django.shortcuts import redirect
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
+
+def _root_redirect(request):
+    """
+    Backend root `/`: to'lov query paramlari bo'lsa natija sahifasiga,
+    aks holda frontend'ga yo'naltiramiz.
+    """
+    if request.GET.get("payment_id") or request.GET.get("status"):
+        qs = request.META.get("QUERY_STRING", "")
+        return HttpResponseRedirect(f"/api/payments/result/?{qs}" if qs else "/api/payments/result/")
+    frontend = getattr(settings, "PAYMENT_RETURN_URL", "") or "https://nanostup.uz"
+    return HttpResponseRedirect(frontend)
 
 env = environ.Env()
 
@@ -31,6 +44,9 @@ def _staff_required(view):
 admin.site.login = _staff_required(admin.site.login)  # noqa: disable hint
 
 urlpatterns = [
+    # Backend root — to'lov callback paramlari bo'lsa natija sahifasiga
+    path("", _root_redirect, name="root-redirect"),
+
     path(f"{ADMIN_URL}/", admin.site.urls),
 
     # Publik HTML saytlar (Django SSR, minimal JS) — /sites/<slug>/

@@ -392,7 +392,7 @@ _SANDBOX_PAGE_TEMPLATE = """<!doctype html>
   </div>
   <input type="hidden" name="csrfmiddlewaretoken" value=""/>
   <div class="actions">
-    <button type="button" class="cancel" onclick="window.location.href='__RETURN_URL__?status=cancelled'">Bekor qilish</button>
+    <button type="button" class="cancel" onclick="window.location.href='__RETURN_URL__'">Bekor qilish</button>
     <button type="submit" name="action" value="confirm" class="pay">✓ To'lovni tasdiqlash</button>
   </div>
   <div class="note">
@@ -400,6 +400,136 @@ _SANDBOX_PAGE_TEMPLATE = """<!doctype html>
   </div>
 </form>
 </body></html>"""
+
+
+_RESULT_PAGE_TEMPLATE = """<!doctype html>
+<html lang="uz"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>__TITLE__</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:linear-gradient(135deg,#1a0b2e 0%,#0f1729 100%);
+       min-height:100vh;display:flex;align-items:center;justify-content:center;
+       color:#fff;padding:20px}
+  .card{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);
+        border:1px solid rgba(255,255,255,0.1);border-radius:24px;
+        padding:48px 40px;max-width:480px;width:100%;text-align:center}
+  .icon{width:88px;height:88px;border-radius:50%;margin:0 auto 24px;
+        display:flex;align-items:center;justify-content:center;font-size:48px;
+        animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+  .icon.success{background:linear-gradient(135deg,#10b981,#059669);
+                box-shadow:0 0 60px rgba(16,185,129,.4)}
+  .icon.cancel{background:linear-gradient(135deg,#ef4444,#dc2626);
+               box-shadow:0 0 60px rgba(239,68,68,.3)}
+  @keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+  h1{font-size:28px;font-weight:900;margin-bottom:12px}
+  p{color:#a1a1aa;line-height:1.6;margin-bottom:24px;font-size:15px}
+  .info{background:rgba(255,255,255,0.03);border-radius:16px;padding:16px;
+        margin:24px 0;text-align:left;font-size:13px}
+  .info-row{display:flex;justify-content:space-between;padding:6px 0}
+  .info-label{color:#71717a}
+  .info-value{color:#fff;font-weight:600}
+  .btn{display:inline-block;padding:14px 32px;border-radius:14px;
+       font-weight:700;text-decoration:none;transition:transform .15s;
+       background:linear-gradient(135deg,#a855f7,#3b82f6);color:#fff;margin-top:8px}
+  .btn:hover{transform:translateY(-2px)}
+  .countdown{font-size:11px;color:#71717a;margin-top:16px}
+</style>
+</head><body>
+<div class="card">
+  <div class="icon __ICON_CLASS__">__ICON_EMOJI__</div>
+  <h1>__TITLE__</h1>
+  <p>__MESSAGE__</p>
+  __INFO_HTML__
+  <a href="__FRONTEND_URL__" class="btn">__BUTTON_TEXT__</a>
+  <div class="countdown">__COUNTDOWN_TEXT__</div>
+</div>
+<script>
+  (function(){
+    var url = "__FRONTEND_URL__";
+    var sec = 5;
+    var el = document.querySelector('.countdown');
+    var timer = setInterval(function(){
+      sec--;
+      if(sec <= 0){ clearInterval(timer); window.location.href = url; return; }
+      if(el) el.textContent = sec + ' soniyadan so\\'ng avtomatik qaytasiz…';
+    }, 1000);
+  })();
+</script>
+</body></html>"""
+
+
+def _frontend_url() -> str:
+    """Foydalanuvchini qaytarish uchun frontend URL — env yoki default."""
+    url = getattr(dj_settings, "PAYMENT_RETURN_URL", "") or ""
+    if url:
+        return url
+    # Default: nanostup.uz frontendiga qaytaramiz
+    return "https://nanostup.uz"
+
+
+@require_http_methods(["GET"])
+def payment_result(request):
+    """
+    To'lovdan keyin qaytish sahifasi (backend hosted) — chiroyli natija
+    ekrani, 5 sekunddan so'ng frontend'ga avtomatik redirect.
+
+    Query: ?payment_id=<id>&status=success|cancelled
+    """
+    from django.utils.html import escape
+    status_q = (request.GET.get("status") or "").lower()
+    payment_id = request.GET.get("payment_id") or ""
+
+    success = status_q == "success"
+    frontend = _frontend_url()
+
+    info_html = ""
+    try:
+        if payment_id:
+            p = PaymentTransaction.objects.select_related("tariff", "user").get(pk=int(payment_id))
+            nano = (p.tariff.nano_coins_included or 0) if p.tariff_id else 0
+            info_html = (
+                '<div class="info">'
+                f'<div class="info-row"><span class="info-label">Tarif</span>'
+                f'<span class="info-value">{escape(p.tariff.name if p.tariff_id else "—")}</span></div>'
+                f'<div class="info-row"><span class="info-label">Summa</span>'
+                f'<span class="info-value">{float(p.amount or 0):,.0f} so\'m</span></div>'
+                f'<div class="info-row"><span class="info-label">Nano koin</span>'
+                f'<span class="info-value">+{nano:,}</span></div>'
+                f'<div class="info-row"><span class="info-label">Order</span>'
+                f'<span class="info-value">#{p.id}</span></div>'
+                '</div>'
+            )
+    except (PaymentTransaction.DoesNotExist, ValueError, TypeError):
+        pass
+
+    if success:
+        replacements = {
+            "__TITLE__": "Tarif faollashtirildi! 🎉",
+            "__ICON_CLASS__": "success",
+            "__ICON_EMOJI__": "✓",
+            "__MESSAGE__": "To'lovingiz muvaffaqiyatli qabul qilindi. Nano koinlar hisobingizga qo'shildi va barcha premium imkoniyatlar ochiq.",
+            "__BUTTON_TEXT__": "Bosh sahifaga qaytish →",
+            "__COUNTDOWN_TEXT__": "5 soniyadan so'ng avtomatik qaytasiz…",
+        }
+    else:
+        replacements = {
+            "__TITLE__": "To'lov bekor qilindi",
+            "__ICON_CLASS__": "cancel",
+            "__ICON_EMOJI__": "✕",
+            "__MESSAGE__": "Siz to'lovni bekor qildingiz. Hech qanday pul yechilmadi. Istasangiz qaytadan urinib ko'rishingiz mumkin.",
+            "__BUTTON_TEXT__": "Orqaga qaytish",
+            "__COUNTDOWN_TEXT__": "5 soniyadan so'ng avtomatik qaytasiz…",
+        }
+
+    html = _RESULT_PAGE_TEMPLATE
+    for k, v in replacements.items():
+        html = html.replace(k, v)
+    html = html.replace("__INFO_HTML__", info_html if success else "")
+    html = html.replace("__FRONTEND_URL__", frontend)
+    return HttpResponse(html)
 
 
 @csrf_exempt
@@ -415,14 +545,14 @@ def wlcm_sandbox(request, payment_id: int):
     except PaymentTransaction.DoesNotExist:
         return HttpResponse("To'lov topilmadi", status=404)
 
-    return_url = getattr(dj_settings, "PAYMENT_RETURN_URL", "") or "/"
+    # Bekor qilish / muvaffaqiyat natija sahifasiga yo'naltiramiz
+    result_path = f"/api/payments/result/?payment_id={payment.id}"
 
     if request.method == "POST" and request.POST.get("action") == "confirm":
         from apps.subscriptions.services import activate_for_payment
         if payment.status != PaymentStatus.SUCCESS:
             activate_for_payment(payment)
-        target = f"{return_url}?payment_id={payment.id}&status=success"
-        return redirect(target)
+        return redirect(f"{result_path}&status=success")
 
     html = (
         _SANDBOX_PAGE_TEMPLATE
@@ -430,6 +560,6 @@ def wlcm_sandbox(request, payment_id: int):
         .replace("__TARIFF__", payment.tariff.name if payment.tariff_id else "—")
         .replace("__EMAIL__", payment.user.email if payment.user_id else "—")
         .replace("__PAYMENT_ID__", str(payment.id))
-        .replace("__RETURN_URL__", return_url or "/")
+        .replace("__RETURN_URL__", f"{result_path}&status=cancelled")
     )
     return HttpResponse(html)

@@ -11,6 +11,7 @@ from .views import (
     webhook_paynet,
     webhook_wlcm,
     wlcm_sandbox,
+    payment_result,
 )
 
 urlpatterns = [
@@ -22,6 +23,8 @@ urlpatterns = [
     path("webhook/wlcm/", webhook_wlcm, name="payment-webhook-wlcm"),
     # WLCM sandbox — kalitlarsiz to'lov simulyatsiyasi (dev/test)
     path("wlcm-sandbox/<int:payment_id>/", wlcm_sandbox, name="payment-wlcm-sandbox"),
+    # Natija sahifasi (success/cancelled) — har qanday to'lov tizimidan keyin
+    path("result/", payment_result, name="payment-result"),
 
     # SMS-mock (test rejimi)
     path("initiate/", initiate_payment, name="payment-initiate"),
