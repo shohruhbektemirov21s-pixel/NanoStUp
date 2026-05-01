@@ -18,9 +18,13 @@ import logging
 import secrets
 from datetime import timedelta
 
+from django.conf import settings as dj_settings
 from django.db import transaction
+from django.http import HttpResponse
+from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -269,6 +273,10 @@ def create_checkout(request):
     )
 
     url = PROVIDERS[provider]["build_checkout_url"](payment)
+    # Agar relative path qaytgan bo'lsa (masalan WLCM sandbox) —
+    # joriy request domenini qo'shib beramiz, frontend to'g'ri redirect qilsin.
+    if url and url.startswith("/"):
+        url = request.build_absolute_uri(url)
     if not url:
         payment.status = PaymentStatus.FAILED
         payment.save(update_fields=["status", "updated_at"])
@@ -322,3 +330,106 @@ def webhook_paynet(request):
 def webhook_wlcm(request):
     """WLCM (https://docs.wlcm.uz/webhook) callback. Imzo gateway ichida tekshiriladi."""
     return PROVIDERS["wlcm"]["handle_webhook"](request)
+
+
+# ═════════════════════════════════════════════════════════════════════
+# WLCM SANDBOX — kalitlarsiz to'lov simulyatsiyasi (test/dev)
+# ═════════════════════════════════════════════════════════════════════
+
+_SANDBOX_PAGE_TEMPLATE = """<!doctype html>
+<html lang="uz"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>WLCM Sandbox — To'lovni tasdiqlash</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:linear-gradient(135deg,#1a0b2e 0%,#0f1729 100%);
+       min-height:100vh;display:flex;align-items:center;justify-content:center;
+       color:#fff;padding:20px}
+  .card{background:rgba(255,255,255,0.05);backdrop-filter:blur(20px);
+        border:1px solid rgba(255,255,255,0.1);border-radius:24px;
+        padding:40px;max-width:480px;width:100%}
+  .badge{display:inline-block;background:#f59e0b;color:#000;padding:4px 12px;
+         border-radius:12px;font-size:11px;font-weight:700;letter-spacing:.5px;margin-bottom:16px}
+  .logo{width:64px;height:64px;border-radius:16px;
+        background:linear-gradient(135deg,#a855f7,#3b82f6);
+        display:flex;align-items:center;justify-content:center;
+        font-size:32px;font-weight:900;margin-bottom:20px}
+  h1{font-size:24px;margin-bottom:8px;font-weight:800}
+  p{color:#a1a1aa;margin-bottom:24px;line-height:1.5;font-size:14px}
+  .row{display:flex;justify-content:space-between;padding:12px 0;
+       border-bottom:1px solid rgba(255,255,255,0.06);font-size:14px}
+  .row:last-child{border:0}
+  .label{color:#71717a}
+  .value{color:#fff;font-weight:600}
+  .amount{font-size:32px;font-weight:900;text-align:center;margin:24px 0;
+          background:linear-gradient(135deg,#a855f7,#3b82f6);
+          -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .actions{display:flex;gap:12px;margin-top:24px}
+  button{flex:1;padding:14px;border-radius:14px;border:0;font-weight:700;
+         font-size:14px;cursor:pointer;transition:transform .1s}
+  button:hover{transform:translateY(-1px)}
+  .pay{background:linear-gradient(135deg,#a855f7,#3b82f6);color:#fff}
+  .cancel{background:rgba(255,255,255,0.05);color:#a1a1aa;
+          border:1px solid rgba(255,255,255,0.1)}
+  .note{margin-top:20px;padding:12px;background:rgba(245,158,11,0.1);
+        border:1px solid rgba(245,158,11,0.3);border-radius:12px;
+        font-size:11px;color:#fbbf24;line-height:1.5}
+</style>
+</head><body>
+<form class="card" method="post">
+  <span class="badge">SANDBOX • TEST MODE</span>
+  <div class="logo">W</div>
+  <h1>WLCM to'lovni tasdiqlash</h1>
+  <p>Bu test rejim. Haqiqiy pul yechilmaydi — tugmani bossangiz, tarif darhol faollashtiriladi.</p>
+  <div class="amount">__AMOUNT__ so'm</div>
+  <div>
+    <div class="row"><span class="label">Tarif</span><span class="value">__TARIFF__</span></div>
+    <div class="row"><span class="label">Foydalanuvchi</span><span class="value">__EMAIL__</span></div>
+    <div class="row"><span class="label">Order ID</span><span class="value">#__PAYMENT_ID__</span></div>
+    <div class="row"><span class="label">Provider</span><span class="value">WLCM Sandbox</span></div>
+  </div>
+  <input type="hidden" name="csrfmiddlewaretoken" value=""/>
+  <div class="actions">
+    <button type="button" class="cancel" onclick="window.location.href='__RETURN_URL__?status=cancelled'">Bekor qilish</button>
+    <button type="submit" name="action" value="confirm" class="pay">✓ To'lovni tasdiqlash</button>
+  </div>
+  <div class="note">
+    💡 Production'da haqiqiy WLCM kalitlari (.env: <code>WLCM_API_KEY</code>, <code>WLCM_API_SECRET</code>) bo'lganida bu sahifa o'rniga haqiqiy WLCM checkout sahifasi ochiladi.
+  </div>
+</form>
+</body></html>"""
+
+
+@csrf_exempt
+@require_http_methods(["GET", "POST"])
+def wlcm_sandbox(request, payment_id: int):
+    """
+    WLCM Sandbox sahifasi — kalitlar yo'q paytda haqiqiy to'lov o'rniga
+    chiqadi. POST kelganda PaymentTransaction'ni SUCCESS qiladi va
+    `PAYMENT_RETURN_URL` ga redirect qiladi (xuddi haqiqiy WLCM kabi).
+    """
+    try:
+        payment = PaymentTransaction.objects.select_related("user", "tariff").get(pk=payment_id)
+    except PaymentTransaction.DoesNotExist:
+        return HttpResponse("To'lov topilmadi", status=404)
+
+    return_url = getattr(dj_settings, "PAYMENT_RETURN_URL", "") or "/"
+
+    if request.method == "POST" and request.POST.get("action") == "confirm":
+        from apps.subscriptions.services import activate_for_payment
+        if payment.status != PaymentStatus.SUCCESS:
+            activate_for_payment(payment)
+        target = f"{return_url}?payment_id={payment.id}&status=success"
+        return redirect(target)
+
+    html = (
+        _SANDBOX_PAGE_TEMPLATE
+        .replace("__AMOUNT__", f"{float(payment.amount or 0):,.0f}")
+        .replace("__TARIFF__", payment.tariff.name if payment.tariff_id else "—")
+        .replace("__EMAIL__", payment.user.email if payment.user_id else "—")
+        .replace("__PAYMENT_ID__", str(payment.id))
+        .replace("__RETURN_URL__", return_url or "/")
+    )
+    return HttpResponse(html)

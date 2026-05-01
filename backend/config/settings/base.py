@@ -59,6 +59,9 @@ WLCM_CHECKOUT_PATH = env("WLCM_CHECKOUT_PATH", default="/api/v1/integrations/che
 WLCM_DEFAULT_PROVIDER = env("WLCM_DEFAULT_PROVIDER", default="payme")
 WLCM_VERIFY_WEBHOOK_SIGNATURE = env.bool("WLCM_VERIFY_WEBHOOK_SIGNATURE", default=True)
 WLCM_HTTP_TIMEOUT = env.int("WLCM_HTTP_TIMEOUT", default=15)
+# Sandbox rejim: API kalitlarsiz to'lovni simulyatsiya qiladi (test/dev uchun).
+# Default: kalitlar yo'q bo'lsa avtomatik yoqiladi; True/False bilan majburlash mumkin.
+WLCM_SANDBOX_MODE = env.bool("WLCM_SANDBOX_MODE", default=not bool(WLCM_API_KEY and WLCM_API_SECRET))
 
 # Application definition
 INSTALLED_APPS = [

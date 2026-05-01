@@ -73,6 +73,7 @@ def _settings() -> dict:
         "verify_webhook":   bool(getattr(settings, "WLCM_VERIFY_WEBHOOK_SIGNATURE", True)),
         "return_url":       getattr(settings, "PAYMENT_RETURN_URL", "") or "",
         "timeout":          float(getattr(settings, "WLCM_HTTP_TIMEOUT", 15)),
+        "sandbox":          bool(getattr(settings, "WLCM_SANDBOX_MODE", False)),
     }
 
 
@@ -139,6 +140,24 @@ def build_checkout_url(payment: PaymentTransaction) -> Optional[str]:
     "hozircha sozlanmagan" javob bilan boshqaradi.
     """
     cfg = _settings()
+
+    # ── Sandbox rejim: kalitlarsiz simulyatsiya ──────────────────────
+    # Backend o'zining sandbox sahifasiga yo'naltiradi — u sahifa
+    # PaymentTransaction'ni darhol SUCCESS qiladi (haqiqiy WLCM oqimi
+    # bilan bir xil natija).
+    if cfg["sandbox"]:
+        from django.urls import reverse
+        try:
+            path = reverse("payment-wlcm-sandbox", kwargs={"payment_id": payment.id})
+        except Exception:
+            path = f"/api/payments/wlcm-sandbox/{payment.id}/"
+        # Ushbu sahifa absolyut URL bo'lishi shart bo'lmasa ham, frontend
+        # window.location.href ishlashi uchun absolute qaytaramiz.
+        site_origin = (getattr(settings, "SITE_URL", "") or "").rstrip("/")
+        url = f"{site_origin}{path}" if site_origin else path
+        logger.info("WLCM SANDBOX: checkout simulated for payment=%s → %s", payment.id, url)
+        return url
+
     if not cfg["api_key"] or not cfg["api_secret"]:
         logger.warning("WLCM_API_KEY / WLCM_API_SECRET sozlanmagan — WLCM checkout o'tkazilmayapti")
         return None

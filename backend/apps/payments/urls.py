@@ -10,6 +10,7 @@ from .views import (
     webhook_payme,
     webhook_paynet,
     webhook_wlcm,
+    wlcm_sandbox,
 )
 
 urlpatterns = [
@@ -19,6 +20,8 @@ urlpatterns = [
     path("webhook/click/", webhook_click, name="payment-webhook-click"),
     path("webhook/paynet/", webhook_paynet, name="payment-webhook-paynet"),
     path("webhook/wlcm/", webhook_wlcm, name="payment-webhook-wlcm"),
+    # WLCM sandbox — kalitlarsiz to'lov simulyatsiyasi (dev/test)
+    path("wlcm-sandbox/<int:payment_id>/", wlcm_sandbox, name="payment-wlcm-sandbox"),
 
     # SMS-mock (test rejimi)
     path("initiate/", initiate_payment, name="payment-initiate"),
