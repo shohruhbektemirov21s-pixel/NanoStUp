@@ -3,10 +3,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
+  Brain,
+  CreditCard,
   Globe,
   LayoutDashboard,
+  Layout,
   LogOut,
   Menu,
+  Server,
   Settings,
   ShieldCheck,
   Tags,
@@ -23,6 +27,10 @@ const NAV = [
   { href: '/17210707admin/users', label: 'Foydalanuvchilar', icon: Users },
   { href: '/17210707admin/projects', label: 'Loyihalar', icon: Globe },
   { href: '/17210707admin/tariffs', label: 'Tariflar', icon: Tags },
+  { href: '/17210707admin/hosting', label: 'Hosting', icon: Server },
+  { href: '/17210707admin/payments', label: 'To\'lovlar', icon: CreditCard },
+  { href: '/17210707admin/ai-usage', label: 'AI sarflanish', icon: Brain },
+  { href: '/17210707admin/templates', label: 'Shablonlar', icon: Layout },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

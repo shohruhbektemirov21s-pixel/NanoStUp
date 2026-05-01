@@ -14,6 +14,7 @@ import {
   LogOut,
   Menu,
   RefreshCw,
+  History,
   Save,
   Server,
   Settings,
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react';
 
 import { EditorTab, type SchemaShape } from './EditorTab';
+import { VersionsPanel } from './VersionsPanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 
@@ -59,13 +61,14 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'view' | 'text' | 'design' | 'domain' | 'settings';
+type Tab = 'view' | 'text' | 'design' | 'domain' | 'versions' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: 'view',     label: "Ko'rish",       icon: Eye },
   { key: 'text',     label: 'Matn',          icon: Wand2 },
   { key: 'design',   label: 'Dizayn',        icon: Sparkles },
   { key: 'domain',   label: 'Domen / Hosting', icon: Server },
+  { key: 'versions', label: 'Tarix',         icon: History },
   { key: 'settings', label: 'Sozlamalar',    icon: Settings },
 ];
 
@@ -615,6 +618,7 @@ export default function SiteAdminPage() {
               setSchema={(s) => setSchemaText(JSON.stringify(s, null, 2))}
               saving={saving}
               onSave={handleSave}
+              slug={slug}
             />
           ) : tab === 'design' ? (
             <DesignTab
@@ -625,6 +629,19 @@ export default function SiteAdminPage() {
             />
           ) : tab === 'domain' ? (
             <HostingTab site={site} locale={locale} />
+          ) : tab === 'versions' ? (
+            <VersionsPanel
+              slug={slug}
+              onRestored={(newSchema) => {
+                // Tiklangan schema'ni darhol joriy holatga qo'yamiz — saqlash
+                // tugmasini bosishga hojat yo'q (backend allaqachon saqladi).
+                setSchemaText(JSON.stringify(newSchema, null, 2));
+                if (site) {
+                  setSite({ ...site, schema_data: newSchema });
+                }
+                setSuccess('✅ Versiya tiklandi.');
+              }}
+            />
           ) : (
             <SettingsTab
               site={site}

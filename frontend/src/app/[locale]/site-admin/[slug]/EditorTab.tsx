@@ -1,7 +1,28 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Image as ImageIcon, Save } from 'lucide-react';
+import { Image as ImageIcon, Save, Upload, Loader2, X } from 'lucide-react';
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
+
+import api from '@/shared/api/axios';
+
+// ── Image upload context ───────────────────────────────────────
+// EditorTab ichidagi har bir ImageField slug'ni bilishi kerak (upload uchun).
+// Prop drilling o'rniga Context ishlatamiz — uch daraja ostidan o'tadi.
+const SiteSlugContext = createContext<string | null>(null);
+const useSiteSlug = () => useContext(SiteSlugContext);
+
+interface UploadResp {
+  success: boolean;
+  url?: string;
+  width?: number;
+  height?: number;
+  size_bytes?: number;
+  original_size_bytes?: number;
+  compression_ratio?: number;
+  error?: string;
+  max_bytes?: number;
+}
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -265,11 +286,14 @@ export function EditorTab({
   setSchema,
   saving,
   onSave,
+  slug,
 }: {
   schema: SchemaShape;
   setSchema: (s: SchemaShape) => void;
   saving: boolean;
   onSave: () => void;
+  /** Sayt slug — image upload uchun (ImageField ichida ishlatiladi). */
+  slug?: string;
 }) {
   const pages: Page[] = Array.isArray(schema?.pages) ? (schema.pages as Page[]) : [];
 
@@ -312,6 +336,7 @@ export function EditorTab({
   }
 
   return (
+    <SiteSlugContext.Provider value={slug ?? null}>
     <div className="space-y-5">
       {/* Sayt nomi */}
       <section className="rounded-2xl border border-white/5 bg-zinc-900 p-5">
@@ -379,6 +404,7 @@ export function EditorTab({
         </motion.button>
       </div>
     </div>
+    </SiteSlugContext.Provider>
   );
 }
 
@@ -550,32 +576,176 @@ function ImageField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const slug = useSiteSlug();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadInfo, setUploadInfo] = useState<{ ratio: number; size: number } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Bitta fayl yuklash + serverga POST → public URL ni onChange'ga uzatamiz
+  const uploadFile = useCallback(
+    async (file: File) => {
+      if (!slug) {
+        setUploadError('Slug aniqlanmadi (sahifa qayta yuklang).');
+        return;
+      }
+      // Frontend tomonidagi tezkor tekshiruvlar — backend ham qaytadan tekshiradi
+      if (!file.type.startsWith('image/')) {
+        setUploadError('Faqat rasm fayllari (.jpg, .png, .webp, .gif).');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError('Fayl 10 MB dan katta bo\'lmasligi kerak.');
+        return;
+      }
+      setUploadError(null);
+      setUploading(true);
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await api.post<UploadResp>(
+          `/projects/owner/by_slug/${encodeURIComponent(slug)}/upload-image/`,
+          fd,
+          { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
+        if (res.data.success && res.data.url) {
+          onChange(res.data.url);
+          if (res.data.compression_ratio && res.data.size_bytes) {
+            setUploadInfo({
+              ratio: res.data.compression_ratio,
+              size: res.data.size_bytes,
+            });
+          }
+        } else {
+          setUploadError(res.data.error || 'Yuklash imkonsiz.');
+        }
+      } catch (e: unknown) {
+        const errObj = e as { response?: { data?: { error?: string } } };
+        setUploadError(
+          errObj?.response?.data?.error || 'Server bilan bog\'lanib bo\'lmadi.',
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [slug, onChange],
+  );
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void uploadFile(file);
+  };
+
   return (
     <div>
       <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
         <ImageIcon className="w-3 h-3" />
         {label}
       </span>
-      <div className="mt-1 flex gap-2 items-start">
-        <input
-          type="url"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="https://..."
-          className="flex-1 px-3 py-2 rounded-lg bg-zinc-950 border border-zinc-800 text-sm focus:outline-none focus:border-purple-500 transition"
-        />
-        {value && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={value}
-            alt="preview"
-            className="w-10 h-10 rounded-lg object-cover border border-zinc-800 bg-zinc-900"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.opacity = '0.2';
-            }}
-          />
+
+      {/* Drag&drop zona + hozirgi rasm preview */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`mt-1.5 relative rounded-xl border-2 border-dashed transition ${
+          dragOver
+            ? 'border-purple-400 bg-purple-500/10'
+            : value
+              ? 'border-zinc-800 bg-zinc-950/50'
+              : 'border-zinc-700 bg-zinc-950/30 hover:border-zinc-600'
+        }`}
+      >
+        {value ? (
+          <div className="flex items-center gap-3 p-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={value}
+              alt="preview"
+              className="w-16 h-16 rounded-lg object-cover border border-zinc-800 bg-zinc-900 shrink-0"
+              onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.2'; }}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-zinc-300 truncate">{value}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  disabled={uploading || !slug}
+                  className="text-[11px] px-2 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 disabled:opacity-50 transition flex items-center gap-1"
+                >
+                  {uploading ? (
+                    <><Loader2 className="w-3 h-3 animate-spin" /> Yuklanyapti…</>
+                  ) : (
+                    <><Upload className="w-3 h-3" /> Yangi rasm</>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="text-[11px] px-2 py-1 rounded-md bg-zinc-800/60 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition flex items-center gap-1"
+                  title="Rasmni olib tashlash"
+                >
+                  <X className="w-3 h-3" /> O&apos;chirish
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading || !slug}
+            className="w-full p-5 flex flex-col items-center justify-center gap-2 text-zinc-500 hover:text-zinc-300 disabled:opacity-50 transition cursor-pointer"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+                <span className="text-xs">Rasmni serverga yuklayapti…</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-6 h-6" />
+                <span className="text-xs font-semibold">Rasmni shu yerga sudrang yoki bosib tanlang</span>
+                <span className="text-[10px] text-zinc-600">PNG, JPG, WebP, GIF · max 10 MB · auto WebP optimizatsiya</span>
+              </>
+            )}
+          </button>
         )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void uploadFile(file);
+            e.target.value = '';
+          }}
+        />
       </div>
+
+      {/* Manual URL ham qabul qilamiz (fallback) */}
+      <input
+        type="url"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="… yoki rasm URL'ini kiriting"
+        className="mt-1.5 w-full px-3 py-1.5 rounded-lg bg-zinc-950/60 border border-zinc-800 text-[11px] text-zinc-400 focus:outline-none focus:border-purple-500 transition"
+      />
+
+      {/* Status xabarlari */}
+      {uploadError && (
+        <p className="mt-1.5 text-[11px] text-red-400">⚠️ {uploadError}</p>
+      )}
+      {uploadInfo && !uploadError && (
+        <p className="mt-1.5 text-[11px] text-emerald-400">
+          ✅ Yuklandi · {(uploadInfo.size / 1024).toFixed(1)} KB · {uploadInfo.ratio}× kichraytirildi
+        </p>
+      )}
     </div>
   );
 }

@@ -9,6 +9,12 @@ from .views import (
     dashboard_sites,
     admin_set_site_status,
 )
+from .views_owner_extras import (
+    owner_upload_image,
+    owner_list_versions,
+    owner_get_version,
+    owner_restore_version,
+)
 from apps.exports.views import ExportZIPView
 
 router = DefaultRouter()
@@ -25,6 +31,14 @@ urlpatterns = [
     path('owner/by_slug/<slug:slug>/save/', owner_save_by_slug, name='owner_save_by_slug'),
     path('owner/by_slug/<slug:slug>/download/', owner_download_by_slug, name='owner_download_by_slug'),
     path('owner/by_slug/<slug:slug>/status/', owner_set_site_status, name='owner_set_site_status'),
+
+    # Owner — image upload (drag&drop, Pillow + WebP compress)
+    path('owner/by_slug/<slug:slug>/upload-image/', owner_upload_image, name='owner_upload_image'),
+
+    # Owner — versiya tarixi (rollback UI uchun)
+    path('owner/by_slug/<slug:slug>/versions/', owner_list_versions, name='owner_list_versions'),
+    path('owner/by_slug/<slug:slug>/versions/<uuid:version_id>/', owner_get_version, name='owner_get_version'),
+    path('owner/by_slug/<slug:slug>/versions/<uuid:version_id>/restore/', owner_restore_version, name='owner_restore_version'),
 
     # Admin — status o'zgartirish (faqat staff)
     path('admin/set-status/', admin_set_site_status, name='admin_set_site_status'),
