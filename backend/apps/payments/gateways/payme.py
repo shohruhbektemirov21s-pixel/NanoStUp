@@ -102,42 +102,19 @@ def _check_auth(request: HttpRequest) -> bool:
 
 
 def _activate_subscription(payment: PaymentTransaction) -> None:
-    """To'lov tasdiqlandi — obunani aktivlashtirish va token berish."""
-    from django.db import transaction as dj_transaction
-    from datetime import timedelta
+    """
+    Yagona aktivatsiya helperiga delegate.
 
-    if payment.status == PaymentStatus.SUCCESS:
-        return
-
-    tariff = payment.tariff
-    user = payment.user
-
-    with dj_transaction.atomic():
-        Subscription.objects.filter(
-            user=user, status=SubscriptionStatus.ACTIVE,
-        ).update(status=SubscriptionStatus.CANCELED)
-
-        now = timezone.now()
-        Subscription.objects.create(
-            user=user,
-            tariff=tariff,
-            status=SubscriptionStatus.ACTIVE,
-            start_date=now,
-            end_date=now + timedelta(days=tariff.duration_days or 30),
-        )
-
-        # To'liq nano koin beriladi
-        nano = tariff.nano_coins_included or 0
-        tokens = nano * TOKENS_PER_NANO_COIN
-        if tokens > 0:
-            user.tokens_balance = (user.tokens_balance or 0) + tokens
-            user.save(update_fields=["tokens_balance"])
-
-        payment.status = PaymentStatus.SUCCESS
-        payment.verified_at = now
-        payment.save(update_fields=["status", "verified_at", "updated_at"])
-
-    logger.info("Payme: obuna faollashtirildi payment=%s user=%s", payment.id, user.id)
+    Click va WLCM gateway'lari ham shu funksiyani import qilishadi —
+    backward compatibility uchun nom saqlanadi, lekin haqiqiy logika
+    `apps.subscriptions.services.activate_for_payment` ichida (DRY).
+    """
+    from apps.subscriptions.services import activate_for_payment
+    activate_for_payment(payment)
+    logger.info(
+        "_activate_subscription (delegated): payment=%s user=%s provider=%s",
+        payment.id, payment.user_id, payment.provider,
+    )
 
 
 def handle_webhook(request: HttpRequest) -> Response:

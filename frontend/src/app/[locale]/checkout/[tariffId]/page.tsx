@@ -38,7 +38,7 @@ interface CheckoutResponse {
   error?: string;
 }
 
-type Provider = 'payme' | 'click' | 'paynet' | 'sms';
+type Provider = 'wlcm' | 'payme' | 'click' | 'paynet' | 'sms';
 
 const PROVIDERS: Array<{
   id: Provider;
@@ -46,7 +46,12 @@ const PROVIDERS: Array<{
   description: string;
   logoBg: string;
   logoText: string;
+  recommended?: boolean;
 }> = [
+  // WLCM — agregator: Payme/Click/Paylov/Uzum/Card bir oynada (tavsiya etiladi)
+  { id: 'wlcm', label: 'WLCM', description: 'Payme · Click · Uzum · Karta',
+    logoBg: 'bg-gradient-to-br from-purple-600 to-blue-600', logoText: 'W',
+    recommended: true },
   { id: 'payme', label: 'Payme', description: 'Karta yoki Payme hisob',
     logoBg: 'bg-[#00A4E4]', logoText: 'P' },
   { id: 'click', label: 'Click', description: 'Click ilovasi yoki karta',
@@ -68,7 +73,7 @@ export default function CheckoutPage() {
   const [tariff, setTariff] = useState<Tariff | null>(null);
   const [loadingTariff, setLoadingTariff] = useState(true);
   const [phone, setPhone] = useState('+998 ');
-  const [provider, setProvider] = useState<Provider>('payme');
+  const [provider, setProvider] = useState<Provider>('wlcm');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -243,6 +248,11 @@ export default function CheckoutPage() {
                           <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-purple-500 flex items-center justify-center">
                             <Check className="w-2.5 h-2.5 text-white" />
                           </div>
+                        )}
+                        {p.recommended && !selected && (
+                          <span className="absolute -top-1.5 -left-1.5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md bg-emerald-500 text-white">
+                            Tavsiya
+                          </span>
                         )}
                       </button>
                     );

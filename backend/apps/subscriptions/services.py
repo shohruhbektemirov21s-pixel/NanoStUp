@@ -1,8 +1,118 @@
+import logging
+from datetime import timedelta
+
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
-from datetime import timedelta
+
 from .models import Subscription, SubscriptionStatus, Tariff
-from django.core.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
+
+
+# ════════════════════════════════════════════════════════════════════════
+# Yagona obuna aktivatsiyasi — har qanday to'lov manbai uchun (Payme/Click/
+# Paynet/WLCM webhook + admin manual + SMS-mock). DRY: nano koin grant,
+# obuna sanalari, sayt qayta-aktivatsiya, PaymentTransaction holati —
+# barchasi shu yerda yagona joyda. Avval har bir gateway o'zicha
+# qiluvchidi → endi shu helper chaqiriladi.
+# ════════════════════════════════════════════════════════════════════════
+
+
+def activate_for_payment(payment) -> Subscription:
+    """
+    PaymentTransaction → ACTIVE Subscription + nano koin grant.
+
+    Idempotent: payment.status == SUCCESS bo'lsa qayta ish bajarmaydi
+    (faqat mavjud subscription'ni qaytaradi).
+
+    Bajariladigan ishlar (atomik):
+      1. User'ning ACTIVE obunalarini CANCELED qiladi
+      2. Yangi Subscription(ACTIVE) yaratadi (start_date=now,
+         end_date=now+tariff.duration_days, oylik counter reset)
+      3. tariff.nano_coins_included × TOKENS_PER_NANO_COIN tokenni
+         user.tokens_balance ga qo'shadi va nano_coins_last_used_at
+         ni now() ga o'rnatadi (30-kunlik timer reset)
+      4. Foydalanuvchining EXPIRED bo'lib qolgan saytlarini qayta
+         ACTIVE qiladi (suspension_reason='') — agar SUSPENDED yoki
+         ARCHIVED bo'lmasa
+      5. payment.status = SUCCESS, verified_at = now
+    """
+    from apps.payments.models import PaymentStatus
+    from apps.accounts.models import TOKENS_PER_NANO_COIN
+
+    if payment.status == PaymentStatus.SUCCESS:
+        # idempotent: ushbu payment uchun yaratilgan oxirgi ACTIVE obunani qaytaramiz
+        existing = Subscription.objects.filter(
+            user=payment.user,
+            tariff=payment.tariff,
+            status=SubscriptionStatus.ACTIVE,
+        ).order_by("-start_date").first()
+        if existing:
+            return existing
+        # status=SUCCESS lekin obuna yo'q — anomaly, davom etamiz va yaratamiz
+
+    tariff = payment.tariff
+    user = payment.user
+
+    with transaction.atomic():
+        # 1. Eski ACTIVE obunalarni yopish
+        Subscription.objects.filter(
+            user=user, status=SubscriptionStatus.ACTIVE,
+        ).update(status=SubscriptionStatus.CANCELED)
+
+        # 2. Yangi obuna
+        now = timezone.now()
+        # duration_days timedelta uchun xavfsiz oraliqda bo'lishi kerak
+        # ("bepul" tarif kabilarida int64 max qiymat saqlanishi mumkin →
+        # OverflowError beradi). Cheklaymiz: max 10 yil = 3650 kun.
+        days = tariff.duration_days or 30
+        if days <= 0 or days > 3650:
+            days = 3650
+        end = now + timedelta(days=days)
+        sub = Subscription.objects.create(
+            user=user,
+            tariff=tariff,
+            status=SubscriptionStatus.ACTIVE,
+            start_date=now,
+            end_date=end,
+            sites_created_this_month=0,
+            month_reset_date=now.date() + timedelta(days=30),
+        )
+
+        # 3. Nano koin grant
+        nano = tariff.nano_coins_included or 0
+        tokens = nano * TOKENS_PER_NANO_COIN
+        if tokens > 0:
+            user.tokens_balance = (user.tokens_balance or 0) + tokens
+            user.nano_coins_last_used_at = now  # 30-kunlik timer reset
+            user.save(update_fields=["tokens_balance", "nano_coins_last_used_at"])
+
+        # 4. EXPIRED saytlarni qayta tiklash (SaaS soft-lock)
+        try:
+            from apps.website_projects.models import WebsiteProject, HostingStatus
+            WebsiteProject.objects.filter(user=user).exclude(
+                hosting_status__in=[HostingStatus.SUSPENDED, HostingStatus.ARCHIVED]
+            ).update(
+                hosting_status=HostingStatus.ACTIVE,
+                hosting_expires_at=end,
+                suspension_reason="",
+                is_active=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("activate_for_payment: sayt aktivatsiyasi xato: %s", exc)
+
+        # 5. Payment'ni SUCCESS qilish
+        payment.status = PaymentStatus.SUCCESS
+        payment.verified_at = now
+        payment.save(update_fields=["status", "verified_at", "updated_at"])
+
+    logger.info(
+        "activate_for_payment: payment=%s user=%s tariff=%s nano+%d sub_id=%s",
+        payment.id, user.id, tariff.id, nano, sub.id,
+    )
+    return sub
+
 
 class SubscriptionService:
     @staticmethod

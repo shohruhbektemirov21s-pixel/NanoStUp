@@ -137,50 +137,24 @@ def verify_payment(request):
             "attempts_left": MAX_SMS_ATTEMPTS - (payment.sms_attempts + 1),
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    # Kod to'g'ri — obunani aktivlashtiramiz
-    tariff = payment.tariff
-    user = request.user
+    # Kod to'g'ri — yagona helper orqali aktivatsiya qilamiz
+    from apps.subscriptions.services import activate_for_payment
+    sub = activate_for_payment(payment)
+    request.user.refresh_from_db(fields=["tokens_balance", "nano_coins_last_used_at"])
 
-    with transaction.atomic():
-        Subscription.objects.filter(
-            user=user, status=SubscriptionStatus.ACTIVE,
-        ).update(status=SubscriptionStatus.CANCELED)
-
-        now = timezone.now()
-        end = now + timedelta(days=tariff.duration_days or 30)
-        sub = Subscription.objects.create(
-            user=user,
-            tariff=tariff,
-            status=SubscriptionStatus.ACTIVE,
-            start_date=now,
-            end_date=end,
-        )
-
-        # To'lov tasdiqlandi — tarifdagi TO'LIQ nano koin miqdori zudlik bilan
-        # beriladi (admin paneldagi `nano_coins_included` qiymatiga ko'ra).
-        nano_granted = tariff.nano_coins_included or 0
-        tokens_to_add = nano_granted * TOKENS_PER_NANO_COIN
-        if tokens_to_add > 0:
-            from django.utils import timezone as _tz
-            user.tokens_balance = (user.tokens_balance or 0) + tokens_to_add
-            # 30 kunlik foydalanmaslik timer'ini qaytadan boshlaymiz
-            user.nano_coins_last_used_at = _tz.now()
-            user.save(update_fields=["tokens_balance", "nano_coins_last_used_at"])
-
-        payment.status = PaymentStatus.SUCCESS
-        payment.verified_at = now
-        payment.save(update_fields=["status", "verified_at", "updated_at"])
+    nano_granted = payment.tariff.nano_coins_included or 0
+    tokens_granted = nano_granted * TOKENS_PER_NANO_COIN
 
     return Response({
         "success": True,
         "subscription_id": sub.id,
-        "tariff_name": tariff.name,
+        "tariff_name": payment.tariff.name,
         "nano_granted": nano_granted,
-        "tokens_granted": tokens_to_add,
-        "new_balance": user.tokens_balance,
-        "nano_coins": user.nano_coins,
+        "tokens_granted": tokens_granted,
+        "new_balance": request.user.tokens_balance,
+        "nano_coins": request.user.nano_coins,
         "message": (
-            f"🎉 «{tariff.name}» obunasi faollashtirildi! "
+            f"🎉 «{payment.tariff.name}» obunasi faollashtirildi! "
             f"+{nano_granted:,} nano koin hisobingizga qo'shildi."
         ),
     })

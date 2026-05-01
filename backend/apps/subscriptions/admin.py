@@ -219,60 +219,70 @@ class SubscriptionAdmin(ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """
-        end_date avtomatik hisoblash (start_date + tariff.duration_days).
+        Admin paneldan QO'LDA tarif berish.
 
-        Plus: admin tomonidan QO'LDA yaratilgan obuna uchun avtomatik
-        PaymentTransaction (provider='admin_manual', status=SUCCESS) yaratiladi.
-        Shu tarzda umumiy daromad statistikasiga manual obunalar ham qo'shiladi
-        (real to'lov tizimi integratsiyasi yo'q paytda).
+        Yangi ACTIVE obuna uchun yagona helper `activate_for_payment`'ni
+        chaqiramiz — u nano koin grant + sayt qayta-aktivatsiya +
+        PaymentTransaction(provider='admin_manual') yozishni xuddi haqiqiy
+        webhook bilan bir xilda bajaradi (DRY). Bu helper o'zi yangi
+        Subscription yaratadi, shuning uchun admin form'idagi `obj`'ni
+        SAQLAMAYMIZ — aks holda dublikat obuna chiqadi.
+
+        Tahrirlash (change=True) yoki ACTIVE bo'lmagan holatlar uchun —
+        oddiy save: end_date avtomatik hisoblanadi.
         """
-        is_new = not change
-        if is_new or "tariff" in form.changed_data or "start_date" in form.changed_data:
-            if not form.cleaned_data.get("end_date"):
-                obj.end_date = obj.start_date + timedelta(days=obj.tariff.duration_days)
-        super().save_model(request, obj, form, change)
+        is_new_active_grant = (
+            not change
+            and obj.status == SubscriptionStatus.ACTIVE
+            and obj.tariff_id
+            and obj.user_id
+        )
 
-        # Yangi yaratilgan ACTIVE obuna → daromad sifatida PaymentTransaction yozamiz
-        if is_new and obj.status == SubscriptionStatus.ACTIVE and obj.tariff_id:
-            try:
-                from apps.payments.models import PaymentTransaction, PaymentStatus
-                # Dublikat oldini olamiz (xuddi shu user+tariff+admin_manual oxirgi 60s ichida)
-                recent = PaymentTransaction.objects.filter(
-                    user=obj.user,
-                    tariff=obj.tariff,
-                    provider="admin_manual",
-                    created_at__gte=timezone.now() - timedelta(seconds=60),
-                ).exists()
-                if not recent:
-                    PaymentTransaction.objects.create(
-                        user=obj.user,
-                        tariff=obj.tariff,
-                        amount=obj.tariff.price,
-                        provider="admin_manual",
-                        status=PaymentStatus.SUCCESS,
-                        external_id=f"admin_{obj.id}_{int(timezone.now().timestamp())}",
-                        verified_at=timezone.now(),
-                    )
-                    # User'ga nano koin ham beramiz (real to'lovdagi kabi)
-                    nano_to_add = obj.tariff.nano_coins_included or 0
-                    if nano_to_add > 0:
-                        from apps.accounts.models import TOKENS_PER_NANO_COIN
-                        tokens_to_add = nano_to_add * TOKENS_PER_NANO_COIN
-                        obj.user.tokens_balance = (obj.user.tokens_balance or 0) + tokens_to_add
-                        # 30 kunlik timer'ni qaytadan boshlaymiz
-                        obj.user.nano_coins_last_used_at = timezone.now()
-                        obj.user.save(update_fields=[
-                            "tokens_balance", "nano_coins_last_used_at",
-                        ])
-                    self.message_user(
-                        request,
-                        f"✅ Manual obuna yaratildi va daromadga qo'shildi: "
-                        f"+{obj.tariff.price:,.0f} so'm",
-                        messages.SUCCESS,
-                    )
-            except Exception as exc:
-                self.message_user(
-                    request,
-                    f"⚠️ Obuna saqlandi, lekin payment yozilmadi: {exc}",
-                    messages.WARNING,
-                )
+        if not is_new_active_grant:
+            # Tahrirlash yoki noaktif holat — end_date'ni avtomatik hisoblaymiz
+            if (not change) or "tariff" in form.changed_data or "start_date" in form.changed_data:
+                if obj.tariff_id and not form.cleaned_data.get("end_date"):
+                    obj.end_date = obj.start_date + timedelta(days=obj.tariff.duration_days)
+            super().save_model(request, obj, form, change)
+            return
+
+        # Yangi ACTIVE grant → yagona helper orqali (haqiqiy to'lovdek)
+        try:
+            from apps.payments.models import PaymentTransaction, PaymentStatus
+            from .services import activate_for_payment
+
+            payment = PaymentTransaction.objects.create(
+                user=obj.user,
+                tariff=obj.tariff,
+                amount=obj.tariff.price,
+                provider="admin_manual",
+                status=PaymentStatus.PENDING,
+                external_id=f"admin_{int(timezone.now().timestamp())}",
+            )
+            sub = activate_for_payment(payment)
+
+            # Form'dagi `obj`'ni o'rniga helper yaratgan `sub`'ni qaytaramiz
+            # (aks holda admin redirect ID si noto'g'ri bo'ladi)
+            obj.pk = sub.pk
+            obj.id = sub.id
+            obj.start_date = sub.start_date
+            obj.end_date = sub.end_date
+            obj.status = sub.status
+
+            self.message_user(
+                request,
+                f"✅ «{obj.tariff.name}» obunasi {obj.user.email} uchun "
+                f"faollashtirildi: +{obj.tariff.nano_coins_included or 0:,} nano koin, "
+                f"+{obj.tariff.price:,.0f} so'm daromad.",
+                messages.SUCCESS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.message_user(
+                request,
+                f"⚠️ Obuna aktivatsiyasi xato: {exc}",
+                messages.ERROR,
+            )
+            # Fallback — kamida obuna yozuvini saqlaymiz
+            if obj.tariff_id and not obj.end_date:
+                obj.end_date = obj.start_date + timedelta(days=obj.tariff.duration_days)
+            super().save_model(request, obj, form, change)
