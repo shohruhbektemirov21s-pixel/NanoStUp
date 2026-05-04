@@ -165,13 +165,17 @@ def build_checkout_url(payment: PaymentTransaction) -> Optional[str]:
     # WLCM amount'ni tiyinda kutadi (1 so'm = 100 tiyin).
     amount_tiyin = int((Decimal(payment.amount) * 100).to_integral_value())
 
+    # WLCM `return_url` majburiy maydon — bo'sh bo'lsa fallback ishlatamiz
+    return_base = cfg["return_url"] or "https://nanostup.uz"
+    sep = "&" if "?" in return_base else "?"
+    return_url = f"{return_base}{sep}payment_id={payment.id}"
+
     payload: dict = {
         "external_id": str(payment.id),
         "amount":      amount_tiyin,
         "payment_provider": cfg["default_provider"],
+        "return_url":  return_url,
     }
-    if cfg["return_url"]:
-        payload["return_url"] = f"{cfg['return_url']}?payment_id={payment.id}"
 
     body = json.dumps(payload, separators=(",", ":")).encode()
     headers = _signed_headers("POST", cfg["checkout_path"], body)
