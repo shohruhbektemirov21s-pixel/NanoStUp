@@ -9,8 +9,10 @@ import io
 import json
 import logging
 import os
+import random
 import re
-from typing import Any, Dict, List, Optional, Tuple
+import time
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import anthropic
 from google import genai
@@ -18,6 +20,68 @@ from google.genai import types as genai_types
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────
+# Retry helper — transient AI xatolarida (503/529/overload/timeout)
+# avtomatik qayta urinish (exponential backoff + jitter).
+# ─────────────────────────────────────────────────────────────────
+T = TypeVar("T")
+
+# Bu kalit so'zlar bo'lsa — qayta urinish foydali (provider transient).
+# 401/403/quota — qayta urinmaymiz, sozlama xatosi.
+_RETRYABLE_TOKENS = (
+    "503", "504", "529",
+    "overload", "overloaded",
+    "unavailable", "service unavailable",
+    "timeout", "timed out", "deadline",
+    "connection", "reset", "broken pipe",
+    "internal", "internal error",
+    "temporarily",
+)
+_NON_RETRYABLE_TOKENS = (
+    "401", "403", "api key", "api_key", "unauthorized",
+    "invalid_request", "permission",
+)
+
+
+def _is_retryable_ai_error(exc: BaseException) -> bool:
+    msg = str(exc).lower()
+    if any(t in msg for t in _NON_RETRYABLE_TOKENS):
+        return False
+    return any(t in msg for t in _RETRYABLE_TOKENS)
+
+
+def _retry_ai_call(
+    fn: Callable[[], T],
+    *,
+    label: str,
+    attempts: int = 3,
+    base_delay: float = 1.5,
+) -> T:
+    """
+    AI provayder transient xatosi bo'lsa avtomatik qayta urinish.
+    Backoff: 1.5s, 3.5s, 7.5s + jitter (±20%).
+    Non-retryable xato (401/403/api_key) — darhol uzatiladi.
+    """
+    last_exc: Optional[BaseException] = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt >= attempts or not _is_retryable_ai_error(exc):
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            delay *= 1.0 + random.uniform(-0.2, 0.2)
+            logger.warning(
+                "%s transient xato (%s/%s): %s — %.1fs kutib qayta urinish",
+                label, attempt, attempts, str(exc)[:160], delay,
+            )
+            time.sleep(delay)
+    # Theoretically unreachable — last_exc har doim bo'ladi
+    assert last_exc is not None
+    raise last_exc
 
 
 @contextlib.contextmanager
@@ -1093,8 +1157,9 @@ def _get_claude_client() -> anthropic.Anthropic:
         raise RuntimeError("ANTHROPIC_API_KEY .env da topilmadi.")
     # timeout=1200s (20 min): juda murakkab/uzun saytlar uchun ham yetadi.
     # gunicorn --timeout 1260s dan kichik (60s buffer).
-    # max_retries=1: bir marta qayta urinish (network flap uchun)
-    return anthropic.Anthropic(api_key=api_key, timeout=1200.0, max_retries=1)
+    # max_retries=3: Anthropic SDK 529/overloaded/timeout'da avtomatik
+    # exponential backoff bilan 3 marta urinadi (network flap + transient overload).
+    return anthropic.Anthropic(api_key=api_key, timeout=1200.0, max_retries=3)
 
 
 def _get_claude_model() -> str:
@@ -1201,8 +1266,12 @@ class ArchitectService:
                 ),
                 history=gemini_history,
             )
-            with _silence_sdk_stdout():
-                response = chat_session.send_message(parts)
+
+            def _send():
+                with _silence_sdk_stdout():
+                    return chat_session.send_message(parts)
+
+            response = _retry_ai_call(_send, label="Architect.chat")
             text: str = response.text or ""
         except Exception as exc:
             logger.exception("ArchitectService (Gemini) chat xatosi")
@@ -1250,15 +1319,18 @@ class ArchitectService:
                 "Write the English instruction for Claude now."
             )))
 
-            with _silence_sdk_stdout():
-                response = client.models.generate_content(
-                    model=_get_gemini_model(),
-                    contents=parts,
-                    config=genai_types.GenerateContentConfig(
-                        system_instruction=REVISION_PLANNER_PROMPT,
-                        max_output_tokens=600,
-                    ),
-                )
+            def _gen():
+                with _silence_sdk_stdout():
+                    return client.models.generate_content(
+                        model=_get_gemini_model(),
+                        contents=parts,
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=REVISION_PLANNER_PROMPT,
+                            max_output_tokens=600,
+                        ),
+                    )
+
+            response = _retry_ai_call(_gen, label="Architect.plan_revision")
             instruction = (response.text or "").strip()
             if not instruction:
                 # Fallback — oddiy foydalanuvchi matnini qaytaramiz
@@ -1304,7 +1376,10 @@ class ClaudeService:
                 ),
                 history=gemini_history,
             )
-            response = chat_session.send_message(prompt)
+            response = _retry_ai_call(
+                lambda: chat_session.send_message(prompt),
+                label="ClaudeService.chat(Gemini)",
+            )
             return response.text or ""
         except Exception as exc:
             logger.exception("Gemini chat xatosi")
