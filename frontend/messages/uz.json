@@ -11,8 +11,7 @@
     "titlePrefix": "Professional sayt yaratish",
     "titleSuffix": "endi birgina prompt orqali",
     "description": "O'zbek tilida sayt yaratish xizmati. Biznesingizni tasvirlab bering va bizning sun'iy intellektimiz bir necha soniya ichida matnlar, rasmlar va yuqori konversiyali maketlar bilan ta'minlangan premium veb-sayt yaratib beradi.",
-    "startBuilding": "Sayt yaratishni boshlash",
-    "viewDemo": "Demoni ko'rish"
+    "startBuilding": "Sayt yaratishni boshlash"
   },
   "Stats": {
     "generatedSites": "Yaratilgan saytlar",

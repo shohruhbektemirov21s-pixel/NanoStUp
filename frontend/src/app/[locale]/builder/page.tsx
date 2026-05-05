@@ -1298,7 +1298,15 @@ export default function BuilderPage() {
     setConversationId(null);
     // URL'dan ?conversation=<eski-id> ni olib tashlaymiz — aks holda reload
     // bilan eski suhbat qaytarilardi (bug-fix).
-    router.replace('/builder' as Parameters<typeof router.replace>[0]);
+    // i18n routing'ga to'g'ri pathname (locale avtomatik qo'shiladi).
+    try {
+      router.replace({ pathname: '/builder' });
+    } catch {
+      // Locale router cast xatosi bo'lsa — oddiy reload (history clean)
+      if (typeof window !== 'undefined') {
+        window.history.replaceState(null, '', `/${locale}/builder`);
+      }
+    }
   };
 
   // Saytni publik URL orqali ulashish (publish)
@@ -1433,15 +1441,16 @@ export default function BuilderPage() {
       {/* Header */}
       <header className="h-14 border-b border-white/5 px-2 md:px-5 flex items-center justify-between bg-zinc-950/90 backdrop-blur-xl z-20 shrink-0 gap-1.5 md:gap-2 overflow-x-auto">
         <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-          {/* Orqaga qaytish */}
-          <button
-            onClick={() => router.back()}
+          {/* Bosh sahifaga qaytish — har doim "/" ga (router.back ishonchsiz: ba'zan
+              tashqi havola yoki refresh'da history bo'sh bo'ladi). */}
+          <Link
+            href="/"
             className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
-            title="Orqaga"
+            title="Bosh sahifaga qaytish"
           >
             <ArrowLeft className="w-4 h-4" />
-          </button>
-          <Link href="/">
+          </Link>
+          <Link href="/" title="Bosh sahifa">
             <div className="w-8 h-8 bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20">
               <Sparkles className="w-4 h-4 text-white" />
             </div>

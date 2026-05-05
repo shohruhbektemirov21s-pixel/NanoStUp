@@ -11,8 +11,7 @@
     "titlePrefix": "Build your website",
     "titleSuffix": "with a single prompt",
     "description": "Describe your business in any language and watch our AI create a premium, multi-page website with copy, images, and high-converting layouts in seconds.",
-    "startBuilding": "Start Building",
-    "viewDemo": "View Demo"
+    "startBuilding": "Start Building"
   },
   "Stats": {
     "generatedSites": "Generated Sites",
