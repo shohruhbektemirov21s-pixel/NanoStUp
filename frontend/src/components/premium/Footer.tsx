@@ -3,7 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
-import { Sparkles, Globe, Terminal, Cpu, Mail } from 'lucide-react';
+import { Globe, Terminal, Cpu, Mail } from 'lucide-react';
+import Image from 'next/image';
 import { Link } from '@/i18n/routing';
 
 export function PremiumFooter() {
@@ -20,12 +21,12 @@ export function PremiumFooter() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-12 mb-24">
           <div className="col-span-2">
-            <Link href="/" className="flex items-center gap-2.5 mb-8">
-              <div className="w-10 h-10 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-xl flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
+            <Link href="/" className="flex items-center gap-2.5 mb-8 group">
+              <div className="w-11 h-11 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Image src="/logo-icon.svg" alt="NanoStUp logo" width={44} height={44} />
               </div>
               <span className="text-2xl font-black tracking-tight text-white">
-                NanoStUp
+                Nano<span className="text-blue-400">stup</span>
               </span>
             </Link>
             <p className="text-zinc-500 text-lg max-w-sm font-medium leading-relaxed">
