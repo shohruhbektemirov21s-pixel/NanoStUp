@@ -5,12 +5,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const locales = ['uz', 'en', 'ru']
   const now = new Date()
 
-  // Asosiy sahifalar (public routes only)
+  // Asosiy sahifalar (public routes only).
+  // "/builder" public ravishda access bor (login so'rasa ham sahifasi SSR
+  // bo'lmaydi, lekin URL sitemap'ga qo'shilishi mumkin).
   const publicPaths: { path: string; priority: number; changeFreq: 'daily' | 'weekly' | 'monthly' }[] = [
     { path: '', priority: 1.0, changeFreq: 'daily' },
+    { path: '/builder', priority: 0.95, changeFreq: 'daily' },
     { path: '/pricing', priority: 0.9, changeFreq: 'weekly' },
-    { path: '/login', priority: 0.5, changeFreq: 'monthly' },
-    { path: '/register', priority: 0.5, changeFreq: 'monthly' },
+    { path: '/register', priority: 0.6, changeFreq: 'monthly' },
+    { path: '/login', priority: 0.4, changeFreq: 'monthly' },
   ]
 
   const entries: MetadataRoute.Sitemap = []
