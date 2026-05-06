@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, CreditCard, ExternalLink, Loader2, Shield } from 'lucide-react';
+import { ArrowLeft, Check, Copy, CreditCard, Loader2, Send, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { formatUzsPrice } from '@/shared/utils/currency';
 import { useParams } from 'next/navigation';
@@ -11,6 +11,13 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from '@/i18n/routing';
 import api from '@/shared/api/axios';
 import { useAuthStore } from '@/store/authStore';
+
+// ── Manual to'lov rekvizitlari ───────────────────────────────────
+// Avtomatik to'lov tizimi (WLCM/Payme/Click) hozircha o'chirilgan.
+// Foydalanuvchi kartaga pul o'tkazib, chekni Telegram orqali yuboradi.
+const MANUAL_CARD_NUMBER = '5614 6814 2538 9388';
+const MANUAL_CARD_HOLDER = 'Temirov Shohruh';
+const MANUAL_TELEGRAM = 'shohruhbek_2102';
 
 interface Tariff {
   id: number;
@@ -22,18 +29,6 @@ interface Tariff {
   nano_coins_included?: number;
 }
 
-interface CheckoutResponse {
-  success: boolean;
-  payment_id: number;
-  provider: string;
-  provider_label: string;
-  checkout_url: string;
-  error?: string;
-}
-
-// Faqat WLCM — agregator orqali Payme/Click/Uzum/Paylov/Karta to'lovlari
-const PAYMENT_PROVIDER_ID = 'wlcm' as const;
-
 export default function CheckoutPage() {
   const params = useParams<{ tariffId: string }>();
   const tariffId = params.tariffId;
@@ -44,8 +39,8 @@ export default function CheckoutPage() {
 
   const [tariff, setTariff] = useState<Tariff | null>(null);
   const [loadingTariff, setLoadingTariff] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState<'card' | 'tg' | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -58,26 +53,13 @@ export default function CheckoutPage() {
       .finally(() => setLoadingTariff(false));
   }, [tariffId, isAuthenticated, router, t]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
+  const copy = async (text: string, kind: 'card' | 'tg') => {
     try {
-      const res = await api.post<CheckoutResponse>('/payments/checkout/', {
-        tariff_id: Number(tariffId),
-        provider: PAYMENT_PROVIDER_ID,
-      });
-      if (res.data.success && res.data.checkout_url) {
-        // WLCM to'lov sahifasiga o'tamiz
-        window.location.href = res.data.checkout_url;
-      } else {
-        setError(res.data.error ?? t('initiateError'));
-        setIsSubmitting(false);
-      }
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      setError(axiosErr.response?.data?.error ?? t('initiateError'));
-      setIsSubmitting(false);
+      await navigator.clipboard.writeText(text);
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      // clipboard API yo'q (eski brauzer) — sukutda qoldiramiz
     }
   };
 
@@ -136,7 +118,7 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
 
-          {/* To'lov formasi */}
+          {/* To'lov ko'rsatmalari (manual transfer) */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -146,34 +128,94 @@ export default function CheckoutPage() {
                 <CreditCard className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">{t('confirmPayment')}</h2>
-                <p className="text-xs text-zinc-400">Xavfsiz to&apos;lov — WLCM orqali</p>
+                <h2 className="text-xl font-bold">To&apos;lov ko&apos;rsatmalari</h2>
+                <p className="text-xs text-zinc-400">Kartaga o&apos;tkazib, chekni Telegram&apos;ga yuboring</p>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* WLCM — yagona to'lov tizimi (Payme/Click/Uzum/Karta agregatori) */}
+            <div className="space-y-5">
+              {/* 1) Karta raqami */}
               <div>
-                <label className="block text-sm font-semibold text-zinc-300 mb-3">
-                  To&apos;lov tizimi
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  1. Karta raqami (Humo)
                 </label>
-                <div className="relative flex items-center gap-4 p-4 rounded-2xl border border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/30">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-white font-black text-xl shrink-0">
-                    W
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-bold text-base">WLCM</div>
-                    <div className="text-xs text-zinc-400">
-                      Payme · Click · Uzum · Paylov · Bank kartasi
+                <button
+                  type="button"
+                  onClick={() => copy(MANUAL_CARD_NUMBER.replace(/\s/g, ''), 'card')}
+                  className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-left">
+                  <div className="min-w-0">
+                    <div className="text-lg font-mono font-bold tracking-wider text-white">
+                      {MANUAL_CARD_NUMBER}
+                    </div>
+                    <div className="text-xs text-zinc-400 mt-0.5">
+                      Egasi: <span className="text-zinc-200 font-semibold">{MANUAL_CARD_HOLDER}</span>
                     </div>
                   </div>
-                  <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center shrink-0">
-                    <Check className="w-4 h-4 text-white" />
+                  <span className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-purple-500/20 text-purple-200 text-xs font-semibold">
+                    {copied === 'card' ? (
+                      <><Check className="w-3.5 h-3.5" /> Nusxalandi</>
+                    ) : (
+                      <><Copy className="w-3.5 h-3.5" /> Nusxalash</>
+                    )}
+                  </span>
+                </button>
+              </div>
+
+              {/* 2) Summa */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  2. Aniq summani o&apos;tkazing
+                </label>
+                <div className="px-4 py-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5">
+                  <div className="text-2xl font-black text-emerald-400">
+                    {formatUzsPrice(tariff.price, tp('currency'), tp('free'))}
                   </div>
+                  <p className="text-[11px] text-zinc-400 mt-1">
+                    To&apos;liq summani bitta to&apos;lovda yuboring.
+                  </p>
                 </div>
-                <p className="mt-2 text-[11px] text-zinc-500 leading-relaxed">
-                  Bitta oynada barcha asosiy to&apos;lov usullari — kartangiz yoki hamyoningizga qarab tanlang.
-                </p>
+              </div>
+
+              {/* 3) Telegram'ga chek */}
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">
+                  3. Chek va profil nomini Telegram&apos;ga yuboring
+                </label>
+                <a
+                  href={`https://t.me/${MANUAL_TELEGRAM}`}
+                  target="_blank" rel="noreferrer"
+                  className="block">
+                  <div className="flex items-center gap-3 p-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/15 transition-colors">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shrink-0">
+                      <Send className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-base text-white">@{MANUAL_TELEGRAM}</div>
+                      <div className="text-[11px] text-zinc-400">
+                        Chekni va NanoStUp profil nomingizni yuboring
+                      </div>
+                    </div>
+                    <span className="shrink-0 px-3 py-1.5 rounded-lg bg-blue-500 text-white text-xs font-bold whitespace-nowrap">
+                      Ochish →
+                    </span>
+                  </div>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => copy(`@${MANUAL_TELEGRAM}`, 'tg')}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs text-zinc-300 transition-colors">
+                  {copied === 'tg' ? (
+                    <><Check className="w-3.5 h-3.5" /> Telegram username nusxalandi</>
+                  ) : (
+                    <><Copy className="w-3.5 h-3.5" /> Telegram username&apos;ni nusxalash</>
+                  )}
+                </button>
+              </div>
+
+              {/* Eslatma */}
+              <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200 leading-relaxed">
+                ⏱️ Tasdiqlangach, sizning {tariff.name} tarifingiz <b>15 daqiqa ichida</b> faollashtiriladi.
+                Savollar bo&apos;lsa Telegram&apos;ga yozing.
               </div>
 
               {error && (
@@ -183,24 +225,18 @@ export default function CheckoutPage() {
               )}
 
               <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-6 rounded-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white disabled:opacity-70">
-                {isSubmitting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('submitting')}</>
-                ) : (
-                  <>
-                    {formatUzsPrice(tariff.price, tp('currency'), tp('free'))} — To&apos;lashga o&apos;tish
-                    <ExternalLink className="w-4 h-4 ml-2" />
-                  </>
-                )}
+                type="button"
+                onClick={() => window.open(`https://t.me/${MANUAL_TELEGRAM}`, '_blank')}
+                className="w-full py-6 rounded-2xl font-bold bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white">
+                <Send className="w-4 h-4 mr-2" />
+                Telegram&apos;ga chek yuborish
               </Button>
 
               <div className="flex items-center gap-2 text-[11px] text-zinc-500 justify-center pt-2">
                 <Shield className="w-3.5 h-3.5" />
-                <span>{t('secureSsl')}</span>
+                <span>Xavfsiz to&apos;lov — qo&apos;lda tasdiqlash</span>
               </div>
-            </form>
+            </div>
           </motion.div>
         </div>
       </div>
