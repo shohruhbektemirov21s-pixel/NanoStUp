@@ -8,6 +8,7 @@ from .knowledge_base import (
     get_admin_faqs,
     get_quick_prompts,
     get_templates,
+    match_auto_reply,
     match_faq,
 )
 from .services import AIRouterService, ClaudeService, detect_language
@@ -49,6 +50,15 @@ class ChatView(APIView):
         prompt = (request.data.get("prompt") or "").strip()
         if not prompt:
             return Response({"error": _err("empty_prompt")}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Token-saving short-circuit ─────────────────────────
+        # Salom/rahmat/"kim siz?" kabi qisqa xabarlar uchun AI'ga
+        # umuman murojaat qilmasdan tayyor javob qaytariladi.
+        lang = detect_language(prompt)
+        auto = match_auto_reply(prompt, lang=lang)
+        if auto:
+            return Response({"message": auto["reply"], "source": "kb"})
+
         try:
             message = ClaudeService().chat(prompt, history=request.data.get("history"))
         except RuntimeError as e:
@@ -63,7 +73,7 @@ class ChatView(APIView):
                 {"error": _err("server_error", prompt)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        return Response({"message": message})
+        return Response({"message": message, "source": "ai"})
 
 
 class DetectIntentView(APIView):
@@ -155,6 +165,15 @@ class AdminAssistView(APIView):
             return Response({"error": _err("empty_prompt")}, status=status.HTTP_400_BAD_REQUEST)
 
         lang = _normalize_lang(request.data.get("lang") or detect_language(prompt))
+
+        # 0) Salom/rahmat/etc — eng arzon yo'l
+        auto = match_auto_reply(prompt, lang=lang)
+        if auto:
+            return Response({
+                "source": "kb",
+                "kb_id": auto["id"],
+                "message": auto["reply"],
+            })
 
         # 1) Bilim bazasidan tezkor javob
         kb_hit = match_faq(prompt, lang=lang)

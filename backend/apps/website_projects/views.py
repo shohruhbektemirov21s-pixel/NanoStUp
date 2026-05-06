@@ -2628,3 +2628,95 @@ def admin_set_site_status(request):
 
     project.save(update_fields=['hosting_status', 'is_active', 'suspension_reason', 'updated_at'])
     return Response({'success': True, 'hosting_status': project.hosting_status})
+
+
+# ─────────────────────────────────────────────────────────────────
+# Tayyor shablondan loyiha yaratish — TOKEN-FREE PATH
+# ─────────────────────────────────────────────────────────────────
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
+def create_from_template(request):
+    """POST /api/projects/from-template/
+
+    AI'ga umuman murojaat qilmasdan, oldindan tayyorlangan schema asosida
+    loyiha yaratadi. Foydalanuvchining nano-coin balansiga tegmaydi.
+
+    Body:
+        {
+          "template_id": "restaurant" | "cafe" | ... ,   # majburiy
+          "business_name": "Napoli Pizza",               # majburiy
+          "phone": "+998 90 ...",                        # ixtiyoriy
+          "address": "Toshkent, ..."                     # ixtiyoriy
+        }
+
+    Response:
+        { "success": true, "project": {id, slug, title, schema_data} }
+    """
+    from apps.ai_generation.template_schemas import (
+        build_schema_from_template, list_template_ids,
+    )
+
+    template_id = (request.data.get("template_id") or "").strip()
+    business_name = (request.data.get("business_name") or "").strip()
+    phone = (request.data.get("phone") or "").strip() or None
+    address = (request.data.get("address") or "").strip() or None
+
+    if not template_id or template_id not in list_template_ids():
+        return Response(
+            {"success": False, "error": "Noto'g'ri shablon ID."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if not business_name or len(business_name) < 2:
+        return Response(
+            {"success": False, "error": "Biznes nomini kiriting."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Oylik sayt limiti — AI generatsiyadagi kabi tekshiruv
+    user_limits = _get_user_limits(request.user)
+    cap = user_limits.get("max_sites_per_month", 0)
+    if cap > 0 and user_limits.get("sites_created_this_month", 0) >= cap:
+        return _site_limit_response(user_limits, action="Shablondan sayt yaratish")
+
+    schema = build_schema_from_template(
+        template_id=template_id,
+        business_name=business_name,
+        phone=phone,
+        address=address,
+    )
+    if schema is None:
+        return Response(
+            {"success": False, "error": "Shablonni o'qib bo'lmadi."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+    project = WebsiteProject.objects.create(
+        user=request.user,
+        title=business_name,
+        prompt=f"[Template: {template_id}] {business_name}",
+        schema_data=schema,
+        status=ProjectStatus.COMPLETED,
+        slug=_generate_unique_slug(business_name),
+    )
+
+    # Subscription "sites_created_this_month" sanagichini oshirish (agar bor bo'lsa)
+    sub = _get_active_subscription(request.user)
+    if sub is not None:
+        try:
+            sub.sites_created_this_month = F("sites_created_this_month") + 1
+            sub.save(update_fields=["sites_created_this_month"])
+        except Exception:
+            logger.exception("Failed to increment sites_created_this_month for sub %s", sub.id)
+
+    return Response({
+        "success": True,
+        "tokens_used": 0,        # Token-free: AI chaqirilmadi
+        "project": {
+            "id": str(project.id),
+            "slug": project.slug,
+            "title": project.title,
+            "schema_data": schema,
+        },
+    })

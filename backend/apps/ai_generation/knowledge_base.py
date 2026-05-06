@@ -505,6 +505,115 @@ ADMIN_FAQ: List[Dict[str, Any]] = [
 
 
 # ─────────────────────────────────────────────────────────────────
+# Auto-reply patterns — chat'da AI chaqirilmaydigan tezkor javoblar
+# ─────────────────────────────────────────────────────────────────
+# Salomlashish, minnatdorchilik va off-topic savollarga AI'ga murojaat
+# qilmasdan tayyor javob qaytariladi (token tejamkor).
+#
+# Har pattern: triggerlar (lowercase, substring match) + uz/ru/en javob.
+
+AUTO_REPLIES: List[Dict[str, Any]] = [
+    {
+        "id": "greeting",
+        "triggers": [
+            "salom", "assalom", "hayrli kun", "hayrli ertalab",
+            "привет", "здравствуй", "добрый день", "доброе утро",
+            "hello", "hi", "hey", "good morning", "good day",
+        ],
+        "reply": {
+            "uz": "Salom! 👋 Sizga sayt yaratishda yordam beraman. Qanday turdagi sayt kerak? Yuqoridan tayyor shablon tanlashingiz yoki o'zingizning loyihangizni tasvirlab berishingiz mumkin.",
+            "ru": "Здравствуйте! 👋 Помогу вам создать сайт. Какой тип нужен? Можно выбрать готовый шаблон выше или описать свой проект текстом.",
+            "en": "Hello! 👋 I'll help you build a website. What kind do you need? Pick a ready-made template above, or describe your project in your own words.",
+        },
+    },
+    {
+        "id": "thanks",
+        "triggers": [
+            "rahmat", "tashakkur", "minnatdorchilik",
+            "спасибо", "благодар", "thx",
+            "thanks", "thank you", "appreciate",
+        ],
+        "reply": {
+            "uz": "Arzimaydi! 😊 Yana qanday yordam kerak?",
+            "ru": "Не за что! 😊 Чем ещё помочь?",
+            "en": "You're welcome! 😊 Anything else I can help with?",
+        },
+    },
+    {
+        "id": "how_are_you",
+        "triggers": [
+            "qalaysiz", "qalay", "qandaysan", "ahvoling", "yaxshimisiz",
+            "как дела", "как ты", "как поживаешь",
+            "how are you", "how's it going", "how are u",
+        ],
+        "reply": {
+            "uz": "Yaxshi, rahmat! 🤖 Sayt yaratishga tayyorman. Qanday loyiha boshlaymiz?",
+            "ru": "Отлично, спасибо! 🤖 Готов создавать сайт. С какого проекта начнём?",
+            "en": "Doing great, thanks! 🤖 Ready to build sites. What project shall we start?",
+        },
+    },
+    {
+        "id": "who_are_you",
+        "triggers": [
+            "kimsan", "kim san", "sen kim", "kim siz",
+            "кто ты", "ты кто", "что ты",
+            "who are you", "what are you", "your name",
+        ],
+        "reply": {
+            "uz": "Men NanoStUp AI yordamchisiman — sayt yaratishga ixtisoslashganman. Bir necha soniyada premium veb-sayt yarata olaman. Qaysi biznes uchun sayt kerak?",
+            "ru": "Я AI-помощник NanoStUp, специализируюсь на создании сайтов. За считанные секунды создам премиум-сайт. Для какого бизнеса нужен сайт?",
+            "en": "I'm the NanoStUp AI assistant, specialized in building websites. I can create a premium site in seconds. What business is the site for?",
+        },
+    },
+    {
+        "id": "off_topic_general",
+        # Bu pattern ENG OXIRIDA tekshiriladi — yuqorigi spetsifik patternlar
+        # mos kelmasagina ishga tushadi. Triggerlari yo'q, fallback sifatida
+        # ishlatish uchun `match_auto_reply` ichida alohida logika.
+        "triggers": [],
+        "reply": {
+            "uz": "Men faqat sayt yaratish bilan shug'ullanaman 😊 Sizga qanday turdagi veb-sayt kerakligini ayting yoki yuqoridagi tayyor shablonlardan birini tanlang.",
+            "ru": "Я занимаюсь только созданием сайтов 😊 Опишите, какой сайт вам нужен, или выберите готовый шаблон выше.",
+            "en": "I focus only on building websites 😊 Tell me what kind of site you need, or pick a ready-made template above.",
+        },
+    },
+]
+
+
+def match_auto_reply(query: str, lang: str = "uz") -> Optional[Dict[str, Any]]:
+    """Tezkor javob mos kelsa qaytaradi (AI chaqirilmaydi).
+
+    Faqat ENG aniq mos keladigan patternga javob beradi: short message
+    (< 80 belgi) bo'lib, kamida bitta trigger so'z aynan ichida bo'lsa.
+
+    Returns:
+        {"id": ..., "reply": str} yoki None.
+    """
+    q = _normalize(query)
+    if not q:
+        return None
+    # Faqat qisqa xabarlar uchun (uzun talab tafsilotlardan iborat bo'lishi mumkin)
+    if len(q) > 80:
+        return None
+
+    lang_key = lang if lang in ("uz", "ru", "en") else "uz"
+
+    for entry in AUTO_REPLIES:
+        triggers = entry.get("triggers") or []
+        if not triggers:
+            continue  # Bo'sh trigger — fallback, alohida ishlatiladi
+        for t in triggers:
+            # `t in q` substring; lekin so'z chegarasini tekshirish
+            # — masalan "hi" "this"da topilmasligi kerak.
+            if re.search(rf"(^|\W){re.escape(t)}(\W|$)", q):
+                return {
+                    "id": entry["id"],
+                    "reply": entry["reply"].get(lang_key, entry["reply"]["uz"]),
+                }
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     WebsiteProjectViewSet,
+    create_from_template,
     owner_download_by_slug,
     owner_get_by_slug,
     owner_save_by_slug,
@@ -25,6 +26,9 @@ urlpatterns = [
 
     # SaaS Dashboard — foydalanuvchi saytlari ro'yxati + status filter
     path('dashboard/sites/', dashboard_sites, name='dashboard_sites'),
+
+    # Token-free shablon → loyiha (AI chaqirilmaydi)
+    path('from-template/', create_from_template, name='create_from_template'),
 
     # Owner admin — slug bo'yicha schema'ni olish/saqlash (auth + owner only)
     path('owner/by_slug/<slug:slug>/', owner_get_by_slug, name='owner_get_by_slug'),

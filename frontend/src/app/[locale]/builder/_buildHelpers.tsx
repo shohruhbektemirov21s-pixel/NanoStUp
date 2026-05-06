@@ -347,6 +347,155 @@ interface QuickPromptChipsProps {
   onPick: (text: string) => void;
 }
 
+// ── Template Setup Modal ──────────────────────────────────────────
+// Shablon tanlangach paydo bo'ladi: biznes nomi + (ixtiyoriy) telefon va manzil.
+// Submit qilingach `onSubmit` chaqiriladi — page.tsx /api/projects/from-template/
+// endpoint'ga POST yuboradi (AI chaqirilmaydi, 0 nano).
+
+interface TemplateSetupModalProps {
+  template: SiteTemplate | null;
+  onClose: () => void;
+  onSubmit: (data: { businessName: string; phone?: string; address?: string }) => Promise<void> | void;
+  busy: boolean;
+  copy: {
+    title: string;          // "Biznes ma'lumotlari"
+    nameLabel: string;
+    namePlaceholder: string;
+    phoneLabel: string;
+    phonePlaceholder: string;
+    addressLabel: string;
+    addressPlaceholder: string;
+    submit: string;         // "Sayt yaratish (BEPUL)"
+    cancel: string;
+    freeBadge: string;      // "0 nano-coin"
+  };
+}
+
+export function TemplateSetupModal({
+  template, onClose, onSubmit, busy, copy,
+}: TemplateSetupModalProps) {
+  const [businessName, setBusinessName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+
+  // Modal ochilganda biznes nomi inputiga focus
+  useEffect(() => {
+    if (template) {
+      setBusinessName('');
+      setPhone('');
+      setAddress('');
+      // setTimeout: animatsiya tugagandan keyin focus
+      setTimeout(() => {
+        const input = document.getElementById('tpl-biz-name') as HTMLInputElement | null;
+        input?.focus();
+      }, 80);
+    }
+  }, [template]);
+
+  if (!template) return null;
+
+  const submit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (busy || businessName.trim().length < 2) return;
+    void onSubmit({
+      businessName: businessName.trim(),
+      phone: phone.trim() || undefined,
+      address: address.trim() || undefined,
+    });
+  };
+
+  return (
+    <div
+      role="dialog" aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget && !busy) onClose(); }}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="px-5 py-4 border-b border-zinc-100 bg-gradient-to-r from-purple-50 to-blue-50 flex items-center gap-3">
+          <span className="text-3xl">{template.icon}</span>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-zinc-900">{template.label}</h3>
+            <p className="text-[11px] text-zinc-500 truncate">{template.description}</p>
+          </div>
+          <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 whitespace-nowrap">
+            ⚡ {copy.freeBadge}
+          </span>
+        </div>
+
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <h4 className="text-sm font-bold text-zinc-900">{copy.title}</h4>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {copy.nameLabel} <span className="text-red-500">*</span>
+            </span>
+            <input
+              id="tpl-biz-name"
+              type="text" required maxLength={80}
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder={copy.namePlaceholder}
+              disabled={busy}
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {copy.phoneLabel}
+            </span>
+            <input
+              type="tel" maxLength={32}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder={copy.phonePlaceholder}
+              disabled={busy}
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              {copy.addressLabel}
+            </span>
+            <input
+              type="text" maxLength={120}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder={copy.addressPlaceholder}
+              disabled={busy}
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </label>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose} disabled={busy}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 disabled:opacity-50 text-sm font-semibold text-zinc-700 transition-colors"
+            >
+              {copy.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={busy || businessName.trim().length < 2}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold text-white shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-2"
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {copy.submit}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 /** Chat input ustidagi gorizontal scroll'ga ega tezkor prompt chips. */
 export function QuickPromptChips({ prompts, onPick }: QuickPromptChipsProps) {
   if (!prompts.length) return null;
