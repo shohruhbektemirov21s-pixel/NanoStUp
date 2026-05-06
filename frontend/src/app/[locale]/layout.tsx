@@ -31,6 +31,9 @@ export const metadata: Metadata = {
     'landing page yaratish', 'portfolio sayt yaratish', 'onlayn sayt yaratish',
     'NanoStUp', 'nanostup.uz',
   ],
+  verification: {
+    google: 'e159c5a8be39946b',
+  },
   authors: [{ name: 'NanoStUp Team', url: 'https://nanostup.uz' }],
   creator: 'NanoStUp AI',
   publisher: 'NanoStUp',
