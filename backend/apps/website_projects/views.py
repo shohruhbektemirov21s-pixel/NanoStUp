@@ -1324,6 +1324,44 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ── Token-saving short-circuit ──────────────────────────────
+        # Salom/rahmat/"kim siz?" kabi qisqa xabarlar uchun AI'ga umuman
+        # murojaat qilinmaydi: bilim bazasidan tayyor javob qaytariladi.
+        # Bu builder chatdagi har xil "Salom"larga 0 nano sarflashga olib keladi.
+        if prompt and not images and not project_id:
+            try:
+                from apps.ai_generation.knowledge_base import match_auto_reply
+                from apps.ai_generation.services import detect_language as _dl
+                _auto_lang = _dl(prompt) if prompt else "uz"
+                _auto = match_auto_reply(prompt, lang=_auto_lang)
+            except Exception:
+                _auto = None
+            if _auto:
+                # Suhbat ID ni saqlab qolish (tarix uchun) — KB javobi ham
+                # conversation'da ko'rsatilsin
+                try:
+                    _conv = _get_or_create_conversation(
+                        request.user, conversation_id, language, prompt,
+                    )
+                    _save_message(_conv, ChatRole.USER, prompt, intent="CHAT")
+                    _save_message(
+                        _conv, ChatRole.ASSISTANT, _auto["reply"], intent="CHAT",
+                        metadata={"source": "kb", "kb_id": _auto["id"]},
+                    )
+                    _conv_id = str(_conv.id) if _conv else None
+                except Exception:
+                    logger.exception("KB auto-reply save failed (non-fatal)")
+                    _conv_id = None
+                return Response({
+                    "success": True,
+                    "phase": "ARCHITECT",
+                    "is_chat": True,
+                    "message": _auto["reply"],
+                    "source": "kb",
+                    "tokens_used": 0,
+                    "conversation_id": _conv_id,
+                })
+
         # Rate limit
         is_auth = request.user.is_authenticated
         rl_key = str(request.user.id) if is_auth else f"ip:{_get_client_ip(request)}"

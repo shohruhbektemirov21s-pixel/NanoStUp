@@ -41,6 +41,21 @@ import {
 } from './_buildHelpers';
 
 // ── Streaming POST helper (timeout muammosini hal qiladi) ────────────
+// Maxsus xato tipi: axios-ga o'xshash struktura — handleSend xato handler
+// `axiosErr.response?.status` va `.data` orqali to'g'ri ishlay olsin.
+class StreamFetchError extends Error {
+  response?: { status: number; data: unknown };
+  code?: string;
+  constructor(message: string, opts?: { status?: number; data?: unknown; code?: string }) {
+    super(message);
+    this.name = 'StreamFetchError';
+    if (opts?.status !== undefined) {
+      this.response = { status: opts.status, data: opts.data ?? {} };
+    }
+    if (opts?.code) this.code = opts.code;
+  }
+}
+
 async function streamPost<T>(
   url: string,
   body: Record<string, unknown>,
@@ -50,34 +65,88 @@ async function streamPost<T>(
   const apiUrl = baseUrl.endsWith('/api') ? `${baseUrl}${url}` : `${baseUrl}/api${url}`;
   const token = useAuthStore.getState().token;
 
-  const fetchResp = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-    signal,
-  });
+  let fetchResp: Response;
+  try {
+    fetchResp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    // Network drop / CORS / abort. Foydalanuvchi tushunadigan xato berish kerak.
+    if ((err as Error)?.name === 'AbortError') {
+      throw new StreamFetchError('Aborted', { code: 'ECONNABORTED' });
+    }
+    throw new StreamFetchError(
+      'Tarmoq xatosi: serverga ulanib bo\'lmadi.',
+      { code: 'ERR_NETWORK' },
+    );
+  }
 
+  // ── HTTP status tekshiruvi ─────────────────────────────────────
+  // Bu YO'Q bo'lsa 4xx/5xx javoblar "muvaffaqiyat" deb hisoblanardi.
+  // Endi backend xatosi to'g'ri propagate bo'ladi (insufficient_tokens,
+  // ai_unavailable, rate-limit va h.k.).
   const reader = fetchResp.body?.getReader();
-  if (!reader) throw new Error('Streaming not supported');
+  if (!reader) {
+    throw new StreamFetchError('Streaming javobni o\'qib bo\'lmadi.', {
+      status: fetchResp.status,
+    });
+  }
 
   const decoder = new TextDecoder();
   let accumulated = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    // Keep-alive bytes (space/newline) ni o'tkazib yuboramiz
-    accumulated += chunk;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      accumulated += decoder.decode(value, { stream: true });
+    }
+  } catch (err) {
+    // Stream reader xatosi — masalan proxy connection reset.
+    if ((err as Error)?.name === 'AbortError') {
+      throw new StreamFetchError('Aborted', { code: 'ECONNABORTED' });
+    }
+    throw new StreamFetchError(
+      'Server javobi yarim yo\'lda uzilib qoldi. Qayta urinib ko\'ring.',
+      { code: 'ERR_NETWORK' },
+    );
   }
 
-  // Bo'sh joy heartbeat'larni trim qilib JSON parse qilamiz
   const jsonStr = accumulated.trim();
-  if (!jsonStr) throw new Error('Empty response from server');
-  return JSON.parse(jsonStr) as T;
+  if (!jsonStr) {
+    throw new StreamFetchError('Server bo\'sh javob qaytardi.', {
+      status: fetchResp.status,
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    // JSON emas — backend HTML xato sahifasi qaytargan bo'lishi mumkin
+    throw new StreamFetchError('Server javobini o\'qib bo\'lmadi (JSON emas).', {
+      status: fetchResp.status,
+      data: { raw: jsonStr.slice(0, 200) },
+    });
+  }
+
+  // Status 4xx/5xx bo'lsa — body da error JSON bor
+  if (!fetchResp.ok) {
+    throw new StreamFetchError(
+      typeof (parsed as { error?: string })?.error === 'string'
+        ? (parsed as { error: string }).error
+        : `HTTP ${fetchResp.status}`,
+      { status: fetchResp.status, data: parsed },
+    );
+  }
+
+  return parsed as T;
 }
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -1284,10 +1353,16 @@ export default function BuilderPage() {
       const serverError = axiosErr.response?.data?.error;
       const code = axiosErr.code;
 
-      if (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || !axiosErr.response) {
-        // AI generatsiya uzoq vaqt ketdi — timeout
-        msg = '⏳ AI sayt yaratyapti...';
-        hint = 'Server javob berishga urinmoqda. Iltimos, "Yuborish" tugmasini yana bir marta bosing — so\'rovingiz qayta yuboriladi.';
+      if (code === 'ECONNABORTED') {
+        // Foydalanuvchi o'zi to'xtatdi
+        msg = '⏸️ So\'rov bekor qilindi';
+        hint = 'Tayyor bo\'lganda yana "Yuborish" tugmasini bosing.';
+      } else if (code === 'ERR_NETWORK' || !axiosErr.response) {
+        // Tarmoq xatosi — connection drop, CORS, proxy reset
+        msg = '🌐 Internet aloqasi uzilib qoldi';
+        hint = (axiosErr.message && axiosErr.message !== 'Aborted')
+          ? `${axiosErr.message} Iltimos qayta urinib ko'ring.`
+          : 'Internet aloqangizni tekshiring va "Yuborish" tugmasini yana bir bosing — so\'rovingiz qayta yuboriladi.';
       } else if (status === 401) {
         msg = '🔒 Sessiya tugadi';
         hint = 'Qayta kiring (login).';
@@ -1309,7 +1384,7 @@ export default function BuilderPage() {
       }
 
       const fullMsg = hint ? `${msg}\n\n${hint}` : msg;
-      setErrorMsg(msg.replace(/[🌐🔒⏱️🤖⚠️❌]/g, '').trim());
+      setErrorMsg(msg.replace(/[🌐🔒⏱️🤖⚠️❌⏸️⏳]/g, '').trim());
       addMsg('ai', fullMsg);
       setBuildStartTime(null);
       setIsGenerating(false);
