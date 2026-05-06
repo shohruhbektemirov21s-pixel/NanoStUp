@@ -277,3 +277,94 @@ export function PhaseBadge({ phase }: { phase: 'idle' | 'architect' | 'building'
     </span>
   );
 }
+
+// ── Tayyor variantlar (suggestions) ───────────────────────────────
+// Backend `/api/ai/suggestions/` dan keladigan ma'lumot tipi.
+
+export interface SiteTemplate {
+  id: string;
+  icon: string;
+  label: string;
+  description: string;
+  prompt: string;
+}
+
+export interface QuickPrompt {
+  icon: string;
+  text: string;
+}
+
+export interface BuilderSuggestions {
+  templates: SiteTemplate[];
+  quick_prompts: QuickPrompt[];
+}
+
+interface TemplateGalleryProps {
+  templates: SiteTemplate[];
+  onPick: (template: SiteTemplate) => void;
+  galleryLabel: string;     // "Tayyor shablonlardan tanlang" / "Готовые шаблоны" / ...
+  galleryHint: string;      // tavsif satri
+}
+
+/** Builder bo'sh ekranida ko'rsatiladigan 12 ta tayyor shablon kartochkasi. */
+export function TemplateGallery({
+  templates, onPick, galleryLabel, galleryHint,
+}: TemplateGalleryProps) {
+  if (!templates.length) return null;
+  return (
+    <div className="w-full max-w-3xl mx-auto mt-2">
+      <div className="text-center mb-4">
+        <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+          {galleryLabel}
+        </p>
+        <p className="text-[11px] text-zinc-500 mt-1">{galleryHint}</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        {templates.map(tpl => (
+          <motion.button
+            key={tpl.id}
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onPick(tpl)}
+            className="group flex flex-col items-center gap-1 p-3 rounded-xl bg-white border border-zinc-200 hover:border-purple-300 hover:shadow-md hover:shadow-purple-500/10 transition-all text-left"
+          >
+            <span className="text-2xl leading-none">{tpl.icon}</span>
+            <span className="text-xs font-bold text-zinc-800 mt-1 leading-tight text-center">
+              {tpl.label}
+            </span>
+            <span className="text-[10px] text-zinc-500 text-center leading-tight line-clamp-2">
+              {tpl.description}
+            </span>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface QuickPromptChipsProps {
+  prompts: QuickPrompt[];
+  onPick: (text: string) => void;
+}
+
+/** Chat input ustidagi gorizontal scroll'ga ega tezkor prompt chips. */
+export function QuickPromptChips({ prompts, onPick }: QuickPromptChipsProps) {
+  if (!prompts.length) return null;
+  return (
+    <div className="mb-2 -mx-1 px-1 flex gap-1.5 overflow-x-auto scrollbar-hide">
+      {prompts.map((p, i) => (
+        <motion.button
+          key={`${p.text}-${i}`}
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onPick(p.text)}
+          className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-800/80 hover:bg-zinc-700 border border-white/10 text-[11px] font-medium text-zinc-300 hover:text-white transition-colors whitespace-nowrap"
+          title={p.text}
+        >
+          <span className="text-xs leading-none">{p.icon}</span>
+          <span>{p.text}</span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}

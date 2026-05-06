@@ -29,9 +29,14 @@ import {
   GenerationProgress,
   GenerationStatsPanel,
   PhaseBadge,
+  QuickPromptChips,
+  TemplateGallery,
   looksLikeBuildTrigger,
   pickBuildCopy,
+  type BuilderSuggestions,
   type GenerationStats,
+  type QuickPrompt,
+  type SiteTemplate,
 } from './_buildHelpers';
 
 // ── Streaming POST helper (timeout muammosini hal qiladi) ────────────
@@ -577,6 +582,9 @@ export default function BuilderPage() {
   const [viewMode, setViewMode] = useState<'desktop' | 'mobile'>('desktop');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<'idle' | 'architect' | 'building' | 'done'>('idle');
+  // Tayyor variantlar (KB → /api/ai/suggestions/) — birinchi paydo bo'lganda
+  // bir marta keladi, keyin phase o'zgarganda quick_prompts yangilanadi.
+  const [suggestions, setSuggestions] = useState<BuilderSuggestions | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [designVariants, setDesignVariants] = useState<DesignVariant[] | null>(null);
@@ -629,6 +637,27 @@ export default function BuilderPage() {
       router.replace('/login?next=/builder');
     }
   }, [router]);
+
+  // ── Tayyor variantlar (suggestions) ─────────────────────────────
+  // Bilim bazasidan: shablon galereyasi + faza bo'yicha tezkor promptlar.
+  // Auth talab qilmaydi → tarmoq xato bo'lsa jim qoladi (UI buzilmaydi).
+  useEffect(() => {
+    let cancelled = false;
+    interface SuggestRes extends BuilderSuggestions {
+      context: string; lang: string; phase: string;
+    }
+    api
+      .get<SuggestRes>(`/ai/suggestions/?context=builder&phase=${phase === 'done' ? 'done' : 'idle'}&lang=${locale}`)
+      .then(res => {
+        if (cancelled) return;
+        setSuggestions({
+          templates: Array.isArray(res.data.templates) ? res.data.templates : [],
+          quick_prompts: Array.isArray(res.data.quick_prompts) ? res.data.quick_prompts : [],
+        });
+      })
+      .catch(() => {/* tarmoq xatosi — chat ishlashda davom etadi */});
+    return () => { cancelled = true; };
+  }, [locale, phase]);
   const tShare = useTranslations('Share');
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1713,15 +1742,29 @@ export default function BuilderPage() {
                     Chatda loyihangizni tasvirlab bering — AI saytni yaratadi va bu yerda ko&apos;rsatadi
                   </p>
 
-                  <div className="flex gap-2 flex-wrap justify-center">
-                    {["Cafe ☕", "Portfolio 🎨", "Do'kon 🛍️", "Klinika 🏥", "Restoran 🍽️"].map(ex => (
-                      <motion.button key={ex} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={() => { setPrompt(`${ex} uchun sayt kerak`); textareaRef.current?.focus(); }}
-                        className="px-3 py-1.5 rounded-full border border-zinc-200 text-xs font-medium text-zinc-600 hover:border-purple-300 hover:text-purple-700 transition-colors">
-                        {ex}
-                      </motion.button>
-                    ))}
-                  </div>
+                  {/* Tayyor shablonlar galereyasi (KB'dan keladi). Mos kelmasa
+                      foydalanuvchi pastdagi chatda o'zicha yozadi → Gemini
+                      google_search bilan internet'dan ham qidiradi. */}
+                  <TemplateGallery
+                    templates={suggestions?.templates ?? []}
+                    onPick={(tpl: SiteTemplate) => {
+                      setPrompt(tpl.prompt);
+                      // Mobile'da klaviatura ochilmasin — desktop'da focus
+                      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+                        textareaRef.current?.focus();
+                      }
+                    }}
+                    galleryLabel={
+                      locale === 'ru' ? 'Готовые шаблоны' :
+                      locale === 'en' ? 'Ready-made templates' :
+                      'Tayyor shablonlardan tanlang'
+                    }
+                    galleryHint={
+                      locale === 'ru' ? 'Один клик — AI адаптирует шаблон под ваш бизнес'
+                      : locale === 'en' ? 'One click — AI adapts the template to your business'
+                      : 'Bitta bosish — AI shablonni biznesingizga moslab beradi'
+                    }
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1901,6 +1944,20 @@ export default function BuilderPage() {
 
           {/* Input */}
           <div className="p-3 border-t border-white/5 shrink-0">
+            {/* Tayyor tezkor promptlar — phase ga qarab idle/done ro'yxat
+                keladi. Foydalanuvchi bossa, matn input'ga qo'yiladi (lekin
+                avtomatik yuborilmaydi — har holda u tahrirlashi mumkin). */}
+            {!isGenerating && (suggestions?.quick_prompts?.length ?? 0) > 0 && (
+              <QuickPromptChips
+                prompts={suggestions!.quick_prompts as QuickPrompt[]}
+                onPick={(text: string) => {
+                  setPrompt(text);
+                  if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+                    textareaRef.current?.focus();
+                  }
+                }}
+              />
+            )}
             {/* Biriktirilgan rasmlar preview (thumbnail row + o'chirish) */}
             <AnimatePresence>
               {attachedImages.length > 0 && (

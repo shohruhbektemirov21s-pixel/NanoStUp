@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   Clock,
   Download,
@@ -24,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { AssistantPanel } from './AssistantPanel';
 import { EditorTab, type SchemaShape } from './EditorTab';
 import { VersionsPanel } from './VersionsPanel';
 import { useEffect, useMemo, useState } from 'react';
@@ -61,7 +63,7 @@ interface OwnerResponse {
   message?: string;
 }
 
-type Tab = 'view' | 'text' | 'design' | 'domain' | 'versions' | 'settings';
+type Tab = 'view' | 'text' | 'design' | 'domain' | 'versions' | 'assist' | 'settings';
 
 const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: 'view',     label: "Ko'rish",       icon: Eye },
@@ -69,6 +71,7 @@ const NAV: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[]
   { key: 'design',   label: 'Dizayn',        icon: Sparkles },
   { key: 'domain',   label: 'Domen / Hosting', icon: Server },
   { key: 'versions', label: 'Tarix',         icon: History },
+  { key: 'assist',   label: 'AI yordamchi',  icon: Bot },
   { key: 'settings', label: 'Sozlamalar',    icon: Settings },
 ];
 
@@ -629,6 +632,8 @@ export default function SiteAdminPage() {
             />
           ) : tab === 'domain' ? (
             <HostingTab site={site} locale={locale} />
+          ) : tab === 'assist' ? (
+            <AssistantPanel locale={locale} />
           ) : tab === 'versions' ? (
             <VersionsPanel
               slug={slug}

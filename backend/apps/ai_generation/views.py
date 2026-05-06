@@ -4,6 +4,12 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .knowledge_base import (
+    get_admin_faqs,
+    get_quick_prompts,
+    get_templates,
+    match_faq,
+)
 from .services import AIRouterService, ClaudeService, detect_language
 
 logger = logging.getLogger(__name__)
@@ -79,3 +85,102 @@ class DetectIntentView(APIView):
             "language": topic["language"],
             "off_topic": topic["off_topic"],
         })
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Knowledge-base powered endpoints (chat tayyor variantlari + RAG)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def _normalize_lang(raw: str) -> str:
+    raw = (raw or "").lower().strip()
+    if raw.startswith("ru"):
+        return "ru"
+    if raw.startswith("en"):
+        return "en"
+    return "uz"
+
+
+class SuggestionsView(APIView):
+    """Builder va Site-admin uchun statik chat-variantlar.
+
+    Query params:
+        context: "builder" | "admin"  (default: "builder")
+        phase:   "idle" | "done"      (faqat builder uchun)
+        lang:    "uz" | "ru" | "en"
+
+    Auth talab qilmaydi — javob foydalanuvchi-spetsifik emas, hammaga bir xil.
+    Bu sahifa yuklanishi bilan bir marta chaqiriladi va keshlanadi.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        context = (request.query_params.get("context") or "builder").lower()
+        phase = (request.query_params.get("phase") or "idle").lower()
+        lang = _normalize_lang(request.query_params.get("lang") or "uz")
+
+        if context == "admin":
+            return Response({
+                "context": "admin",
+                "lang": lang,
+                "faqs": get_admin_faqs(lang=lang),
+            })
+
+        # Default: builder
+        return Response({
+            "context": "builder",
+            "lang": lang,
+            "phase": phase,
+            "templates": get_templates(lang=lang),
+            "quick_prompts": get_quick_prompts(phase=phase, lang=lang),
+        })
+
+
+class AdminAssistView(APIView):
+    """Site-admin AI yordamchisi.
+
+    Algoritm:
+        1. Foydalanuvchi savolini KB FAQ bilan solishtir.
+        2. Mos topilsa → tezkor (instant) javob qaytar (`source: "kb"`).
+        3. Aks holda → Gemini'ga yo'naltir (google_search grounding bilan)
+           va `source: "ai"` qaytar.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        prompt = (request.data.get("prompt") or "").strip()
+        if not prompt:
+            return Response({"error": _err("empty_prompt")}, status=status.HTTP_400_BAD_REQUEST)
+
+        lang = _normalize_lang(request.data.get("lang") or detect_language(prompt))
+
+        # 1) Bilim bazasidan tezkor javob
+        kb_hit = match_faq(prompt, lang=lang)
+        if kb_hit and kb_hit.get("matched_triggers", 0) >= 1:
+            return Response({
+                "source": "kb",
+                "kb_id": kb_hit["id"],
+                "question": kb_hit["question"],
+                "message": kb_hit["answer"],
+            })
+
+        # 2) Internet/AI fallback (Gemini google_search grounding)
+        try:
+            history = request.data.get("history") or []
+            ai_message = ClaudeService().chat(prompt, history=history)
+        except RuntimeError as e:
+            logger.warning("Admin assist AI failed: %s", e)
+            return Response(
+                {"error": _err("ai_unavailable", prompt)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception:
+            logger.exception("Admin assist kutilmagan xato")
+            return Response(
+                {"error": _err("server_error", prompt)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"source": "ai", "message": ai_message})
