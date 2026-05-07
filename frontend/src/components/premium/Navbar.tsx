@@ -27,21 +27,17 @@ export function PremiumNavbar() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Real-time balans yangilanishi — har 30 soniyada polling
+  // Balansni faqat sahifa ochilganda bir marta yuklaymiz.
+  // Polling o'chirildi — keraksiz API so'rovlarni oldini olish uchun.
   useEffect(() => {
     if (!isAuthenticated) return;
-    const poll = () => {
-      api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
-        .then(r => {
-          if (typeof r.data.tokens_balance === 'number') {
-            updateBalance(r.data.tokens_balance, r.data.nano_coins ?? 0);
-          }
-        })
-        .catch(() => {});
-    };
-    poll();
-    const id = setInterval(poll, 30000);
-    return () => clearInterval(id);
+    api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
+      .then(r => {
+        if (typeof r.data.tokens_balance === 'number') {
+          updateBalance(r.data.tokens_balance, r.data.nano_coins ?? 0);
+        }
+      })
+      .catch(() => {});
   }, [isAuthenticated, updateBalance]);
 
   // Tashqi bosilganda dropdown yopilsin

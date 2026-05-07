@@ -56,12 +56,12 @@ def _retry_ai_call(
     fn: Callable[[], T],
     *,
     label: str,
-    attempts: int = 3,
-    base_delay: float = 1.5,
+    attempts: int = 2,
+    base_delay: float = 2.0,
 ) -> T:
     """
     AI provayder transient xatosi bo'lsa avtomatik qayta urinish.
-    Backoff: 1.5s, 3.5s, 7.5s + jitter (±20%).
+    Backoff: 2s, 4s + jitter (±20%). Maksimum 2 urinish — infinite loop yo'q.
     Non-retryable xato (401/403/api_key) — darhol uzatiladi.
     """
     last_exc: Optional[BaseException] = None
@@ -1155,11 +1155,10 @@ def _get_claude_client() -> anthropic.Anthropic:
     )
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY .env da topilmadi.")
-    # timeout=1200s (20 min): juda murakkab/uzun saytlar uchun ham yetadi.
-    # gunicorn --timeout 1260s dan kichik (60s buffer).
-    # max_retries=3: Anthropic SDK 529/overloaded/timeout'da avtomatik
-    # exponential backoff bilan 3 marta urinadi (network flap + transient overload).
-    return anthropic.Anthropic(api_key=api_key, timeout=1200.0, max_retries=3)
+    # timeout=120s: bir generatsiya uchun yetarli (qimmat model uchun tejamkor).
+    # max_retries=1: SDK darajasida faqat 1 retry (loop oldini olish).
+    # _retry_ai_call ham qo'shimcha 2 retry qiladi — jami maksimal 3 urinish.
+    return anthropic.Anthropic(api_key=api_key, timeout=120.0, max_retries=1)
 
 
 def _get_claude_model() -> str:
@@ -1401,7 +1400,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=15000,
+                max_tokens=4096,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1409,6 +1408,10 @@ class ClaudeService:
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
             }
+            logger.info(
+                "Claude generate_from_spec: model=%s in=%d out=%d",
+                _get_claude_model(), usage["input_tokens"], usage["output_tokens"],
+            )
             return _extract_json(response.content[0].text), usage
         except anthropic.APIError as exc:
             logger.exception("Claude generate_from_spec xatosi")
@@ -1432,7 +1435,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=15000,
+                max_tokens=4096,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -1440,6 +1443,10 @@ class ClaudeService:
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
             }
+            logger.info(
+                "Claude generate_full_site: model=%s in=%d out=%d",
+                _get_claude_model(), usage["input_tokens"], usage["output_tokens"],
+            )
             return _extract_json(response.content[0].text), usage
         except anthropic.APIError as exc:
             logger.exception("Claude generate_full_site xatosi")
@@ -1460,7 +1467,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=15000,
+                max_tokens=4096,
                 system=REVISE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -1468,6 +1475,10 @@ class ClaudeService:
                 "input_tokens": response.usage.input_tokens,
                 "output_tokens": response.usage.output_tokens,
             }
+            logger.info(
+                "Claude revise_site: model=%s in=%d out=%d",
+                _get_claude_model(), usage["input_tokens"], usage["output_tokens"],
+            )
             return _extract_json(response.content[0].text), usage
         except anthropic.APIError as exc:
             logger.exception("Claude revise xatosi")
@@ -1495,11 +1506,17 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=16000,
+                max_tokens=6144,
                 system=SITE_FILES_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
             raw = response.content[0].text
+            logger.info(
+                "Claude generate_site_files: model=%s in=%d out=%d",
+                _get_claude_model(),
+                response.usage.input_tokens,
+                response.usage.output_tokens,
+            )
             files = _extract_json(raw)
             # Faqat string qiymatlarni qaytaramiz
             return {k: str(v) for k, v in files.items() if isinstance(v, (str, int, float))}

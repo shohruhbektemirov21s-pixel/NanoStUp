@@ -119,9 +119,7 @@ export default function HistoryPage() {
   useEffect(() => {
     if (!isAuthenticated) return;
     loadList(false);
-    // Real-time: har 20 soniyada ro'yxatni indamas tarzda yangilab turamiz
-    const id = setInterval(() => loadList(true), 20000);
-    return () => clearInterval(id);
+    // Polling o'chirildi — foydalanuvchi sahifaga kirganida bir marta yuklanadi.
   }, [isAuthenticated, loadList]);
 
   // Tafsilot

@@ -799,29 +799,20 @@ export default function BuilderPage() {
     };
   }, [isResizingChat, chatWidth]);
 
-  // Auth'ed userda balansni yangilab olish + real-time polling
+  // Balansni faqat builder ochilganda bir marta yuklaymiz.
+  // Polling o'chirildi — generatsiyadan keyin balans handleSend ichida yangilanadi.
   useEffect(() => {
     if (!isAuthenticated) return;
     let cancelled = false;
-
-    const fetchBalance = () => {
-      api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
-        .then(res => {
-          if (cancelled) return;
-          if (typeof res.data.tokens_balance === 'number') {
-            updateBalance(res.data.tokens_balance, res.data.nano_coins ?? 0);
-          }
-        })
-        .catch(() => { /* ignore */ });
-    };
-
-    fetchBalance();
-    // Har 20 soniyada balansni yangilab turamiz (real-time sezish uchun)
-    const id = setInterval(fetchBalance, 20000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
+    api.get<{ tokens_balance: number; nano_coins: number }>('/accounts/me/')
+      .then(res => {
+        if (cancelled) return;
+        if (typeof res.data.tokens_balance === 'number') {
+          updateBalance(res.data.tokens_balance, res.data.nano_coins ?? 0);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [isAuthenticated, updateBalance]);
 
   useEffect(() => {
