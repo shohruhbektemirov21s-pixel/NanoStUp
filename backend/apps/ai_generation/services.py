@@ -1139,9 +1139,16 @@ def _extract_design_variants(text: str) -> Optional[List[Dict[str, Any]]]:
 def _spec_to_prompt(spec: str) -> str:
     """Spetsifikatsiyani generatsiya promptiga aylantiradi."""
     return (
-        f"Build a complete website based on this specification:\n\n{spec}\n\n"
-        "Generate a rich, detailed JSON schema with real content (not placeholders). "
-        "Use appropriate language as specified. Include at least hero, services/features, and contact sections."
+        f"Build a COMPLETE multi-page website based on this specification:\n\n{spec}\n\n"
+        "MANDATORY REQUIREMENTS:\n"
+        "1. Generate MINIMUM 4 pages (home + 2 content pages + contact). 5 pages preferred.\n"
+        "2. Each page MUST have 4-6 sections — no single-section pages.\n"
+        "3. ALL content must be REAL and SPECIFIC to this exact business — NO lorem ipsum, NO generic placeholders.\n"
+        "4. The specification may include real internet research (competitor names, design trends, industry data) — USE IT to write authentic copy.\n"
+        "5. Testimonials: use realistic local names, specific 30-60 word reviews.\n"
+        "6. Stats: use plausible real numbers ('2 500+', '98%', '7 yil').\n"
+        "7. Contact: use +998 phone, Tashkent address, real-looking email matching siteName.\n"
+        "8. Return ONLY valid JSON — no markdown, no explanation."
     )
 
 
@@ -1258,7 +1265,7 @@ class ArchitectService:
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
                     system_instruction=ARCHITECT_SYSTEM_PROMPT + language_directive,
-                    max_output_tokens=2048,
+                    max_output_tokens=3072,
                     # Google Search grounding — internetdan o'xshash saytlar,
                     # dizayn trendlar, UX misollar haqida real ma'lumot olish uchun.
                     tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
@@ -1400,7 +1407,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=4096,
+                max_tokens=8192,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1435,7 +1442,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=4096,
+                max_tokens=8192,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -1467,7 +1474,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=4096,
+                max_tokens=8192,
                 system=REVISE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
@@ -1506,7 +1513,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=6144,
+                max_tokens=8192,
                 system=SITE_FILES_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
