@@ -30,14 +30,11 @@ import {
   GenerationStatsPanel,
   PhaseBadge,
   QuickPromptChips,
-  TemplateGallery,
-  TemplateSetupModal,
   looksLikeBuildTrigger,
   pickBuildCopy,
   type BuilderSuggestions,
   type GenerationStats,
   type QuickPrompt,
-  type SiteTemplate,
 } from './_buildHelpers';
 
 // ── Streaming POST helper (timeout muammosini hal qiladi) ────────────
@@ -655,9 +652,6 @@ export default function BuilderPage() {
   // Tayyor variantlar (KB → /api/ai/suggestions/) — birinchi paydo bo'lganda
   // bir marta keladi, keyin phase o'zgarganda quick_prompts yangilanadi.
   const [suggestions, setSuggestions] = useState<BuilderSuggestions | null>(null);
-  // Tayyor shablon tanlanganda — biznes nomini so'raydigan modal uchun.
-  const [selectedTemplate, setSelectedTemplate] = useState<SiteTemplate | null>(null);
-  const [templateBusy, setTemplateBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [designVariants, setDesignVariants] = useState<DesignVariant[] | null>(null);
@@ -926,62 +920,6 @@ export default function BuilderPage() {
     abortControllerRef.current = null;
   };
 
-  // Tayyor shablondan loyiha yaratish — AI'ga umuman murojaat qilinmaydi.
-  // 0 nano-coin sarflanadi, javob darhol keladi.
-  const handleCreateFromTemplate = async (data: {
-    businessName: string; phone?: string; address?: string;
-  }) => {
-    if (!selectedTemplate || templateBusy) return;
-    setTemplateBusy(true);
-    setErrorMsg('');
-    try {
-      interface TplResp {
-        success: boolean;
-        tokens_used?: number;
-        project?: {
-          id: string;
-          slug: string | null;
-          title: string;
-          schema_data: ProjectSchema;
-        };
-        error?: string;
-      }
-      const res = await api.post<TplResp>('/projects/from-template/', {
-        template_id: selectedTemplate.id,
-        business_name: data.businessName,
-        phone: data.phone ?? '',
-        address: data.address ?? '',
-      });
-      if (!res.data.success || !res.data.project) {
-        setErrorMsg(res.data.error ?? 'Sayt yaratishda xatolik.');
-        setTemplateBusy(false);
-        return;
-      }
-      const p = res.data.project;
-      // Loyihani darhol preview'ga joylashtir va done bosqichiga o'tkaz
-      setPreviewSchema(p.schema_data);
-      setPreviewTitle(p.title);
-      setPreviewId(p.id);
-      setPhase('done');
-      setHistory([]);
-      setChatMessages([
-        {
-          role: 'ai',
-          text: `✨ **"${p.title}"** sayti tayyor!\n\n🎁 Bu shablondan tayyorlandi — **0 nano-coin** sarflandi.\n\nO'zgartirish kerak bo'lsa, men AI bilan tahrirlay olaman: matn, rang, sektsiyalar va h.k.`,
-        },
-      ]);
-      setSelectedTemplate(null);
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { error?: string; message?: string } } };
-      setErrorMsg(
-        e.response?.data?.error
-          ?? e.response?.data?.message
-          ?? 'Sayt yaratishda xatolik. Qayta urinib ko\'ring.',
-      );
-    } finally {
-      setTemplateBusy(false);
-    }
-  };
 
   // Xabarni tahrirlash — yuborilgan user xabarini textarea'ga qaytarib, keyingi
   // AI javob bilan birga ro'yxatdan olib tashlaymiz. Undan keyin foydalanuvchi
@@ -1869,24 +1807,6 @@ export default function BuilderPage() {
                     Chatda loyihangizni tasvirlab bering — AI saytni yaratadi va bu yerda ko&apos;rsatadi
                   </p>
 
-                  {/* Tayyor shablonlar galereyasi (KB'dan keladi). Bosilsa
-                      modal ochiladi — biznes nomi va telefon so'raladi.
-                      Submit qilingach AI'ga umuman murojaat qilmasdan,
-                      tayyor schema bilan loyiha yaratiladi (0 nano-coin). */}
-                  <TemplateGallery
-                    templates={suggestions?.templates ?? []}
-                    onPick={(tpl: SiteTemplate) => setSelectedTemplate(tpl)}
-                    galleryLabel={
-                      locale === 'ru' ? 'Готовые шаблоны' :
-                      locale === 'en' ? 'Ready-made templates' :
-                      'Tayyor shablonlardan tanlang'
-                    }
-                    galleryHint={
-                      locale === 'ru' ? '⚡ Мгновенно и бесплатно — 0 нано-монет'
-                      : locale === 'en' ? '⚡ Instant and free — 0 nano-coins'
-                      : '⚡ Bir zumda va bepul — 0 nano-coin'
-                    }
-                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -2249,53 +2169,6 @@ export default function BuilderPage() {
         )}
       </AnimatePresence>
 
-      {/* Tayyor shablon → biznes ma'lumotlari modal (token-free path) */}
-      <AnimatePresence>
-        {selectedTemplate && (
-          <TemplateSetupModal
-            template={selectedTemplate}
-            onClose={() => { if (!templateBusy) setSelectedTemplate(null); }}
-            onSubmit={handleCreateFromTemplate}
-            busy={templateBusy}
-            copy={
-              locale === 'ru' ? {
-                title: 'Информация о бизнесе',
-                nameLabel: 'Название бизнеса',
-                namePlaceholder: 'Например: Napoli Pizza',
-                phoneLabel: 'Телефон (необязательно)',
-                phonePlaceholder: '+998 90 123 45 67',
-                addressLabel: 'Адрес (необязательно)',
-                addressPlaceholder: 'Ташкент, Амир Темур 1',
-                submit: 'Создать сайт',
-                cancel: 'Отмена',
-                freeBadge: '0 нано-монет',
-              } : locale === 'en' ? {
-                title: 'Business details',
-                nameLabel: 'Business name',
-                namePlaceholder: 'e.g. Napoli Pizza',
-                phoneLabel: 'Phone (optional)',
-                phonePlaceholder: '+998 90 123 45 67',
-                addressLabel: 'Address (optional)',
-                addressPlaceholder: 'Tashkent, Amir Temur 1',
-                submit: 'Create website',
-                cancel: 'Cancel',
-                freeBadge: '0 nano-coins',
-              } : {
-                title: 'Biznes ma\'lumotlari',
-                nameLabel: 'Biznes nomi',
-                namePlaceholder: 'Masalan: Napoli Pizza',
-                phoneLabel: 'Telefon (ixtiyoriy)',
-                phonePlaceholder: '+998 90 123 45 67',
-                addressLabel: 'Manzil (ixtiyoriy)',
-                addressPlaceholder: 'Toshkent, Amir Temur 1',
-                submit: 'Sayt yaratish',
-                cancel: 'Bekor qilish',
-                freeBadge: '0 nano-coin',
-              }
-            }
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

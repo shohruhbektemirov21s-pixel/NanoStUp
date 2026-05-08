@@ -901,10 +901,19 @@ Every generated website MUST be visually and structurally UNIQUE. These elements
 If the MANDATORY DESIGN CONSTRAINT is provided in the user message — follow it EXACTLY.
 The "design" block from the constraint MUST appear in your JSON output."""
 
-REVISE_SYSTEM_PROMPT = (
-    "You are a website schema editor. Apply the user change to the provided JSON schema "
-    "and return the FULL updated schema. Preserve unrelated fields. Return ONLY valid JSON."
-)
+REVISE_SYSTEM_PROMPT = """You are a precise website schema surgeon.
+
+STRICT RULES — READ CAREFULLY:
+1. Fix or change ONLY what is explicitly reported as broken or requested.
+2. DO NOT regenerate, rewrite, or replace working sections/pages.
+3. DO NOT change text, colors, IDs, or structure of unaffected parts.
+4. If fixing a bug in a section → fix only that section's content/settings.
+5. If a section is missing or empty → add only that section to the relevant page.
+6. If user reports an error in a specific page → fix only that page.
+7. Preserve ALL existing: section IDs, page slugs, siteName, settings, content.
+8. Return the COMPLETE updated schema as valid JSON.
+9. Return ONLY valid JSON — no markdown fences, no explanation, no comments.
+10. Output MUST start with { and end with }."""
 
 # ─────────────────────────────────────────────────────────────────
 # To'liq kod generatsiyasi tizim yo'riqnomasi (Claude)
@@ -1441,7 +1450,14 @@ class ArchitectService:
             parts.append(genai_types.Part(text=(
                 f"CURRENT SCHEMA (truncated):\n{schema_json}\n\n"
                 f"USER REQUEST:\n{user_message or '(no text, only images)'}\n\n"
-                "Write the English instruction for Claude now."
+                "Write a SURGICAL English instruction for Claude. Rules:\n"
+                "- Identify the SPECIFIC page slug and section ID that needs fixing.\n"
+                "- Reference exact field names from the schema (e.g. pages[1].sections[2].content.title).\n"
+                "- If user reports a bug/error: describe only what to fix in that section.\n"
+                "- If user wants to add something: specify exactly where to insert it.\n"
+                "- NEVER say 'regenerate', 'rewrite all', or 'redo the site'.\n"
+                "- Keep instruction under 200 words. Be precise and targeted.\n"
+                "Write the instruction now:"
             )))
 
             def _gen():
