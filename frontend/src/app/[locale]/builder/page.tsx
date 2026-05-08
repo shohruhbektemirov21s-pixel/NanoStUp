@@ -1049,21 +1049,21 @@ export default function BuilderPage() {
         if (previewId) {
           // Login qilingan — DB orqali revise (streaming — timeout yo'q)
           data = await streamPost<ApiResponse>('/projects/process_prompt/', {
-            prompt: promptForApi, language: 'uz', history: newHistory, project_id: previewId,
+            prompt: promptForApi, language: locale, history: newHistory, project_id: previewId,
             conversation_id: conversationId,
             images: imagesPayload,
           }, controller.signal);
         } else {
           // Login qilinmagan — schema inline yuboramiz
           const res = await api.post<ApiResponse>('/projects/revise_inline/', {
-            prompt: promptForApi, language: 'uz', schema_data: previewSchema,
+            prompt: promptForApi, language: locale, schema_data: previewSchema,
           }, { signal: controller.signal });
           data = res.data;
         }
       } else {
         // Yangi generatsiya (streaming — timeout yo'q)
         data = await streamPost<ApiResponse>('/projects/process_prompt/', {
-          prompt: promptForApi, language: 'uz', history: newHistory,
+          prompt: promptForApi, language: locale, history: newHistory,
           conversation_id: conversationId,
           images: imagesPayload,
         }, controller.signal);
@@ -1456,7 +1456,7 @@ export default function BuilderPage() {
       } else {
         const res = await api.post<{ success: boolean; files?: FileMap; error?: string }>(
           '/projects/generate_files_inline/',
-          { schema_data: schema, language: 'uz' },
+          { schema_data: schema, language: locale },
         );
         data = res.data;
       }
@@ -1638,7 +1638,7 @@ export default function BuilderPage() {
                       const res = await api.post('/projects/export_zip/', {
                         schema_data: previewSchema,
                         title: previewTitle || 'my-site',
-                        language: 'uz',
+                        language: locale,
                       }, { responseType: 'blob' });
                       blob = res.data as Blob;
                     }

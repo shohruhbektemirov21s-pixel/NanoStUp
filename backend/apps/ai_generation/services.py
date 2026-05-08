@@ -1325,6 +1325,7 @@ class ArchitectService:
         history: List[Dict[str, str]],
         images: Optional[List[Dict[str, str]]] = None,
         image: Optional[Dict[str, str]] = None,  # legacy (orqaga moslik)
+        language: str = "uz",  # frontend locale (uz/ru/en) — til aniqlash uchun fallback
     ) -> Tuple[str, Optional[str], Optional[List[Dict[str, Any]]]]:
         """
         Returns: (ai_text, spec_or_None, design_variants_or_None)
@@ -1372,9 +1373,9 @@ class ArchitectService:
                 )
             parts.append(genai_types.Part(text=user_message or "Rasmlarni tahlil qil."))
 
-            # Til lock — foydalanuvchining oxirgi xabari tilida javob berishni
-            # majburlovchi qattiq direktiva (build_language_directive uz/ru/en).
-            language_directive = build_language_directive(user_message)
+            # Til lock — frontend locale + xabar tilini birgalikda tahlil qilib
+            # LLM'ga qattiq direktiva beriladi (uz/ru/en).
+            language_directive = build_language_directive(user_message, locale_hint=language)
 
             # ── Tezlik optimallashtirish ──────────────────────────────────
             # Google Search faqat biznes tadqiqoti kerak bo'lganda yoqiladi.
@@ -1858,13 +1859,20 @@ _LANGUAGE_DIRECTIVES: Dict[str, str] = {
 }
 
 
-def build_language_directive(text: str) -> str:
+def build_language_directive(text: str, locale_hint: str = "uz") -> str:
     """
     Foydalanuvchi xabarini detect_language orqali tahlil qilib,
     LLM system_instruction'ga qo'shiladigan qattiq til-direktivasini qaytaradi.
-    Noma'lum til → uz (default).
+    locale_hint — frontend'dan kelgan til (uz/ru/en), qisqa xabarlarda fallback.
     """
-    lang = detect_language(text or "")
+    # Qisqa xabar (≤15 belgi) → to'g'ri detect qilib bo'lmaydi, locale'ga tayanamiz
+    if len((text or "").strip()) <= 15:
+        lang = locale_hint if locale_hint in _LANGUAGE_DIRECTIVES else "uz"
+    else:
+        lang = detect_language(text or "")
+        # Agar detect noaniq (uz default) bo'lsa va locale boshqa tilni ko'rsatsa — locale'ni ol
+        if lang == "uz" and locale_hint in ("ru", "en"):
+            lang = locale_hint
     return _LANGUAGE_DIRECTIVES.get(lang, _LANGUAGE_DIRECTIVES["uz"])
 
 

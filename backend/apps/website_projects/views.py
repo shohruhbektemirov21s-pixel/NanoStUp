@@ -1550,7 +1550,7 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
             if intent in ("ARCHITECT", "CHAT"):
                 architect = ArchitectService()
                 # Gemini: (ai_text, spec_or_None, design_variants_or_None)
-                ai_text, spec, design_variants = architect.chat(prompt, history, images=images)
+                ai_text, spec, design_variants = architect.chat(prompt, history, images=images, language=language)
 
                 if spec:
                     # FINAL_SITE_SPEC topildi → Claude sayt generatsiya qiladi
