@@ -528,25 +528,65 @@ U ma'lumotlar Claude Sonnet 4.6 ga yuboriladi — Claude JavaScript, HTML, CSS k
 Shu sababli FINAL_SITE_SPEC da texnik tafsilotlarni aniq yoz: ranglar, sahifalar, bo'limlar, funksiyalar.
 
 ## FINAL_SITE_SPEC formati (FAQAT foydalanuvchi rozi bo'lganda):
-Javobingning OXIRIDA quyidagi blokni yoz:
+Javobingning OXIRIDA quyidagi blokni yoz.
+⚠️ BU BLOK CLAUDE'GA YUBORILADI — QANCHALIK TO'LIQ BO'LSA, SAYT SHUNCHALIK PREMIUM BO'LADI.
 
 [FINAL_SITE_SPEC]
-Loyiha nomi: {nom}
-Maqsad: {qisqacha tavsif}
-Sahifalar: {vergul bilan ro'yxat}
-Funksiyalar: {xususiyatlar ro'yxati}
-Uslub: {ranglar, kayfiyat, shriftlar}
-Til: {uz/ru/en}
+Loyiha nomi: {biznes nomi — real, brandli, 2-4 so'z}
+Slogan: {7-12 so'zlik tagline — foydalanuvchi tilida}
+Maqsad: {biznes nima qiladi, kimga xizmat qiladi — 2-3 gap}
+Til: {uz / ru / en}
+Niche: {restaurant / clinic / saas / ecommerce / portfolio / education / realestate / gym / salon / legal / hotel / agency / news / ngо / auto / bank / photography / wedding / music / other}
+
+Sahifalar (5 ta — HAMMASI MAJBURIY):
+1. Bosh sahifa (home): hero + {2-4 sektsiya nomi} + cta
+2. {2-sahifa nomi}: {4-5 sektsiya nomi}
+3. {3-sahifa nomi}: {3-4 sektsiya nomi}
+4. {4-sahifa nomi}: {3-4 sektsiya nomi}
+5. Aloqa (contact): contact form + {1-2 qo'shimcha sektsiya}
+
+Dizayn tizimi:
+- Asosiy rang: {#hexcode} — {rangning kayfiyati}
+- Aksent rang: {#hexcode}
+- Fon: {#hexcode} — {och/to'q}
+- Matn rangi: {#hexcode}
+- Shrift: {Inter / Poppins / Montserrat / Playfair Display / Space Grotesk}
+- Uslub: {minimal / bold / classic / modern / luxury}
+- Mood: {biznesga xos kayfiyat — misol: "warm Italian, cozy", "clinical trust, sterile", "bold tech, futuristic"}
+
+Kontent ma'lumotlari:
+- Telefon: {+998 XX XXX XX XX}
+- Manzil: {Toshkent tumani, ko'cha}
+- Email: {info@{sayt-nomi}.uz}
+- Ish vaqti: {HH:MM — HH:MM, dam olish kuni}
+- Xizmatlar/mahsulotlar: {3-8 ta — nom + qisqa tavsif + narx}
+- Jamoa: {2-4 ta xodim — ism, lavozim, qisqa bio}
+- Mijoz fikrlari: {3-5 ta — ism, lavozim, 2-3 gap fikr, reyting 5/5}
+- Statistika: {4 ta real raqam — misol: "2 500+ mijoz", "8 yil tajriba", "98% mamnunlik"}
+- FAQ: {5-7 ta savol-javob — eng ko'p beriladigan savollar}
+
+Internet tadqiqot natijalari:
+- Raqobatchilar: {2-3 ta real raqobatchi sayt nomi + ularning kuchli tomonlari}
+- Trend dizayn: {shu soha uchun 2026 dizayn tendentsiyasi — glassmorphism/bento/neo-brutalism/h.k.}
+- Seo kalit so'zlar: {5-7 ta asosiy kalit so'z — foydalanuvchi tilida}
+- USP (nima farq qiladi): {bu biznesning 2-3 ta asosiy ustunligi raqobatchilardan farqli}
+
+Admin panel funksiyalari:
+{foydalanuvchi so'ragan funksiyalar yoki "standart kontent tahrirlash"}
 [/FINAL_SITE_SPEC]"""
 
 # ─────────────────────────────────────────────────────────────────
 # Generatsiya tizim yo'riqnomasi
 # ─────────────────────────────────────────────────────────────────
-GENERATE_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript/web developer.
-You receive a site specification from Gemini AI (which gathered requirements from the user).
-Your job: generate a structured JSON schema for a FULLY RESPONSIVE website.
+GENERATE_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript/web developer and UX designer.
+You receive a rich site specification from Gemini AI (which gathered requirements AND internet research from the user).
+Your job: generate a PREMIUM, COMPLETE, multi-page JSON schema for a FULLY RESPONSIVE website.
 
-Return ONLY valid JSON (no markdown, no explanation).
+⚠️ CRITICAL OUTPUT RULES:
+- Return ONLY valid JSON (no markdown, no ```json, no explanation, no comments)
+- Output MUST start with { and end with }
+- ALL pages MUST be fully populated — no empty sections, no placeholders
+- Minimum 5 pages. If spec lists fewer — add logical pages for the niche.
 
 Format:
 {
@@ -590,9 +630,13 @@ Each section:
 - logos: title, subtitle, items:[{name,logo,alt,url}]
 - video: title, subtitle, videoUrl, thumbnail, description, ctaText
 
-## Pages strategy — NICHE-AWARE MULTI-PAGE:
-EVERY website MUST have a **home** page + **contact** page (minimum 2 pages).
-Most sites: 4-5 pages. NEVER return just 1 page.
+## Pages strategy — NICHE-AWARE MULTI-PAGE (STRICTLY ENFORCED):
+- MINIMUM **5 pages** for every site. NEVER fewer.
+- Mandatory: home + about + {niche content page} + {niche service/catalog page} + contact
+- Each page: EXACTLY 4-6 sections. NEVER fewer than 4. NEVER more than 7.
+- Home page MUST have: hero + features/services + stats + testimonials + cta
+- Contact page MUST have: contact section + booking OR faq section
+- NEVER return just 1 page. NEVER leave a page with only 1-2 sections.
 
 ## CRITICAL: niche dictates which sections appear — DO NOT add irrelevant sections
 NICHE-SPECIFIC RECIPES (use exactly these section combinations — do not invent):
@@ -1135,20 +1179,21 @@ def _extract_design_variants(text: str) -> Optional[List[Dict[str, Any]]]:
     except (json.JSONDecodeError, ValueError):
         return None
 
-
 def _spec_to_prompt(spec: str) -> str:
     """Spetsifikatsiyani generatsiya promptiga aylantiradi."""
     return (
-        f"Build a COMPLETE multi-page website based on this specification:\n\n{spec}\n\n"
-        "MANDATORY REQUIREMENTS:\n"
-        "1. Generate MINIMUM 4 pages (home + 2 content pages + contact). 5 pages preferred.\n"
-        "2. Each page MUST have 4-6 sections — no single-section pages.\n"
-        "3. ALL content must be REAL and SPECIFIC to this exact business — NO lorem ipsum, NO generic placeholders.\n"
-        "4. The specification may include real internet research (competitor names, design trends, industry data) — USE IT to write authentic copy.\n"
-        "5. Testimonials: use realistic local names, specific 30-60 word reviews.\n"
-        "6. Stats: use plausible real numbers ('2 500+', '98%', '7 yil').\n"
-        "7. Contact: use +998 phone, Tashkent address, real-looking email matching siteName.\n"
-        "8. Return ONLY valid JSON — no markdown, no explanation."
+        f"Build a PREMIUM COMPLETE 5-page website based on this specification:\n\n{spec}\n\n"
+        "ABSOLUTE REQUIREMENTS (no exceptions):\n"
+        "1. EXACTLY 5 pages — home, 3 content pages, contact. Each page slug must be unique.\n"
+        "2. Each page: 4-6 sections. Home page: hero + features + stats + testimonials + cta (min 5 sections).\n"
+        "3. Internet research data in the spec (competitors, trends, USP) — USE IT for authentic content and copy.\n"
+        "4. ALL text must be REAL brand content — NO lorem ipsum, NO 'Example', NO placeholders.\n"
+        "5. Testimonials: 4-5 realistic names (local + international mix), 30-60 word reviews each.\n"
+        "6. Stats: exactly 4 items with real numbers ('3 200+', '98%', '12 yil', '24/7').\n"
+        "7. Features/Services: minimum 4 items, each with emoji icon + 2-4 word title + 15-25 word description.\n"
+        "8. Contact: +998 phone, Tashkent district address, email matching siteName.\n"
+        "9. SEO: add top-level 'description' (80-160 chars) and 'keywords' (6-10 terms) fields.\n"
+        "10. Return ONLY valid JSON starting with { — no markdown fences, no comments."
     )
 
 
@@ -1162,10 +1207,10 @@ def _get_claude_client() -> anthropic.Anthropic:
     )
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY .env da topilmadi.")
-    # timeout=120s: bir generatsiya uchun yetarli (qimmat model uchun tejamkor).
+    # timeout=300s: 12000 token output uchun yetarli (~60tok/s × 12000 ≈ 200s + buffer).
     # max_retries=1: SDK darajasida faqat 1 retry (loop oldini olish).
     # _retry_ai_call ham qo'shimcha 2 retry qiladi — jami maksimal 3 urinish.
-    return anthropic.Anthropic(api_key=api_key, timeout=120.0, max_retries=1)
+    return anthropic.Anthropic(api_key=api_key, timeout=300.0, max_retries=1)
 
 
 def _get_claude_model() -> str:
@@ -1400,14 +1445,15 @@ class ClaudeService:
         Returns: (schema, usage) — usage = {input_tokens, output_tokens}
         """
         client = _get_claude_client()
-        prompt = _spec_to_prompt(spec) + (
-            f"\n\nHARD LIMIT: generate at most {max_pages} page(s). "
-            f"If {max_pages} == 1, put everything into a single 'home' page."
-        )
+        if max_pages == 1:
+            page_directive = "\n\nHARD LIMIT: Generate EXACTLY 1 page (slug='home'). Put ALL content into that single page. No other pages allowed."
+        else:
+            page_directive = f"\n\nPAGE LIMIT: Generate 5 pages (minimum). Upper limit: {max_pages} pages. Do NOT exceed {max_pages} pages."
+        prompt = _spec_to_prompt(spec) + page_directive
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=8192,
+                max_tokens=12000,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1442,7 +1488,7 @@ class ClaudeService:
         try:
             response = client.messages.create(
                 model=_get_claude_model(),
-                max_tokens=8192,
+                max_tokens=12000,
                 system=GENERATE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_msg}],
             )
