@@ -1246,6 +1246,62 @@ def _get_gemini_model() -> str:
 
 
 # ─────────────────────────────────────────────────────────────────
+# Tezlik yordamchisi — Google Search kerakmi?
+# ─────────────────────────────────────────────────────────────────
+_FAST_REPLIES = (
+    "salom", "assalom", "hi", "hello", "hey",
+    "rahmat", "thanks", "ok", "ha", "yo'q", "yoq",
+    "davom", "tayyor", "boshla", "ready", "go",
+    "готово", "давай", "да", "нет", "спасибо", "привет",
+    "continue", "next", "yes", "no", "done", "finish",
+    "mayli", "tushundim", "understood", "good",
+)
+_RESEARCH_WORDS = (
+    "sayt", "web", "site", "biznes", "business",
+    "restoran", "kafe", "cafe", "restaurant", "food",
+    "klinika", "clinic", "hospital", "tibbiy",
+    "do'kon", "shop", "store", "ecommerce", "magazin",
+    "portfolio", "agency", "agentlik", "studio",
+    "kompaniya", "firma", "company", "startup", "saas",
+    "ta'lim", "kurs", "course", "education", "academy",
+    "stomatolog", "shifokor", "doctor", "fitnes", "gym",
+    "mehmonxona", "hotel", "turizm", "travel",
+    "salon", "beauty", "spa", "yuridik", "legal",
+    "variant", "dizayn", "design", "rang", "color", "style",
+    "raqobatchi", "competitor", "trend", "analiz",
+)
+
+
+def _should_use_web_search(message: str, history_len: int) -> bool:
+    """
+    Google Search faqat haqiqatan kerak bo'lganda yoqiladi.
+    - Oddiy tasdiqlash/salom xabarlari: False (tez, searchsiz)
+    - Biznes nomi/turi yoki dizayn so'rovi: True (internet tadqiqot)
+    - Uzoq tarix (FINAL_SITE_SPEC yaqin): True
+    """
+    msg = message.lower().strip()
+    # Bo'sh yoki juda qisqa → tez rejim
+    if not msg or len(msg) < 4:
+        return False
+    # Tez javob so'zlari → search shart emas
+    if any(msg.startswith(w) or msg == w for w in _FAST_REPLIES):
+        return False
+    if len(msg) < 40 and any(w in msg for w in _FAST_REPLIES):
+        return False
+    # Biznes/dizayn kalit so'zlari → search kerak
+    if any(w in msg for w in _RESEARCH_WORDS):
+        return True
+    # Uzoq xabar (150+ belgi) → odatda biznes tavsifi → search kerak
+    if len(msg) >= 150:
+        return True
+    # Suhbat boshida (birinchi 2 xabar) → search kerak (biznes turini aniqlaymiz)
+    if history_len <= 2:
+        return True
+    # Qolgan holat (qisqa savol/javob) → searchsiz tezroq
+    return False
+
+
+# ─────────────────────────────────────────────────────────────────
 # ArchitectService  (Gemini — muloqot va dizayn variantlar)
 # ─────────────────────────────────────────────────────────────────
 class ArchitectService:
@@ -1310,14 +1366,28 @@ class ArchitectService:
             # Til lock — foydalanuvchining oxirgi xabari tilida javob berishni
             # majburlovchi qattiq direktiva (build_language_directive uz/ru/en).
             language_directive = build_language_directive(user_message)
+
+            # ── Tezlik optimallashtirish ──────────────────────────────────
+            # Google Search faqat biznes tadqiqoti kerak bo'lganda yoqiladi.
+            # Oddiy suhbat (salom, davom et, ok, savol) → search o'chiriladi.
+            # Bu har bir oddiy xabarda 2-5 soniya tejaydi.
+            _needs_search = _should_use_web_search(user_message, len(gemini_history))
+            _tools = (
+                [genai_types.Tool(google_search=genai_types.GoogleSearch())]
+                if _needs_search else []
+            )
+            # Search kerak bo'lsa ko'proq token, aks holda tez javob.
+            _max_out = 3072 if _needs_search else 1024
+
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
                     system_instruction=ARCHITECT_SYSTEM_PROMPT + language_directive,
-                    max_output_tokens=3072,
-                    # Google Search grounding — internetdan o'xshash saytlar,
-                    # dizayn trendlar, UX misollar haqida real ma'lumot olish uchun.
-                    tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
+                    max_output_tokens=_max_out,
+                    # thinking o'chiriladi — Gemini 2.5 Flash extended thinking
+                    # har javobda 3-8s qo'shadi. Architect chat uchun shart emas.
+                    thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
+                    tools=_tools,
                 ),
                 history=gemini_history,
             )
