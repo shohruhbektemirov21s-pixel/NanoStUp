@@ -2146,11 +2146,11 @@ export default function BuilderPage() {
                   <span>{tShare('telegram')}</span>
                 </a>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`${previewTitle}: ${publicUrl}`)}`}
+                  href={`/${locale}/site-admin/${publishedSlug}`}
                   target="_blank" rel="noreferrer"
                   className="flex flex-col items-center gap-1 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs text-zinc-300 transition-colors">
-                  <span className="text-lg">💬</span>
-                  <span>{tShare('whatsapp')}</span>
+                  <span className="text-lg">⚙️</span>
+                  <span>{tShare('adminPanel')}</span>
                 </a>
                 <a
                   href={publicUrl}
@@ -2161,6 +2161,14 @@ export default function BuilderPage() {
                 </a>
               </div>
 
+              {generationStats && (
+                <div className="flex items-center justify-center gap-2 mb-3 text-[11px] text-zinc-500">
+                  <span>⏱</span>
+                  <span>{(generationStats.generation_time_ms / 1000).toFixed(0)}s da yaratildi</span>
+                  <span>·</span>
+                  <span>{(generationStats.output_tokens).toLocaleString()} token</span>
+                </div>
+              )}
               <p className="text-[11px] text-zinc-500 text-center leading-relaxed">
                 {tShare('footer')}
               </p>
