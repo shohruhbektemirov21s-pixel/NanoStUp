@@ -1207,10 +1207,10 @@ def _get_claude_client() -> anthropic.Anthropic:
     )
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY .env da topilmadi.")
-    # timeout=300s: 12000 token output uchun yetarli (~60tok/s × 12000 ≈ 200s + buffer).
+    # timeout=1200s (20 daqiqa): uzoq generatsiyalar uchun yetarli vaqt.
     # max_retries=1: SDK darajasida faqat 1 retry (loop oldini olish).
     # _retry_ai_call ham qo'shimcha 2 retry qiladi — jami maksimal 3 urinish.
-    return anthropic.Anthropic(api_key=api_key, timeout=300.0, max_retries=1)
+    return anthropic.Anthropic(api_key=api_key, timeout=1200.0, max_retries=1)
 
 
 def _get_claude_model() -> str:
@@ -1230,7 +1230,11 @@ def _get_gemini_client() -> genai.Client:
     )
     if not api_key:
         raise RuntimeError("GOOGLE_GENERATIVE_AI_API_KEY .env da topilmadi.")
-    return genai.Client(api_key=api_key)
+    # timeout=1200s (20 daqiqa): Gemini internet qidiruv + uzoq suhbatlar uchun.
+    return genai.Client(
+        api_key=api_key,
+        http_options={"timeout": 1200},
+    )
 
 
 def _get_gemini_model() -> str:
