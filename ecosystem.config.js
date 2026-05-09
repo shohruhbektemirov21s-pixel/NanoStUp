@@ -32,7 +32,7 @@ module.exports = {
       name: 'nanostup-backend',
       cwd: `${ROOT}/backend`,
       script: 'venv/bin/gunicorn',
-      args: 'config.wsgi:application --bind 127.0.0.1:8000 --workers 2 --timeout 120',
+      args: 'config.wsgi:application --bind 127.0.0.1:8000 --workers 2 --timeout 1260 --graceful-timeout 30',
       interpreter: 'none',
       env: {
         DJANGO_SETTINGS_MODULE: 'config.settings.development',
