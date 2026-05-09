@@ -1291,30 +1291,33 @@ _RESEARCH_WORDS = (
 
 def _should_use_web_search(message: str, history_len: int) -> bool:
     """
-    Google Search faqat haqiqatan kerak bo'lganda yoqiladi.
-    - Oddiy tasdiqlash/salom xabarlari: False (tez, searchsiz)
-    - Biznes nomi/turi yoki dizayn so'rovi: True (internet tadqiqot)
-    - Uzoq tarix (FINAL_SITE_SPEC yaqin): True
+    Google Search faqat aniq kerak bo'lganda yoqiladi.
+    Qoida: birinchi 1 xabarda FAQAT aniq tadqiqot so'zlari bo'lsagina.
+    Suhbat o'rtasida (history >= 2) — HECH QACHON search yoqilmaydi.
+    Bu Gemini javob vaqtini 2-8x tezlashtiradi.
     """
     msg = message.lower().strip()
-    # Bo'sh yoki juda qisqa → tez rejim
     if not msg or len(msg) < 4:
         return False
-    # Tez javob so'zlari → search shart emas
+    # Tez javob so'zlari — doim searchsiz
     if any(msg.startswith(w) or msg == w for w in _FAST_REPLIES):
         return False
     if len(msg) < 40 and any(w in msg for w in _FAST_REPLIES):
         return False
-    # Biznes/dizayn kalit so'zlari → search kerak
-    if any(w in msg for w in _RESEARCH_WORDS):
+    # Suhbat o'rtasida (2+ xabar o'tgan) — search shart emas,
+    # Gemini allaqachon kontekstni biladi.
+    if history_len >= 2:
+        return False
+    # Faqat birinchi xabarda: aniq tadqiqot kalit so'zlari bo'lsagina
+    _EXPLICIT_RESEARCH = (
+        "raqobatchi", "competitor", "trend", "analiz",
+        "qanday saytlar", "misol sayt", "top sayt",
+    )
+    if any(w in msg for w in _EXPLICIT_RESEARCH):
         return True
-    # Uzoq xabar (150+ belgi) → odatda biznes tavsifi → search kerak
-    if len(msg) >= 150:
+    # Birinchi xabar va biznes nomi/turi (tez tavsif) — search
+    if history_len == 0 and any(w in msg for w in _RESEARCH_WORDS):
         return True
-    # Suhbat boshida (birinchi 2 xabar) → search kerak (biznes turini aniqlaymiz)
-    if history_len <= 2:
-        return True
-    # Qolgan holat (qisqa savol/javob) → searchsiz tezroq
     return False
 
 
