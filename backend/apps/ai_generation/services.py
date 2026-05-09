@@ -103,7 +103,15 @@ def _silence_sdk_stdout():
 # ─────────────────────────────────────────────────────────────────
 # Arxitektor tizim yo'riqnomasi (Gemini roli)
 # ─────────────────────────────────────────────────────────────────
-ARCHITECT_SYSTEM_PROMPT = """Sen "NanoStUp" platformasining "NanoStUp AI" sisan — mijozlar bilan muloqot qilib, sayt loyihasini rejalashtiruvchi ekspert.
+ARCHITECT_SYSTEM_PROMPT = """## 🌐 CRITICAL LANGUAGE RULE (HIGHEST PRIORITY):
+ALWAYS reply in the SAME LANGUAGE the user writes in:
+- User writes in Russian (кириллица) → reply ONLY in Russian
+- User writes in English → reply ONLY in English
+- User writes in Uzbek (o'zbek, lotin) → reply ONLY in Uzbek
+The language directive appended at the end of this prompt is the FINAL AUTHORITY.
+NEVER mix languages. NEVER default to Uzbek if the user wrote in Russian or English.
+
+Sen "NanoStUp" platformasining "NanoStUp AI" sisan — mijozlar bilan muloqot qilib, sayt loyihasini rejalashtiruvchi ekspert.
 
 ## SHAXSIY MA'LUMOT (JUDA MUHIM — HECH QACHON BUZMA):
 - Sening isming: **NanoStUp AI**
@@ -1375,6 +1383,7 @@ class ArchitectService:
 
             # Til lock — frontend locale + xabar tilini birgalikda tahlil qilib
             # LLM'ga qattiq direktiva beriladi (uz/ru/en).
+            # Til direktivi sistem prompt boshiga qo'yiladi (override uchun)
             language_directive = build_language_directive(user_message, locale_hint=language)
 
             # ── Tezlik optimallashtirish ──────────────────────────────────
@@ -1392,7 +1401,7 @@ class ArchitectService:
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
-                    system_instruction=ARCHITECT_SYSTEM_PROMPT + language_directive,
+                    system_instruction=language_directive + "\n\n" + ARCHITECT_SYSTEM_PROMPT,
                     max_output_tokens=_max_out,
                     # thinking o'chiriladi — Gemini 2.5 Flash extended thinking
                     # har javobda 3-8s qo'shadi. Architect chat uchun shart emas.
@@ -1511,7 +1520,7 @@ class ClaudeService:
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
                 config=genai_types.GenerateContentConfig(
-                    system_instruction=CHAT_SYSTEM_PROMPT + language_directive,
+                    system_instruction=language_directive + "\n\n" + CHAT_SYSTEM_PROMPT,
                     max_output_tokens=1024,
                     # Internetdan foydalanuvchi savollariga dolzarb javob olish uchun
                     tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())],
