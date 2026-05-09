@@ -1330,7 +1330,14 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
         # Bu builder chatdagi har xil "Salom"larga 0 nano sarflashga olib keladi.
         if prompt and not images and not project_id:
             try:
-                from apps.ai_generation.knowledge_base import match_auto_reply
+                from apps.ai_generation.knowledge_base import (
+                    get_admin_faqs,
+                    get_business_quick_prompts,
+                    get_quick_prompts,
+                    get_templates,
+                    match_auto_reply,
+                    match_faq,
+                )
                 from apps.ai_generation.services import detect_language as _dl
                 _auto_lang = _dl(prompt) if prompt else "uz"
                 _auto = match_auto_reply(prompt, lang=_auto_lang)
@@ -1727,12 +1734,16 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                     intent="ARCHITECT" if design_variants else intent,
                     metadata={"design_variants": design_variants} if design_variants else None,
                 )
+                # Biznes turini aniqlash va kontekstli chips qaytarish
+                _biz_chips = get_business_quick_prompts(prompt, lang=language)
                 resp_data: dict = {
                     "success": True,
                     "phase": "ARCHITECT",
                     "is_chat": True,
                     "message": ai_text,
                 }
+                if _biz_chips:
+                    resp_data["quick_prompts"] = _biz_chips
                 if design_variants:
                     resp_data["design_variants"] = design_variants
                 if conversation:

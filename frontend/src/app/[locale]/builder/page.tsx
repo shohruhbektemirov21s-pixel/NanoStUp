@@ -208,6 +208,7 @@ interface ApiResponse {
   message?: string;
   architect_message?: string;
   design_variants?: DesignVariant[];
+  quick_prompts?: QuickPrompt[];
   stats?: GenerationStats;
   project?: {
     id: string | null;
@@ -1151,6 +1152,13 @@ export default function BuilderPage() {
         setPhase('architect');
         setHistory([...newHistory, { role: 'assistant', content: aiText }]);
         if (data.design_variants?.length) setDesignVariants(data.design_variants);
+        // Biznes turi aniqlangan bo'lsa — kontekstli chips yangilanadi
+        if (Array.isArray(data.quick_prompts) && data.quick_prompts.length > 0) {
+          setSuggestions(prev => ({
+            templates: prev?.templates ?? [],
+            quick_prompts: data.quick_prompts as QuickPrompt[],
+          }));
+        }
         setIsGenerating(false);
         return;
       }

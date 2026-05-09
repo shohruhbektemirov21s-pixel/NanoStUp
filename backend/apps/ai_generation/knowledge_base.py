@@ -670,6 +670,155 @@ def get_templates(lang: str = "uz") -> List[Dict[str, Any]]:
     ]
 
 
+# ─────────────────────────────────────────────────────────────────
+# 4. Biznes turlariga mos kontekstli suggestion chips
+#    (foydalanuvchi biznes turini aytganda chatda ko'rinadi)
+# ─────────────────────────────────────────────────────────────────
+BUSINESS_QUICK_PROMPTS: Dict[str, List[Dict[str, str]]] = {
+    "shop": [
+        {"icon": "🛒", "text_uz": "Mahsulot katalogi sahifasi qo'sh", "text_ru": "Добавь страницу каталога товаров", "text_en": "Add a product catalog page"},
+        {"icon": "💳", "text_uz": "Online buyurtma va to'lov qo'sh", "text_ru": "Добавь онлайн-заказ и оплату", "text_en": "Add online order & payment"},
+        {"icon": "⭐", "text_uz": "Mijozlar sharhlari bo'limi", "text_ru": "Раздел отзывов покупателей", "text_en": "Customer reviews section"},
+        {"icon": "📦", "text_uz": "Admin paneldan mahsulot qo'shish", "text_ru": "Добавление товаров из админки", "text_en": "Add products from admin panel"},
+        {"icon": "🏷️", "text_uz": "Chegirma va aksiya bo'limi", "text_ru": "Раздел скидок и акций", "text_en": "Discounts & promotions section"},
+        {"icon": "📍", "text_uz": "Do'kon manzili va ish vaqti", "text_ru": "Адрес и время работы магазина", "text_en": "Store location & hours"},
+    ],
+    "restaurant": [
+        {"icon": "🍽️", "text_uz": "Menyu sahifasi qo'sh (kategoriyalar bilan)", "text_ru": "Добавь страницу меню с категориями", "text_en": "Add menu page with categories"},
+        {"icon": "📅", "text_uz": "Stol bron qilish formasi", "text_ru": "Форма бронирования столика", "text_en": "Table reservation form"},
+        {"icon": "📸", "text_uz": "Taom va restoran fotogalereyasi", "text_ru": "Фотогалерея блюд и ресторана", "text_en": "Food & restaurant photo gallery"},
+        {"icon": "🕐", "text_uz": "Ish vaqti va manzil qo'sh", "text_ru": "Добавь часы работы и адрес", "text_en": "Add working hours & address"},
+        {"icon": "🍕", "text_uz": "Admin paneldan menyu tahriri", "text_ru": "Редактирование меню из админки", "text_en": "Edit menu from admin panel"},
+        {"icon": "🚚", "text_uz": "Yetkazib berish xizmati bo'limi", "text_ru": "Раздел службы доставки", "text_en": "Delivery service section"},
+    ],
+    "clinic": [
+        {"icon": "👨‍⚕️", "text_uz": "Shifokorlar va mutaxassislar sahifasi", "text_ru": "Страница врачей и специалистов", "text_en": "Doctors & specialists page"},
+        {"icon": "📋", "text_uz": "Navbat olish (online ro'yxat)", "text_ru": "Запись на приём онлайн", "text_en": "Online appointment booking"},
+        {"icon": "🏥", "text_uz": "Xizmatlar va narxlar ro'yxati", "text_ru": "Список услуг и цен", "text_en": "Services & pricing list"},
+        {"icon": "🩺", "text_uz": "Admin paneldan navbat boshqaruvi", "text_ru": "Управление записями из админки", "text_en": "Manage appointments from admin"},
+        {"icon": "📜", "text_uz": "Sertifikat va litsenziyalar bo'limi", "text_ru": "Раздел сертификатов и лицензий", "text_en": "Certificates & licenses section"},
+        {"icon": "⭐", "text_uz": "Bemor sharhlari qo'sh", "text_ru": "Добавь отзывы пациентов", "text_en": "Add patient reviews"},
+    ],
+    "education": [
+        {"icon": "📚", "text_uz": "Kurslar va darslar sahifasi", "text_ru": "Страница курсов и уроков", "text_en": "Courses & lessons page"},
+        {"icon": "👩‍🏫", "text_uz": "O'qituvchilar va ustozlar sahifasi", "text_ru": "Страница преподавателей", "text_en": "Teachers & instructors page"},
+        {"icon": "📝", "text_uz": "Ro'yxatdan o'tish formasi", "text_ru": "Форма записи на курс", "text_en": "Course enrollment form"},
+        {"icon": "🏆", "text_uz": "Bitiruvchilar natijalari bo'limi", "text_ru": "Результаты выпускников", "text_en": "Graduate results section"},
+        {"icon": "📅", "text_uz": "Dars jadvali qo'sh", "text_ru": "Добавь расписание занятий", "text_en": "Add class schedule"},
+        {"icon": "🎓", "text_uz": "Admin paneldan kurs qo'shish", "text_ru": "Добавление курсов из админки", "text_en": "Add courses from admin panel"},
+    ],
+    "portfolio": [
+        {"icon": "💼", "text_uz": "Portfolio / Ishlar galereyasi", "text_ru": "Галерея работ/портфолио", "text_en": "Works gallery / portfolio"},
+        {"icon": "🧠", "text_uz": "Ko'nikmalar va texnologiyalar", "text_ru": "Навыки и технологии", "text_en": "Skills & technologies"},
+        {"icon": "📩", "text_uz": "Aloqa formasi qo'sh", "text_ru": "Добавь форму обратной связи", "text_en": "Add contact form"},
+        {"icon": "⭐", "text_uz": "Mijoz fikrlari (testimonial)", "text_ru": "Отзывы клиентов", "text_en": "Client testimonials"},
+        {"icon": "🔗", "text_uz": "Ijtimoiy tarmoq linklari", "text_ru": "Ссылки на соцсети", "text_en": "Social media links"},
+        {"icon": "📄", "text_uz": "CV / Rezyume yuklab olish", "text_ru": "Скачать CV / Резюме", "text_en": "Download CV / Resume"},
+    ],
+    "agency": [
+        {"icon": "🚀", "text_uz": "Xizmatlar sahifasi (to'liq ro'yxat)", "text_ru": "Страница услуг (полный список)", "text_en": "Services page (full list)"},
+        {"icon": "🏅", "text_uz": "Tugallangan loyihalar galereyasi", "text_ru": "Галерея завершённых проектов", "text_en": "Completed projects gallery"},
+        {"icon": "👥", "text_uz": "Jamoa a'zolari sahifasi", "text_ru": "Страница команды", "text_en": "Team members page"},
+        {"icon": "💰", "text_uz": "Narxlar va tariflar sahifasi", "text_ru": "Страница цен и тарифов", "text_en": "Pricing & plans page"},
+        {"icon": "⭐", "text_uz": "Mijozlar sharhlari qo'sh", "text_ru": "Добавь отзывы клиентов", "text_en": "Add client reviews"},
+        {"icon": "📊", "text_uz": "Raqamlar bilan natijalar (stats)", "text_ru": "Результаты в цифрах (статистика)", "text_en": "Results in numbers (stats)"},
+    ],
+    "hotel": [
+        {"icon": "🛏️", "text_uz": "Xonalar va narxlar sahifasi", "text_ru": "Страница номеров и цен", "text_en": "Rooms & prices page"},
+        {"icon": "📅", "text_uz": "Xona bron qilish formasi", "text_ru": "Форма бронирования номера", "text_en": "Room booking form"},
+        {"icon": "📸", "text_uz": "Mehmonxona fotogalereyasi", "text_ru": "Фотогалерея отеля", "text_en": "Hotel photo gallery"},
+        {"icon": "🍽️", "text_uz": "Restoran va ovqatlanish xizmati", "text_ru": "Ресторан и питание", "text_en": "Restaurant & dining"},
+        {"icon": "🌟", "text_uz": "Mehmonlar fikrlari (TripAdvisor uslub)", "text_ru": "Отзывы гостей (стиль TripAdvisor)", "text_en": "Guest reviews (TripAdvisor style)"},
+        {"icon": "🗺️", "text_uz": "Joylashuv va qanday borish", "text_ru": "Расположение и как добраться", "text_en": "Location & how to get there"},
+    ],
+    "beauty": [
+        {"icon": "💅", "text_uz": "Xizmatlar va narxlar ro'yxati", "text_ru": "Список услуг и цен", "text_en": "Services & pricing list"},
+        {"icon": "📅", "text_uz": "Online bron qilish (navbat)", "text_ru": "Онлайн-запись (очередь)", "text_en": "Online booking (appointment)"},
+        {"icon": "🖼️", "text_uz": "Ishlar fotogalereyasi (oldin/keyin)", "text_ru": "Фото работ (до/после)", "text_en": "Work gallery (before/after)"},
+        {"icon": "👩‍🎨", "text_uz": "Ustalar va mutaxassislar sahifasi", "text_ru": "Страница мастеров", "text_en": "Masters & specialists page"},
+        {"icon": "⭐", "text_uz": "Mijoz fikrlari qo'sh", "text_ru": "Добавь отзывы клиентов", "text_en": "Add client reviews"},
+        {"icon": "🎁", "text_uz": "Chegirma va aksiyalar bo'limi", "text_ru": "Раздел скидок и акций", "text_en": "Discounts & promotions section"},
+    ],
+    "fitness": [
+        {"icon": "🏋️", "text_uz": "Mashg'ulot turlari va jadval", "text_ru": "Виды тренировок и расписание", "text_en": "Training types & schedule"},
+        {"icon": "👨‍💪", "text_uz": "Trenerlar sahifasi", "text_ru": "Страница тренеров", "text_en": "Trainers page"},
+        {"icon": "💳", "text_uz": "Abonement va narxlar", "text_ru": "Абонементы и цены", "text_en": "Memberships & pricing"},
+        {"icon": "📸", "text_uz": "Zal fotogalereyasi qo'sh", "text_ru": "Добавь фотогалерею зала", "text_en": "Add gym photo gallery"},
+        {"icon": "🏆", "text_uz": "Natijalar va muvaffaqiyatlar", "text_ru": "Результаты и достижения", "text_en": "Results & achievements"},
+        {"icon": "📝", "text_uz": "Bepul birinchi dars formasi", "text_ru": "Форма на бесплатное занятие", "text_en": "Free first class form"},
+    ],
+    "real_estate": [
+        {"icon": "🏠", "text_uz": "Ob'ektlar katalogi (filtrlar bilan)", "text_ru": "Каталог объектов с фильтрами", "text_en": "Property catalog with filters"},
+        {"icon": "📐", "text_uz": "Xonadon rejasi va tavsif", "text_ru": "План квартиры и описание", "text_en": "Floor plan & description"},
+        {"icon": "🗺️", "text_uz": "Xarita va joylashuv", "text_ru": "Карта и расположение", "text_en": "Map & location"},
+        {"icon": "📞", "text_uz": "Aloqa va konsultatsiya formasi", "text_ru": "Форма контакта и консультации", "text_en": "Contact & consultation form"},
+        {"icon": "📊", "text_uz": "Narxlar va to'lov shartlari", "text_ru": "Цены и условия оплаты", "text_en": "Prices & payment terms"},
+        {"icon": "🏗️", "text_uz": "Qurilish jarayoni fotolari", "text_ru": "Фото процесса строительства", "text_en": "Construction progress photos"},
+    ],
+    "construction": [
+        {"icon": "🏗️", "text_uz": "Bajarilgan loyihalar galereyasi", "text_ru": "Галерея выполненных проектов", "text_en": "Completed projects gallery"},
+        {"icon": "🔨", "text_uz": "Xizmatlar ro'yxati va narxlar", "text_ru": "Список услуг и цены", "text_en": "Services list & pricing"},
+        {"icon": "👷", "text_uz": "Jamoa va mutaxassislar", "text_ru": "Команда и специалисты", "text_en": "Team & specialists"},
+        {"icon": "📋", "text_uz": "Hisob-kitob so'rovi formasi", "text_ru": "Форма запроса сметы", "text_en": "Cost estimate request form"},
+        {"icon": "📜", "text_uz": "Litsenziya va sertifikatlar", "text_ru": "Лицензии и сертификаты", "text_en": "Licenses & certificates"},
+        {"icon": "⏱️", "text_uz": "Loyiha muddati va kafolat", "text_ru": "Сроки проекта и гарантия", "text_en": "Project timeline & warranty"},
+    ],
+    "saas": [
+        {"icon": "✨", "text_uz": "Asosiy imkoniyatlar (features) sahifasi", "text_ru": "Страница возможностей (features)", "text_en": "Features page"},
+        {"icon": "💰", "text_uz": "Narxlar va tariflar (Pricing)", "text_ru": "Страница тарифов (Pricing)", "text_en": "Pricing plans page"},
+        {"icon": "🚀", "text_uz": "Bepul sinab ko'rish (Free trial) CTA", "text_ru": "CTA «Попробовать бесплатно»", "text_en": "Free trial CTA button"},
+        {"icon": "📊", "text_uz": "Statistika va raqamlar (social proof)", "text_ru": "Статистика и цифры (social proof)", "text_en": "Stats & numbers (social proof)"},
+        {"icon": "🔗", "text_uz": "API docs sahifasi", "text_ru": "Страница API-документации", "text_en": "API docs page"},
+        {"icon": "💬", "text_uz": "Mijozlar fikrlari (Enterprise logo)", "text_ru": "Отзывы клиентов (логотипы компаний)", "text_en": "Customer logos & testimonials"},
+    ],
+}
+
+# Biznes kalit so'zlari → BUSINESS_QUICK_PROMPTS kaliti
+_BIZ_KEYWORDS: Dict[str, List[str]] = {
+    "shop": ["do'kon", "dokon", "magazin", "shop", "sotish", "tovar", "mahsulot", "ecommerce",
+             "интернет-магазин", "магазин", "товар", "продажа", "store"],
+    "restaurant": ["restoran", "kafe", "cafe", "restaurant", "oshxona", "choyxona", "pizzeria",
+                   "ресторан", "кафе", "столовая", "food", "ovqat", "taom"],
+    "clinic": ["klinika", "clinic", "shifokor", "doctor", "tibbiy", "hospital", "doktor",
+               "stomatolog", "dental", "медицина", "клиника", "врач", "больница", "tibbiyot"],
+    "education": ["kurs", "course", "ta'lim", "maktab", "academy", "akademiya", "school",
+                  "o'qitish", "dars", "учеба", "курс", "школа", "обучение", "академия"],
+    "portfolio": ["portfolio", "portfolyo", "freelancer", "dizayner", "developer", "dasturchi",
+                  "photographer", "fotograf", "портфолио", "фрилансер", "дизайнер"],
+    "agency": ["agentlik", "agency", "kompaniya", "firma", "studio", "агентство", "компания",
+               "студия", "startup", "startap"],
+    "hotel": ["mehmonxona", "hotel", "hostel", "туризм", "отель", "хостел", "turizm", "resort"],
+    "beauty": ["salon", "spa", "go'zallik", "beauty", "soch", "barber", "kosmetik", "салон",
+               "красота", "парикмахер", "косметик", "manikur", "manicure"],
+    "fitness": ["fitnes", "gym", "sport", "trener", "trainer", "фитнес", "спортзал",
+                "тренер", "workout", "bodybuilding"],
+    "real_estate": ["kvartira", "uy", "ko'chmas mulk", "real estate", "недвижимость",
+                    "квартира", "жилье", "ипотека", "ipoteka", "sotiladi", "ijaraga"],
+    "construction": ["qurilish", "building", "construction", "ta'mirlash", "remont",
+                     "строительство", "ремонт", "архитектор", "arxitektor"],
+    "saas": ["saas", "software", "dastur", "app", "ilova", "platform", "платформа",
+             "приложение", "программа", "tech", "it компания"],
+}
+
+
+def get_business_quick_prompts(prompt: str, lang: str = "uz") -> List[Dict[str, str]]:
+    """
+    Foydalanuvchi promptidan biznes turini aniqlaydi va
+    shu biznesga mos suggestion chips qaytaradi (max 4 ta).
+    Aniqlashtirilmagan holda — bo'sh ro'yxat (statik chips ko'rinadi).
+    """
+    lang_key = lang if lang in ("uz", "ru", "en") else "uz"
+    lower = prompt.lower()
+    for btype, keywords in _BIZ_KEYWORDS.items():
+        if any(k in lower for k in keywords):
+            bucket = BUSINESS_QUICK_PROMPTS.get(btype, [])
+            return [
+                {"icon": p["icon"], "text": p[f"text_{lang_key}"]}
+                for p in bucket[:5]
+            ]
+    return []
+
+
 def get_quick_prompts(phase: str = "idle", lang: str = "uz") -> List[Dict[str, str]]:
     """Builder chat'i uchun tezkor prompt chips."""
     lang_key = lang if lang in ("uz", "ru", "en") else "uz"
