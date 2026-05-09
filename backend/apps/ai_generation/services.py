@@ -1291,34 +1291,22 @@ _RESEARCH_WORDS = (
 
 def _should_use_web_search(message: str, history_len: int) -> bool:
     """
-    Google Search faqat aniq kerak bo'lganda yoqiladi.
-    Qoida: birinchi 1 xabarda FAQAT aniq tadqiqot so'zlari bo'lsagina.
-    Suhbat o'rtasida (history >= 2) — HECH QACHON search yoqilmaydi.
-    Bu Gemini javob vaqtini 2-8x tezlashtiradi.
+    Google Search FAQAT foydalanuvchi aniq "raqobatchi", "top saytlar"
+    kabi tadqiqot so'rasa yoqiladi. Aks holda — doim False.
+    Arxitektor tizim prompti (ARCHITECT_SYSTEM_PROMPT) barcha biznes
+    turlari uchun to'liq yo'riqnoma va misollar o'z ichiga oladi —
+    qo'shimcha internet qidiruviga ehtiyoj yo'q.
     """
     msg = message.lower().strip()
-    if not msg or len(msg) < 4:
+    if not msg:
         return False
-    # Tez javob so'zlari — doim searchsiz
-    if any(msg.startswith(w) or msg == w for w in _FAST_REPLIES):
-        return False
-    if len(msg) < 40 and any(w in msg for w in _FAST_REPLIES):
-        return False
-    # Suhbat o'rtasida (2+ xabar o'tgan) — search shart emas,
-    # Gemini allaqachon kontekstni biladi.
-    if history_len >= 2:
-        return False
-    # Faqat birinchi xabarda: aniq tadqiqot kalit so'zlari bo'lsagina
+    # FAQAT aniq tadqiqot so'rovida yoqiladi
     _EXPLICIT_RESEARCH = (
-        "raqobatchi", "competitor", "trend", "analiz",
-        "qanday saytlar", "misol sayt", "top sayt",
+        "raqobatchi", "competitor", "raqobat",
+        "top saytlar", "qanday saytlar", "misol sayt",
+        "конкурент", "топ сайт",
     )
-    if any(w in msg for w in _EXPLICIT_RESEARCH):
-        return True
-    # Birinchi xabar va biznes nomi/turi (tez tavsif) — search
-    if history_len == 0 and any(w in msg for w in _RESEARCH_WORDS):
-        return True
-    return False
+    return any(w in msg for w in _EXPLICIT_RESEARCH)
 
 
 # ─────────────────────────────────────────────────────────────────
