@@ -580,11 +580,22 @@ AUTO_REPLIES: List[Dict[str, Any]] = [
 ]
 
 
+_BUSINESS_HINT_WORDS = (
+    "sayt", "web", "site", "biznes", "business", "do'kon", "dokon", "shop",
+    "restoran", "kafe", "cafe", "klinika", "clinic", "portfolio", "agentlik",
+    "agency", "studio", "kurs", "course", "ta'lim", "salon", "spa", "fitnes",
+    "gym", "mehmonxona", "hotel", "qurilish", "magazin", "company", "kompaniya",
+    "firma", "startup", "интернет", "магазин", "ресторан", "клиника", "сайт",
+    "kerak", "yarating", "yaratib", "ihtiyoj", "loyiha", "project",
+)
+
+
 def match_auto_reply(query: str, lang: str = "uz") -> Optional[Dict[str, Any]]:
     """Tezkor javob mos kelsa qaytaradi (AI chaqirilmaydi).
 
     Faqat ENG aniq mos keladigan patternga javob beradi: short message
     (< 80 belgi) bo'lib, kamida bitta trigger so'z aynan ichida bo'lsa.
+    ⚠️ Agar xabarda biznes/sayt haqida mazmun bo'lsa — Gemini'ga o'tkaziladi.
 
     Returns:
         {"id": ..., "reply": str} yoki None.
@@ -592,8 +603,11 @@ def match_auto_reply(query: str, lang: str = "uz") -> Optional[Dict[str, Any]]:
     q = _normalize(query)
     if not q:
         return None
-    # Faqat qisqa xabarlar uchun (uzun talab tafsilotlardan iborat bo'lishi mumkin)
+    # Uzun xabarlar → Gemini'ga
     if len(q) > 80:
+        return None
+    # Xabarda biznes/sayt kalit so'zi bor → Gemini'ga (foydalanuvchi biznes aytmoqda)
+    if any(w in q for w in _BUSINESS_HINT_WORDS):
         return None
 
     lang_key = lang if lang in ("uz", "ru", "en") else "uz"

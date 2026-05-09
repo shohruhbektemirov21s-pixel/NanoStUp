@@ -1723,6 +1723,16 @@ class AIRouterService:
         has_gen_word = bool(cls.GENERATE_WORDS.search(text))
         has_revise_word = bool(cls.REVISE_WORDS.search(text))
 
+        _BIZ_HINT = re.compile(
+            r"\b(sayt|web|site|biznes|business|do'kon|dokon|shop|restoran|kafe|cafe|"
+            r"klinika|clinic|portfolio|agentlik|agency|kurs|course|ta'lim|salon|spa|"
+            r"fitnes|gym|mehmonxona|hotel|qurilish|magazin|компания|магазин|"
+            r"ресторан|клиника|сайт|loyiha|project|firma|startup|kerak)\b",
+            re.IGNORECASE,
+        )
+        # Salomlashish + biznes tavsif → ARCHITECT (user biznesini aytmoqda)
+        if has_greeting and _BIZ_HINT.search(text):
+            return "ARCHITECT"
         # Salomlashish / minnatdorchilik DOIM chat
         if has_greeting:
             return "CHAT"
