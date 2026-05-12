@@ -1576,11 +1576,18 @@ class ClaudeService:
             page_directive = f"\n\nPAGE LIMIT: Generate 5 pages (minimum). Upper limit: {max_pages} pages. Do NOT exceed {max_pages} pages."
         prompt = _spec_to_prompt(spec) + page_directive
         try:
-            response = client.messages.create(
-                model=_get_claude_model(),
-                max_tokens=30000,
-                system=GENERATE_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": prompt}],
+            # 529 overloaded transient xatosida 4 marta urinish:
+            # 5s + 10s + 20s + 40s ~= 75s gacha kutishga tayyor
+            response = _retry_ai_call(
+                lambda: client.messages.create(
+                    model=_get_claude_model(),
+                    max_tokens=30000,
+                    system=GENERATE_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": prompt}],
+                ),
+                label="Claude.generate_from_spec",
+                attempts=4,
+                base_delay=5.0,
             )
             usage = {
                 "input_tokens": response.usage.input_tokens,

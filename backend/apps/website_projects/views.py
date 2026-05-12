@@ -2,6 +2,7 @@ import json
 import logging
 import queue as _queue_module
 import random as _random
+import re
 import secrets
 import uuid
 import threading
@@ -1579,9 +1580,71 @@ class WebsiteProjectViewSet(viewsets.ModelViewSet):
                         _ctx["generation_started"] = True
                     gen_start = time.monotonic()
                     claude = ClaudeService()
-                    new_schema, usage = claude.generate_from_spec(
-                        spec + _constraint, max_pages=user_limits["max_pages"],
-                    )
+                    try:
+                        new_schema, usage = claude.generate_from_spec(
+                            spec + _constraint, max_pages=user_limits["max_pages"],
+                        )
+                    except RuntimeError as _claude_err:
+                        # Claude API overload (529) yoki uzun timeout — template fallback.
+                        # Foydalanuvchi hech bo'lmasa bazaviy sayt oladi, keyin tahrirlashi mumkin.
+                        _err_msg = str(_claude_err).lower()
+                        if "529" in _err_msg or "overload" in _err_msg or "timeout" in _err_msg:
+                            from apps.ai_generation.template_schemas import (
+                                build_schema_from_template,
+                                list_template_ids,
+                            )
+                            # Niche → template_id mapping. Hech bo'lmasa default → shop
+                            # (eng universal). Real_estate, agency, tech kabilarini ham
+                            # shop'ga moslashtiramiz (vizual jihatdan eng yaqin).
+                            _NICHE_TO_TPL = {
+                                "restaurant": "restaurant", "cafe": "cafe",
+                                "clinic": "clinic", "pharmacy": "clinic",
+                                "salon": "beauty", "shop": "shop",
+                                # Universal fallback'lar:
+                                "default": "shop",
+                                "tech": "shop", "agency": "shop",
+                                "education": "shop", "real_estate": "shop",
+                                "auto": "shop", "ngo": "shop", "portfolio": "shop",
+                                "hotel": "shop", "gym": "beauty",
+                                "legal": "clinic", "finance": "clinic",
+                                "wedding": "beauty", "photo": "beauty",
+                                "music_event": "shop", "news": "shop",
+                            }
+                            _tpl_fallback = _NICHE_TO_TPL.get(_btype, "shop")
+                            if _tpl_fallback and _tpl_fallback in list_template_ids():
+                                # Spec'dan biznes nomini ajratamiz (oddiy regex)
+                                _bname_match = re.search(
+                                    r"(?:nom[ii]|nomi|name|nazvanie):\s*([^\n,.]{2,60})",
+                                    spec, re.IGNORECASE,
+                                )
+                                _bname = _bname_match.group(1).strip() if _bname_match else (
+                                    prompt.split(".")[0].strip()[:50] or "Mening saytim"
+                                )
+                                _phone_match = re.search(r"\+?998[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}", spec)
+                                _phone = _phone_match.group(0) if _phone_match else None
+                                _addr_match = re.search(
+                                    r"(?:manzil|adres|address):\s*([^\n.]{5,80})",
+                                    spec, re.IGNORECASE,
+                                )
+                                _addr = _addr_match.group(1).strip() if _addr_match else None
+
+                                logger.warning(
+                                    "Claude overload (%s) — template fallback: tpl=%s name=%s",
+                                    _err_msg[:80], _tpl_fallback, _bname,
+                                )
+                                new_schema = build_schema_from_template(
+                                    template_id=_tpl_fallback,
+                                    business_name=_bname,
+                                    phone=_phone,
+                                    address=_addr,
+                                )
+                                if not new_schema:
+                                    raise
+                                usage = {"input_tokens": 0, "output_tokens": 0}
+                            else:
+                                raise
+                        else:
+                            raise
                     if isinstance(new_schema, dict):
                         # Template metadata har doim merge qilinadi (AI o'z
                         # design qaytarsa ham, layout/template fieldlari
