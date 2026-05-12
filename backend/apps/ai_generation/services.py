@@ -1256,11 +1256,13 @@ def _get_gemini_client() -> genai.Client:
     )
     if not api_key:
         raise RuntimeError("GOOGLE_GENERATIVE_AI_API_KEY .env da topilmadi.")
-    # timeout=300s (5 daqiqa): Gemini arxitektor suhbati uchun yetarli.
+    # ⚠️ google-genai SDK timeout MILLISEKUNDLARDA (sekund EMAS!).
+    # 300_000 ms = 5 daqiqa. Avval 300 yozilgan edi = 0.3 sekund → har
+    # xabar darhol timeout bo'lardi.
     return genai.Client(
         api_key=api_key,
-        http_options={"timeout": 300},
-    )  # Gemini: 5 min
+        http_options={"timeout": 300_000},  # 5 min in ms
+    )
 
 
 def _get_gemini_model() -> str:
