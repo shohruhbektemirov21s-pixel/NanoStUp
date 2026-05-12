@@ -586,9 +586,18 @@ Admin panel funksiyalari:
 # ─────────────────────────────────────────────────────────────────
 # Generatsiya tizim yo'riqnomasi
 # ─────────────────────────────────────────────────────────────────
-GENERATE_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript/web developer and UX designer.
+GENERATE_SYSTEM_PROMPT = """You are Claude Sonnet 4.6 — a senior JavaScript/web developer and UX designer with 10+ years of experience launching real websites for real businesses.
 You receive a rich site specification from Gemini AI (which gathered requirements AND internet research from the user).
 Your job: generate a PREMIUM, COMPLETE, multi-page JSON schema for a FULLY RESPONSIVE website.
+
+## 🎯 QUALITY BAR — ACT LIKE A SENIOR PRO:
+Treat every output as if it will be DEPLOYED TO PRODUCTION TOMORROW for a paying client:
+- Every word should pass a copywriter's review (no AI clichés like "in today's world", "harness the power of")
+- Every section should answer "what's in it for the user?" — never filler
+- Color palette should look intentional, not random — match the niche emotion
+- Numbers in stats must be plausible for the business size (a new cafe: 200+ customers, NOT 10000+)
+- Names in testimonials must be diverse and locally appropriate
+- If something would embarrass you to show a real client — DON'T include it
 
 ⚠️ CRITICAL OUTPUT RULES:
 - Return ONLY valid JSON (no markdown, no ```json, no explanation, no comments)
@@ -1386,8 +1395,10 @@ class ArchitectService:
                 [genai_types.Tool(google_search=genai_types.GoogleSearch())]
                 if _needs_search else []
             )
-            # Search kerak bo'lsa ko'proq token, aks holda tez javob.
-            _max_out = 3072 if _needs_search else 1024
+            # Search kerak bo'lsa ko'proq token, aks holda standart limit.
+            # 2048 — DESIGN_VARIANTS (3 variant JSON ~800 tok) + chat tushuntirish (~600 tok)
+            # uchun yetarli zaxira. 1024 da javob uzilib qolardi.
+            _max_out = 4096 if _needs_search else 2048
 
             chat_session = client.chats.create(
                 model=_get_gemini_model(),
@@ -1408,6 +1419,27 @@ class ArchitectService:
 
             response = _retry_ai_call(_send, label="Architect.chat")
             text: str = response.text or ""
+
+            # ── Fallback: bo'sh yoki juda qisqa javob bo'lsa, sodda
+            # qayta urinish (max_tokens cheklovi yoki finish_reason=SAFETY
+            # natijasida bo'sh chiqishi mumkin).
+            if len(text.strip()) < 30 and "[DESIGN_VARIANTS]" not in text:
+                logger.warning(
+                    "Architect: bo'sh javob (%d belgi). Qayta urinamiz.",
+                    len(text.strip()),
+                )
+                try:
+                    retry_resp = _retry_ai_call(
+                        lambda: chat_session.send_message(
+                            "Iltimos, oldingi xabarimga javob ber. "
+                            "Qisqa va aniq, foydalanuvchi tilida."
+                        ),
+                        label="Architect.chat.retry",
+                    )
+                    if retry_resp.text and len(retry_resp.text.strip()) >= 30:
+                        text = retry_resp.text
+                except Exception:
+                    logger.exception("Architect retry xatosi")
         except Exception as exc:
             logger.exception("ArchitectService (Gemini) chat xatosi")
             raise RuntimeError(f"Arxitektor AI da xatolik: {exc}") from exc
@@ -1828,13 +1860,18 @@ class AIRouterService:
 # Tilni aniqlash — uz/ru/en (yengil heuristic, kutubxonasiz)
 # ─────────────────────────────────────────────────────────────────
 _RU_HINT = re.compile(r"[а-яёА-ЯЁ]")
-# UZ keyword (lotin)
+# UZ keyword (lotin) — keng qamrovli stop-words, har Uzbek xabarda 1+ ehtimol topiladi
 _UZ_HINT = re.compile(
     r"\b(salom|rahmat|qanday|qaysi|qachon|qancha|qayer|nima|nimaga|nega|"
-    r"kim|kerak|saqla|iltimos|menga|qil\w*|bor|yoq|"
-    r"sayt|biznes|haqida|men|sen|mumkin|tayyor|boshla|ko'r\w*|to'g'ri|kechir|"
+    r"kim|kerak|saqla|iltimos|menga|mani|manga|sizga|seni|qil\w*|bor|yoq|"
+    r"sayt|biznes|haqida|men|sen|biz|siz|ular|mumkin|tayyor|boshla|"
+    r"ko'r\w*|to'g'ri|kechir|uchun|bilan|ham|shu|ushbu|kabi|"
     r"o'zbek|farzand|do'st|rang\w*|qora|oq|fon|bo'lim|sahifa|yarat\w*|"
-    r"o'zgartir|ozgartir|almash\w*|qo'sh\w*|o'chir\w*)\b",
+    r"o'zgartir|ozgartir|almash\w*|qo'sh\w*|o'chir\w*|"
+    r"loyiha|dukon|do'kon|dukonim|kiyim|kechak|sotadigan|narx\w*|"
+    r"ber\w*|olib|qil|lozim|hojat|orqali|ichida|tashqari|emas|"
+    r"yana|hozir|keyin|avval|bugun|ertaga|kech|erta|"
+    r"yax\w*|yom\w*|chiroyli|katta|kichik)\b",
     re.IGNORECASE,
 )
 # Apostroflar bilan o'zbekcha lotinizatsiyaning aniq belgilari (g', o', ', ʻ)
