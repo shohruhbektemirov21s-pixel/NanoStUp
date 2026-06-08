@@ -24,7 +24,7 @@ SECURE_HSTS_PRELOAD = True
 
 # CORS — faqat ko'rsatilgan domenlar
 CORS_ALLOW_ALL_ORIGINS = False  # Faqat CORS_ALLOWED_ORIGINS ro'yxatidagi domenlar ruxsat etiladi
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["https://nanostup.uz", "https://www.nanostup.uz", "https://nanostup.onrender.com"])
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["https://nanostup.uz", "https://www.nanostup.uz", "https://nano-st-up.vercel.app"])
 CORS_ALLOW_CREDENTIALS = True
 
 # Sessiya umri
