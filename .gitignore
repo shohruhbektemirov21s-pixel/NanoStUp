@@ -68,3 +68,9 @@ secrets.*
 # ─── Loyiha hujjatlari (AI uchun, GitHub'ga yuklanadi) ──────
 
 .codex
+
+# Extra venvs
+venv_new/
+.venv-receipts/
+backend/staticfiles/
+*.pyc
